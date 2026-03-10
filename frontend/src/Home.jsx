@@ -16,7 +16,6 @@ function Home() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [practiceTime, setPracticeTime] = useState(0);
     const [textSize, setTextSize] = useState('medium');
-    const [isTracking, setIsTracking] = useState(true);
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [studyHistory, setStudyHistory] = useState({});
 
@@ -45,9 +44,6 @@ function Home() {
         setPracticeTime(history[today]);
         setStudyHistory(history);
 
-        const manualPause = localStorage.getItem('timerPaused') === 'true';
-        setIsTracking(!manualPause);
-
         const storedTextSize = localStorage.getItem('textSize');
         if (storedTextSize) {
             setTextSize(storedTextSize);
@@ -57,7 +53,7 @@ function Home() {
     useEffect(() => {
         let interval;
         const handleVisibilityChange = () => {
-            if (document.hidden || !isTracking) {
+            if (document.hidden) {
                 clearInterval(interval);
             } else {
                 startTimer();
@@ -80,7 +76,7 @@ function Home() {
             }, 1000);
         };
 
-        if (!document.hidden && isTracking) {
+        if (!document.hidden) {
             startTimer();
         }
 
@@ -89,15 +85,7 @@ function Home() {
             clearInterval(interval);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [isTracking]);
-
-    const toggleTracking = () => {
-        setIsTracking(prev => {
-            const next = !prev;
-            localStorage.setItem('timerPaused', (!next).toString());
-            return next;
-        });
-    };
+    }, []);
 
     const formatTime = (seconds) => {
         const h = Math.floor(seconds / 3600);
@@ -242,17 +230,14 @@ function Home() {
                         <div className="bg-tag-bg border border-border rounded-md px-3 py-1 font-plex text-[11px] text-muted hidden sm:block">
                             Viewed: <span className="text-accent font-semibold text-[13px]">{Object.values(viewed).filter(Boolean).length}</span>
                         </div>
-                        <div className="bg-tag-bg border border-border rounded-md px-2 py-1 flex items-center gap-2 font-plex text-[11px] text-muted cursor-pointer hover:bg-surface2 transition-colors" onClick={() => setShowStatsModal(true)} title="View Time Tracking Stats">
-                            <button onClick={(e) => { e.stopPropagation(); toggleTracking(); }} className={`p-1 rounded-sm ${isTracking ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'}`} title={isTracking ? "Pause Timer" : "Resume Timer"}>
-                                {isTracking ? <Pause size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
-                            </button>
-                            <div className="flex items-center gap-1.5 min-w-[65px] justify-center">
-                                <Clock size={12} className={practiceTime >= 3600 ? "text-green-500" : (isTracking ? "text-accent" : "text-muted")} />
-                                <span className={practiceTime >= 3600 ? "text-green-500 font-semibold text-[13px]" : (isTracking ? "text-accent font-semibold text-[13px]" : "font-semibold text-[13px]")}>
+                        <div className="bg-tag-bg border border-border rounded-md px-3 py-1 flex items-center gap-2 font-plex text-[11px] text-muted cursor-pointer hover:bg-surface2 transition-colors" onClick={() => setShowStatsModal(true)} title="View Time Tracking Stats">
+                            <div className="flex items-center gap-1.5 justify-center">
+                                <Clock size={12} className={practiceTime >= 3600 ? "text-green-500" : "text-accent"} />
+                                <span className={practiceTime >= 3600 ? "text-green-500 font-semibold text-[13px]" : "text-accent font-semibold text-[13px]"}>
                                     {formatTime(practiceTime)}
                                 </span>
                             </div>
-                            <BarChart2 size={14} className="ml-1 text-muted" />
+                            <BarChart2 size={14} className="text-muted" />
                         </div>
                         <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent">
                             <Menu size={18} />
