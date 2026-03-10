@@ -110,6 +110,14 @@ function Home() {
     };
 
     useEffect(() => {
+        // Fetch local static data first for instant load
+        axios.get('/data.json')
+            .then(res => {
+                setData(prev => prev.questions && prev.questions.length > 0 ? prev : res.data);
+                setLoading(false);
+            })
+            .catch(console.error);
+
         fetchData();
         try {
             setBookmarks(JSON.parse(localStorage.getItem('bookmarks')) || {});
@@ -124,7 +132,7 @@ function Home() {
                 setLoading(false);
             })
             .catch(err => {
-                console.error("Failed to fetch QA data:", err);
+                console.error("Failed to fetch QA data from backend:", err);
                 setLoading(false);
             });
     };
