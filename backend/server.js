@@ -56,6 +56,11 @@ const saveData = () => {
 
 initData();
 
+// Root response for Render
+app.get('/', (req, res) => {
+    res.send('USA Payroll & Accounting API is Running Successfully! Access JSON at /api/data');
+});
+
 // GET all data
 app.get('/api/data', (req, res) => {
     res.json(appData);
