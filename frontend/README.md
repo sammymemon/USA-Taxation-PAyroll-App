@@ -105,9 +105,8 @@ If you decide to continue extending the app using Firebase Firestore:
 4. You will get a configuration object. We already prepared a `frontend/src/firebase.js` file for you.
 5. In your frontend directory, create a `.env` file and insert your keys:
    ```env
-   VITE_FIREBASE_API_KEY=AIzaSyAG0u0vFrf83BIUEftdtrGptYIy5zcxs6g
-   VITE_FIREBASE_AUTH_DOMAIN=usa-payroll.firebaseapp.com
-   VITE_FIREBASE_PROJECT_ID=usa-payroll
+   
+   
    ```
 
 Enjoy your app! 🚀
