@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Home() {
@@ -13,6 +13,7 @@ function Home() {
     const [viewed, setViewed] = useState({});
     const [loading, setLoading] = useState(true);
     const [playingId, setPlayingId] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -135,6 +136,9 @@ function Home() {
                         <div className="bg-tag-bg border border-border rounded-md px-3 py-1 font-plex text-[11px] text-muted hidden sm:block">
                             Viewed: <span className="text-accent font-semibold text-[13px]">{Object.values(viewed).filter(Boolean).length}</span>
                         </div>
+                        <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent">
+                            <Menu size={18} />
+                        </button>
                         <Link to="/admin" className="p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent">
                             <Settings size={18} />
                         </Link>
@@ -167,12 +171,27 @@ function Home() {
             </div>
 
             <div className="max-w-[1300px] mx-auto p-5 md:p-8 grid md:grid-cols-[240px_1fr] gap-8">
-                <aside className="md:sticky md:top-40 self-start">
+                {/* Mobile Overlay */}
+                {isSidebarOpen && (
+                    <div
+                        className="fixed inset-0 bg-[#0f0e0d]/80 z-40 md:hidden backdrop-blur-sm transition-opacity"
+                        onClick={() => setIsSidebarOpen(false)}
+                    />
+                )}
+
+                <aside className={`fixed md:sticky top-0 md:top-40 left-0 h-[100dvh] md:h-auto bg-surface md:bg-transparent z-50 md:z-auto w-[280px] md:w-auto p-6 md:p-0 overflow-y-auto md:overflow-visible transition-transform duration-300 border-r border-border md:border-none shadow-2xl md:shadow-none ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} self-start flex flex-col`}>
+                    <div className="flex justify-between items-center mb-6 md:hidden">
+                        <span className="font-plex text-[11px] tracking-widest text-muted uppercase">Filters & Actions</span>
+                        <button onClick={() => setIsSidebarOpen(false)} className="text-muted p-1 hover:text-accent rounded-md bg-surface2">
+                            <X size={16} />
+                        </button>
+                    </div>
+
                     <div className="mb-6">
                         <div className="font-plex text-[10px] tracking-widest text-muted uppercase mb-3">Categories</div>
                         <div
                             className={`flex justify-between items-center px-3 py-2 rounded-md cursor-pointer transition-colors mb-1 border border-transparent ${activeCategory === null ? 'bg-surface2 border-border' : 'hover:bg-surface2'}`}
-                            onClick={() => setActiveCategory(null)}
+                            onClick={() => { setActiveCategory(null); setIsSidebarOpen(false); }}
                         >
                             <span className="font-plex text-xs text-text">All Categories</span>
                             <span className="font-plex text-[10px] text-muted bg-tag-bg px-2 rounded-full">{data.questions.length}</span>
@@ -180,7 +199,7 @@ function Home() {
                         {data.categories.map(cat => (
                             <div
                                 key={cat.id}
-                                onClick={() => setActiveCategory(cat.id)}
+                                onClick={() => { setActiveCategory(cat.id); setIsSidebarOpen(false); }}
                                 className={`flex justify-between items-center px-3 py-2 rounded-md cursor-pointer transition-colors mb-1 border border-transparent ${activeCategory === cat.id ? 'bg-surface2 border-border' : 'hover:bg-surface2'}`}
                             >
                                 <div className="flex items-center gap-2">
@@ -193,13 +212,13 @@ function Home() {
                     </div>
                     <div className="mb-6">
                         <div className="font-plex text-[10px] tracking-widest text-muted uppercase mb-3">Quick Actions</div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-surface2 mb-1" onClick={expandAll}>
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-surface2 mb-1" onClick={() => { expandAll(); setIsSidebarOpen(false); }}>
                             <Maximize2 size={14} className="text-muted" /> <span className="font-plex text-xs text-text">Expand All</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-surface2 mb-1" onClick={collapseAll}>
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-surface2 mb-1" onClick={() => { collapseAll(); setIsSidebarOpen(false); }}>
                             <Minimize2 size={14} className="text-muted" /> <span className="font-plex text-xs text-text">Collapse All</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-surface2" onClick={shuffleSelected}>
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-surface2" onClick={() => { shuffleSelected(); setIsSidebarOpen(false); }}>
                             <Shuffle size={14} className="text-muted" /> <span className="font-plex text-xs text-text">Shuffle Mode</span>
                         </div>
                     </div>
