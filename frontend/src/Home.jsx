@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Home() {
@@ -16,20 +16,39 @@ function Home() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [practiceTime, setPracticeTime] = useState(0);
     const [textSize, setTextSize] = useState('medium');
+    const [isTracking, setIsTracking] = useState(true);
+    const [showStatsModal, setShowStatsModal] = useState(false);
+    const [studyHistory, setStudyHistory] = useState({});
 
     useEffect(() => {
-        const today = new Date().toDateString();
-        const storedDate = localStorage.getItem('practiceDate');
-        const storedTime = localStorage.getItem('practiceTime');
-        const storedTextSize = localStorage.getItem('textSize');
+        const today = new Date().toISOString().split('T')[0];
+        let history = {};
+        try { history = JSON.parse(localStorage.getItem('studyHistory')) || {}; } catch (e) { }
 
-        if (storedDate === today && storedTime) {
-            setPracticeTime(parseInt(storedTime, 10));
-        } else {
-            localStorage.setItem('practiceDate', today);
-            localStorage.setItem('practiceTime', '0');
+        // Migrate old time if exists
+        const oldTimer = localStorage.getItem('practiceTime');
+        const oldDate = localStorage.getItem('practiceDate');
+        if (oldTimer && oldDate) {
+            const oldDateFormatted = new Date(oldDate).toISOString().split('T')[0];
+            if (!history[oldDateFormatted]) {
+                history[oldDateFormatted] = parseInt(oldTimer, 10) || 0;
+            }
+            localStorage.removeItem('practiceTime');
+            localStorage.removeItem('practiceDate');
         }
 
+        if (!history[today]) {
+            history[today] = 0;
+        }
+
+        localStorage.setItem('studyHistory', JSON.stringify(history));
+        setPracticeTime(history[today]);
+        setStudyHistory(history);
+
+        const manualPause = localStorage.getItem('timerPaused') === 'true';
+        setIsTracking(!manualPause);
+
+        const storedTextSize = localStorage.getItem('textSize');
         if (storedTextSize) {
             setTextSize(storedTextSize);
         }
@@ -38,7 +57,7 @@ function Home() {
     useEffect(() => {
         let interval;
         const handleVisibilityChange = () => {
-            if (document.hidden) {
+            if (document.hidden || !isTracking) {
                 clearInterval(interval);
             } else {
                 startTimer();
@@ -50,13 +69,18 @@ function Home() {
             interval = setInterval(() => {
                 setPracticeTime(prev => {
                     const newTime = prev + 1;
-                    localStorage.setItem('practiceTime', newTime.toString());
+                    const today = new Date().toISOString().split('T')[0];
+                    setStudyHistory(curr => {
+                        const updated = { ...curr, [today]: newTime };
+                        localStorage.setItem('studyHistory', JSON.stringify(updated));
+                        return updated;
+                    });
                     return newTime;
                 });
             }, 1000);
         };
 
-        if (!document.hidden) {
+        if (!document.hidden && isTracking) {
             startTimer();
         }
 
@@ -65,7 +89,15 @@ function Home() {
             clearInterval(interval);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, []);
+    }, [isTracking]);
+
+    const toggleTracking = () => {
+        setIsTracking(prev => {
+            const next = !prev;
+            localStorage.setItem('timerPaused', (!next).toString());
+            return next;
+        });
+    };
 
     const formatTime = (seconds) => {
         const h = Math.floor(seconds / 3600);
@@ -210,12 +242,17 @@ function Home() {
                         <div className="bg-tag-bg border border-border rounded-md px-3 py-1 font-plex text-[11px] text-muted hidden sm:block">
                             Viewed: <span className="text-accent font-semibold text-[13px]">{Object.values(viewed).filter(Boolean).length}</span>
                         </div>
-                        <div className="bg-tag-bg border border-border rounded-md px-3 py-1 flex items-center gap-1.5 font-plex text-[11px] text-muted">
-                            <Clock size={12} className={practiceTime >= 3600 ? "text-green-500" : "text-accent"} />
-                            <span className={practiceTime >= 3600 ? "text-green-500 font-semibold text-[13px]" : "text-accent font-semibold text-[13px]"}>
-                                {formatTime(practiceTime)}
-                            </span>
-                            / 1h
+                        <div className="bg-tag-bg border border-border rounded-md px-2 py-1 flex items-center gap-2 font-plex text-[11px] text-muted cursor-pointer hover:bg-surface2 transition-colors" onClick={() => setShowStatsModal(true)} title="View Time Tracking Stats">
+                            <button onClick={(e) => { e.stopPropagation(); toggleTracking(); }} className={`p-1 rounded-sm ${isTracking ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'}`} title={isTracking ? "Pause Timer" : "Resume Timer"}>
+                                {isTracking ? <Pause size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
+                            </button>
+                            <div className="flex items-center gap-1.5 min-w-[65px] justify-center">
+                                <Clock size={12} className={practiceTime >= 3600 ? "text-green-500" : (isTracking ? "text-accent" : "text-muted")} />
+                                <span className={practiceTime >= 3600 ? "text-green-500 font-semibold text-[13px]" : (isTracking ? "text-accent font-semibold text-[13px]" : "font-semibold text-[13px]")}>
+                                    {formatTime(practiceTime)}
+                                </span>
+                            </div>
+                            <BarChart2 size={14} className="ml-1 text-muted" />
                         </div>
                         <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent">
                             <Menu size={18} />
@@ -402,6 +439,49 @@ function Home() {
                     </div>
                 </div>
             </div>
+            {showStatsModal && (
+                <div className="fixed inset-0 bg-[#0f0e0d]/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowStatsModal(false)}>
+                    <div className="bg-surface border border-border rounded-xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center p-5 border-b border-border bg-surface2/50">
+                            <h3 className="font-playfair text-xl font-bold text-text flex items-center gap-2">
+                                <BarChart2 size={20} className="text-accent" /> Time Tracking
+                            </h3>
+                            <button onClick={() => setShowStatsModal(false)} className="text-muted hover:text-white p-1 rounded-md bg-surface transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <div className="text-center mb-6">
+                                <div className="font-plex text-xs text-muted uppercase tracking-widest mb-2">Total Time Tracked</div>
+                                <div className="font-playfair text-4xl font-black text-accent">
+                                    {formatTime(Object.values(studyHistory).reduce((a, b) => a + b, 0))}
+                                </div>
+                            </div>
+
+                            <h4 className="font-plex text-xs text-muted uppercase tracking-widest mb-3 border-b border-border pb-2">Recent History</h4>
+                            <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                {Object.keys(studyHistory).sort().reverse().slice(0, 7).map(date => {
+                                    const time = studyHistory[date];
+                                    const maxTime = Math.max(...Object.values(studyHistory), 1);
+                                    const percentage = Math.min((time / maxTime) * 100, 100);
+
+                                    return (
+                                        <div key={date} className="flex flex-col gap-1 text-sm bg-surface2/30 p-2 rounded-md border border-border/50">
+                                            <div className="flex justify-between font-plex">
+                                                <span className="text-text">{new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                                <span className="text-accent font-semibold">{formatTime(time)}</span>
+                                            </div>
+                                            <div className="w-full bg-bg h-1.5 rounded-full overflow-hidden">
+                                                <div className="bg-accent h-full transition-all duration-500 rounded-full" style={{ width: `${percentage}%` }}></div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
