@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Home() {
@@ -12,6 +12,7 @@ function Home() {
     const [bookmarks, setBookmarks] = useState({});
     const [viewed, setViewed] = useState({});
     const [loading, setLoading] = useState(true);
+    const [playingId, setPlayingId] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -31,6 +32,40 @@ function Home() {
                 console.error("Failed to fetch QA data:", err);
                 setLoading(false);
             });
+    };
+
+    useEffect(() => {
+        return () => {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        };
+    }, []);
+
+    const stopAudio = () => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            setPlayingId(null);
+        }
+    };
+
+    const playAudio = (id, text, e) => {
+        e.stopPropagation();
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel(); // Stop playing any current audio
+
+            // Clean up text (remove HTML tags like <b>, <br>)
+            const plainText = text.replace(/<[^>]+>/g, ' ');
+            const utterance = new SpeechSynthesisUtterance(plainText);
+
+            utterance.onend = () => setPlayingId(null);
+            utterance.onerror = () => setPlayingId(null);
+
+            setPlayingId(id);
+            window.speechSynthesis.speak(utterance);
+        } else {
+            alert("Audio playback is not supported in your browser.");
+        }
     };
 
     const saveBookmarks = (newBookmarks) => {
@@ -223,6 +258,25 @@ function Home() {
                                         </div>
                                         {isExpanded && (
                                             <div className="px-5 md:pl-[68px] md:pr-5 pb-4 pt-3 font-serif text-[13.5px] leading-relaxed text-[#c4bfb6] border-t border-border">
+
+                                                <div className="flex justify-end mb-4">
+                                                    {playingId === q.id ? (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); stopAudio(); }}
+                                                            className="flex items-center gap-1.5 text-xs text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors font-plex"
+                                                        >
+                                                            <Square size={12} fill="currentColor" /> Stop Reading
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={(e) => playAudio(q.id, q.a, e)}
+                                                            className="flex items-center gap-1.5 text-xs text-accent bg-accent/10 px-3 py-1.5 rounded-lg border border-accent/20 hover:bg-accent/20 transition-colors font-plex"
+                                                        >
+                                                            <Volume2 size={14} /> Read Answer
+                                                        </button>
+                                                    )}
+                                                </div>
+
                                                 <div dangerouslySetInnerHTML={{ __html: q.a }}></div>
                                                 {viewed[q.id] && (
                                                     <div className="flex items-center gap-1 mt-3 font-plex text-[10px] text-accent4">
