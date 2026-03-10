@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Home() {
@@ -14,6 +14,80 @@ function Home() {
     const [loading, setLoading] = useState(true);
     const [playingId, setPlayingId] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [practiceTime, setPracticeTime] = useState(0);
+    const [textSize, setTextSize] = useState('medium');
+
+    useEffect(() => {
+        const today = new Date().toDateString();
+        const storedDate = localStorage.getItem('practiceDate');
+        const storedTime = localStorage.getItem('practiceTime');
+        const storedTextSize = localStorage.getItem('textSize');
+
+        if (storedDate === today && storedTime) {
+            setPracticeTime(parseInt(storedTime, 10));
+        } else {
+            localStorage.setItem('practiceDate', today);
+            localStorage.setItem('practiceTime', '0');
+        }
+
+        if (storedTextSize) {
+            setTextSize(storedTextSize);
+        }
+    }, []);
+
+    useEffect(() => {
+        let interval;
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                clearInterval(interval);
+            } else {
+                startTimer();
+            }
+        };
+
+        const startTimer = () => {
+            clearInterval(interval);
+            interval = setInterval(() => {
+                setPracticeTime(prev => {
+                    const newTime = prev + 1;
+                    localStorage.setItem('practiceTime', newTime.toString());
+                    return newTime;
+                });
+            }, 1000);
+        };
+
+        if (!document.hidden) {
+            startTimer();
+        }
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, []);
+
+    const formatTime = (seconds) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h > 0) return `${h}h ${m}m ${s}s`;
+        return `${m}m ${s}s`;
+    };
+
+    const handleTextSizeChange = (size) => {
+        setTextSize(size);
+        localStorage.setItem('textSize', size);
+    };
+
+    const getTextSizeClass = () => {
+        switch (textSize) {
+            case 'small': return 'text-[12px] md:text-[13px] leading-relaxed';
+            case 'large': return 'text-[16px] md:text-[18px] leading-relaxed';
+            case 'medium':
+            default: return 'text-[13.5px] md:text-[15px] leading-relaxed';
+        }
+    };
 
     useEffect(() => {
         fetchData();
@@ -136,6 +210,13 @@ function Home() {
                         <div className="bg-tag-bg border border-border rounded-md px-3 py-1 font-plex text-[11px] text-muted hidden sm:block">
                             Viewed: <span className="text-accent font-semibold text-[13px]">{Object.values(viewed).filter(Boolean).length}</span>
                         </div>
+                        <div className="bg-tag-bg border border-border rounded-md px-3 py-1 flex items-center gap-1.5 font-plex text-[11px] text-muted">
+                            <Clock size={12} className={practiceTime >= 3600 ? "text-green-500" : "text-accent"} />
+                            <span className={practiceTime >= 3600 ? "text-green-500 font-semibold text-[13px]" : "text-accent font-semibold text-[13px]"}>
+                                {formatTime(practiceTime)}
+                            </span>
+                            / 1h
+                        </div>
                         <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent">
                             <Menu size={18} />
                         </button>
@@ -225,22 +306,22 @@ function Home() {
                 </aside>
 
                 <div className="min-w-0">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-                        <div className="bg-surface border border-border rounded-lg p-4">
-                            <div className="font-plex text-[10px] text-muted uppercase tracking-widest mb-2">Total</div>
-                            <div className="font-playfair text-3xl font-black text-accent">{data.questions.length}</div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3 mb-6 md:mb-8">
+                        <div className="bg-surface border border-border rounded-lg p-2 md:p-4">
+                            <div className="font-plex text-[9px] md:text-[10px] text-muted uppercase tracking-widest mb-1 md:mb-2">Total</div>
+                            <div className="font-playfair text-xl md:text-3xl font-black text-accent">{data.questions.length}</div>
                         </div>
-                        <div className="bg-surface border border-border rounded-lg p-4">
-                            <div className="font-plex text-[10px] text-muted uppercase tracking-widest mb-2">Bookmarked</div>
-                            <div className="font-playfair text-3xl font-black text-accent">{Object.values(bookmarks).filter(Boolean).length}</div>
+                        <div className="bg-surface border border-border rounded-lg p-2 md:p-4">
+                            <div className="font-plex text-[9px] md:text-[10px] text-muted uppercase tracking-widest mb-1 md:mb-2">Bookmarked</div>
+                            <div className="font-playfair text-xl md:text-3xl font-black text-accent">{Object.values(bookmarks).filter(Boolean).length}</div>
                         </div>
-                        <div className="bg-surface border border-border rounded-lg p-4">
-                            <div className="font-plex text-[10px] text-muted uppercase tracking-widest mb-2">Viewed</div>
-                            <div className="font-playfair text-3xl font-black text-accent">{Object.values(viewed).filter(Boolean).length}</div>
+                        <div className="bg-surface border border-border rounded-lg p-2 md:p-4">
+                            <div className="font-plex text-[9px] md:text-[10px] text-muted uppercase tracking-widest mb-1 md:mb-2">Viewed</div>
+                            <div className="font-playfair text-xl md:text-3xl font-black text-accent">{Object.values(viewed).filter(Boolean).length}</div>
                         </div>
-                        <div className="bg-surface border border-border rounded-lg p-4">
-                            <div className="font-plex text-[10px] text-muted uppercase tracking-widest mb-2">Showing</div>
-                            <div className="font-playfair text-3xl font-black text-accent">{filteredQuestions.length}</div>
+                        <div className="bg-surface border border-border rounded-lg p-2 md:p-4">
+                            <div className="font-plex text-[9px] md:text-[10px] text-muted uppercase tracking-widest mb-1 md:mb-2">Showing</div>
+                            <div className="font-playfair text-xl md:text-3xl font-black text-accent">{filteredQuestions.length}</div>
                         </div>
                     </div>
 
@@ -278,7 +359,12 @@ function Home() {
                                         {isExpanded && (
                                             <div className="px-5 md:pl-[68px] md:pr-5 pb-4 pt-3 font-serif text-[13.5px] leading-relaxed text-[#c4bfb6] border-t border-border">
 
-                                                <div className="flex justify-end mb-4">
+                                                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                                                    <div className="flex gap-1 bg-surface2 p-1 rounded-lg border border-border">
+                                                        <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('small'); }} className={`px-2 py-1 text-xs font-plex rounded-md transition-colors ${textSize === 'small' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A-</button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('medium'); }} className={`px-2 py-1 text-sm font-plex rounded-md transition-colors ${textSize === 'medium' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A</button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('large'); }} className={`px-2 py-1 text-base font-plex rounded-md transition-colors ${textSize === 'large' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A+</button>
+                                                    </div>
                                                     {playingId === q.id ? (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); stopAudio(); }}
@@ -296,7 +382,7 @@ function Home() {
                                                     )}
                                                 </div>
 
-                                                <div dangerouslySetInnerHTML={{ __html: q.a }}></div>
+                                                <div className={`transition-all duration-300 ${getTextSizeClass()}`} dangerouslySetInnerHTML={{ __html: q.a }}></div>
                                                 {viewed[q.id] && (
                                                     <div className="flex items-center gap-1 mt-3 font-plex text-[10px] text-accent4">
                                                         <CheckCircle size={12} /> Viewed
