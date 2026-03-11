@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2 } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2, Sun, Moon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Home() {
@@ -16,8 +16,18 @@ function Home() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [practiceTime, setPracticeTime] = useState(0);
     const [textSize, setTextSize] = useState('medium');
+    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [studyHistory, setStudyHistory] = useState({});
+
+    const toggleTheme = () => {
+        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    };
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+    }, [theme]);
 
     useEffect(() => {
         const today = new Date().toISOString().split('T')[0];
@@ -102,10 +112,19 @@ function Home() {
 
     const getTextSizeClass = () => {
         switch (textSize) {
-            case 'small': return 'text-[12px] md:text-[13px] leading-relaxed';
-            case 'large': return 'text-[16px] md:text-[18px] leading-relaxed';
+            case 'small': return 'text-[14px] md:text-[15px] leading-relaxed';
+            case 'large': return 'text-[18px] md:text-[20px] leading-relaxed';
             case 'medium':
-            default: return 'text-[13.5px] md:text-[15px] leading-relaxed';
+            default: return 'text-[16px] md:text-[17px] leading-relaxed';
+        }
+    };
+
+    const getQuestionTextSizeClass = () => {
+        switch (textSize) {
+            case 'small': return 'text-[15px] md:text-[16px] leading-relaxed';
+            case 'large': return 'text-[20px] md:text-[22px] leading-relaxed';
+            case 'medium':
+            default: return 'text-[17px] md:text-[18px] leading-relaxed';
         }
     };
 
@@ -247,6 +266,9 @@ function Home() {
                             </div>
                             <BarChart2 size={14} className="text-muted" />
                         </div>
+                        <button onClick={toggleTheme} className="p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent" title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}>
+                            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                        </button>
                         <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent">
                             <Menu size={18} />
                         </button>
@@ -372,8 +394,8 @@ function Home() {
                                 return (
                                     <div key={q.id} className={`bg-surface border rounded-xl overflow-hidden transition-colors ${isExpanded ? 'border-[#3e3c38]' : 'border-border hover:border-[#3e3c38]'}`}>
                                         <div className="flex items-start gap-3 p-4 md:px-5 cursor-pointer select-none relative" onClick={() => toggleCard(q.id)}>
-                                            <div className="font-plex text-[11px] text-muted min-w-[36px] mt-[2px]">Q{q.id}.</div>
-                                            <div className="font-serif text-[14px] leading-relaxed text-text flex-1 pr-16 md:pr-10">
+                                            <div className="font-plex text-[11px] text-muted min-w-[36px] mt-[4px]">Q{q.id}.</div>
+                                            <div className={`font-serif ${getQuestionTextSizeClass()} text-text flex-1 pr-16 md:pr-10`}>
                                                 {q.q}
                                             </div>
                                             <div className="absolute right-4 top-4 flex items-center gap-2 bg-surface pl-2 md:pl-0">
@@ -387,7 +409,7 @@ function Home() {
                                             </div>
                                         </div>
                                         {isExpanded && (
-                                            <div className="px-5 md:pl-[68px] md:pr-5 pb-4 pt-3 font-serif text-[13.5px] leading-relaxed text-[#c4bfb6] border-t border-border">
+                                            <div className="px-5 md:pl-[68px] md:pr-5 pb-4 pt-3 font-serif leading-relaxed text-text opacity-90 border-t border-border">
 
                                                 <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
                                                     <div className="flex gap-1 bg-surface2 p-1 rounded-lg border border-border">
