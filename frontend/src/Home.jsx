@@ -469,28 +469,72 @@ function Home() {
                                             </div>
 
                                             {/* Card Content area */}
-                                            <div className="flex-1 p-6 md:p-10 flex flex-col cursor-pointer justify-center items-center group relative overflow-y-auto custom-scrollbar" onClick={toggleFlip}>
+                                            <div className="flex-1 p-6 md:p-10 flex flex-col justify-center items-center relative overflow-y-auto custom-scrollbar">
 
                                                 {!isFlipped ? (
-                                                    <div className="flex flex-col items-center justify-center text-center w-full animate-fadeIn" onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}>
-                                                        <div className={`font-serif ${getQuestionTextSizeClass()} text-text hover:text-accent transition-colors font-medium leading-[1.6]`}>
-                                                            {q.q}
+                                                    <div className="flex flex-col items-center justify-center text-center w-full h-full animate-fadeIn">
+                                                        <div className="flex flex-col items-center justify-center flex-1 w-full">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}
+                                                                className="mb-5 p-3.5 bg-surface2 border border-border rounded-full text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all hover:scale-105 shadow-md flex items-center justify-center"
+                                                                title="Play Audio"
+                                                            >
+                                                                <Volume2 size={24} />
+                                                            </button>
+                                                            <div
+                                                                className={`font-serif ${getQuestionTextSizeClass()} text-text hover:text-accent transition-colors font-medium leading-[1.6] px-4 py-4 w-full`}
+                                                                onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}
+                                                                title="Click to hear question"
+                                                            >
+                                                                {q.q}
+                                                            </div>
                                                         </div>
-                                                        <div className="absolute bottom-6 font-plex text-[12px] text-muted flex items-center gap-2 bg-tag-bg/80 backdrop-blur-sm px-5 py-2.5 rounded-full border border-border opacity-70 group-hover:opacity-100 transition-opacity">
-                                                            <Volume2 size={14} className="text-accent" /> Tap text to listen, background to flip
-                                                        </div>
+                                                        <button
+                                                            className="mt-6 font-plex text-[14px] md:text-[15px] font-semibold text-text flex items-center gap-2.5 bg-surface2 px-8 py-3.5 rounded-xl border border-border border-b-4 hover:border-b-accent hover:text-accent transition-all shadow-md active:translate-y-[2px] active:border-b-2 w-[80%] md:w-auto justify-center"
+                                                            onClick={(e) => { e.stopPropagation(); toggleFlip(); }}
+                                                        >
+                                                            <RotateCcw size={18} /> Show Answer
+                                                        </button>
                                                     </div>
                                                 ) : (
-                                                    <div className="flex flex-col w-full animate-fadeIn text-left h-full" onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}>
-                                                        <div className={`font-serif ${getTextSizeClass()} text-text opacity-95 hover:text-accent transition-colors leading-[1.8]`} dangerouslySetInnerHTML={{ __html: q.a }}>
-                                                        </div>
-                                                        {q.highlight && (
-                                                            <div className="bg-[#e8c547]/5 border-l-4 border-accent p-4 md:p-5 rounded-r-lg mt-6 font-plex text-[13px] md:text-[14px] leading-relaxed text-accent">
-                                                                {q.highlight}
+                                                    <div className="flex flex-col w-full h-full animate-fadeIn text-left relative pb-2">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-3 mb-6 border-b border-border/50 pb-4">
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}
+                                                                    className="p-3 bg-surface2 border border-border rounded-full text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all hover:scale-105 shadow-md shrink-0 flex items-center justify-center"
+                                                                    title="Play Audio"
+                                                                >
+                                                                    <Volume2 size={20} />
+                                                                </button>
+                                                                <span
+                                                                    className="font-plex text-[12px] md:text-[13px] text-muted tracking-wide cursor-pointer hover:text-text transition-colors"
+                                                                    onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}
+                                                                >
+                                                                    Listen to Answer
+                                                                </span>
                                                             </div>
-                                                        )}
-                                                        <div className="absolute top-4 right-4 font-plex text-[11px] text-muted flex items-center justify-center gap-2 bg-tag-bg/80 backdrop-blur-sm px-4 py-1.5 rounded-full border border-border opacity-30 group-hover:opacity-100 transition-opacity">
-                                                            <RotateCcw size={12} className="text-accent" /> Tap to flip back
+
+                                                            <div
+                                                                className={`font-serif ${getTextSizeClass()} text-text opacity-95 hover:text-accent transition-colors leading-[1.8] rounded-xl px-2 py-2`}
+                                                                dangerouslySetInnerHTML={{ __html: q.a }}
+                                                                onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}
+                                                            >
+                                                            </div>
+                                                            {q.highlight && (
+                                                                <div className="bg-[#e8c547]/5 border-l-4 border-accent p-4 md:p-5 rounded-r-lg mt-6 font-plex text-[13px] md:text-[14px] leading-relaxed text-accent">
+                                                                    {q.highlight}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex justify-center mt-10 pt-6 border-t border-border/50">
+                                                            <button
+                                                                className="font-plex text-[14px] md:text-[15px] font-semibold text-text flex items-center gap-2 bg-surface2 px-8 py-3.5 rounded-xl border border-border border-b-4 hover:border-b-accent hover:text-accent transition-all shadow-md active:translate-y-[2px] active:border-b-2 w-[80%] md:w-auto justify-center"
+                                                                onClick={(e) => { e.stopPropagation(); toggleFlip(); }}
+                                                            >
+                                                                <RotateCcw size={18} /> Back to Question
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 )}
