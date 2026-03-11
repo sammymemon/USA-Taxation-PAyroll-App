@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2, Sun, Moon } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2, Sun, Moon, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Home() {
@@ -19,6 +19,10 @@ function Home() {
     const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [studyHistory, setStudyHistory] = useState({});
+
+    // Flashcard View State
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [isFlipped, setIsFlipped] = useState(false);
 
     const toggleTheme = () => {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -251,6 +255,38 @@ function Home() {
         });
     }, [data.questions, search, difficulty, activeCategory]);
 
+    // Reset index and flip status when filters change
+    useEffect(() => {
+        setCurrentIndex(0);
+        setIsFlipped(false);
+        stopAudio();
+    }, [search, difficulty, activeCategory]);
+
+    const handleNext = () => {
+        if (currentIndex < filteredQuestions.length - 1) {
+            setCurrentIndex(prev => prev + 1);
+            setIsFlipped(false);
+            stopAudio();
+        }
+    };
+
+    const handlePrev = () => {
+        if (currentIndex > 0) {
+            setCurrentIndex(prev => prev - 1);
+            setIsFlipped(false);
+            stopAudio();
+        }
+    };
+
+    const toggleFlip = () => {
+        setIsFlipped(prev => !prev);
+        const currentQ = filteredQuestions[currentIndex];
+        if (currentQ && !viewed[currentQ.id]) {
+            const next = { ...viewed, [currentQ.id]: true };
+            saveViewed(next);
+        }
+    };
+
     if (loading) return <div className="text-center p-20 text-muted">Loading Application Data...</div>;
 
     return (
@@ -396,94 +432,120 @@ function Home() {
                         <h2 className="font-playfair text-2xl font-bold text-text">
                             {activeCategory ? data.categories.find(c => c.id === activeCategory)?.name : 'All Questions'}
                         </h2>
-                        <div className="font-plex text-[11px] text-muted">Click to expand answers</div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
+                    <div className="max-w-3xl mx-auto flex flex-col gap-6">
                         {filteredQuestions.length === 0 ? (
-                            <div className="text-center py-16 font-plex text-[13px] text-muted col-span-full">🔍 No questions found. Try a different search.</div>
+                            <div className="text-center py-16 font-plex text-[13px] text-muted">🔍 No questions found. Try a different search.</div>
                         ) : (
-                            filteredQuestions.map((q) => {
-                                const isExpanded = expandedCards[q.id];
+                            (() => {
+                                const q = filteredQuestions[currentIndex];
                                 const catInfo = data.categories.find(c => c.id === q.cat) || data.categories[0];
                                 return (
-                                    <div key={q.id} className={`bg-surface border rounded-2xl overflow-hidden transition-all duration-300 relative flex flex-col ${isExpanded ? 'border-accent shadow-md' : 'border-border hover:border-muted hover:shadow-lg'}`}>
+                                    <div className="flex flex-col items-center gap-6">
+                                        {/* Flashcard Component */}
+                                        <div className={`bg-surface border rounded-3xl overflow-hidden transition-all duration-300 relative flex flex-col w-full min-h-[400px] md:min-h-[450px] ${isFlipped ? 'border-accent shadow-xl shadow-accent/5' : 'border-border shadow-lg'}`}>
 
-                                        {/* Header Actions */}
-                                        <div className="flex justify-between items-center p-3 sm:p-4 border-b border-border bg-surface2/30">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-plex text-[11px] text-muted tracking-widest uppercase font-semibold">
-                                                    {isExpanded ? 'Answer' : 'Question'} {q.id}
-                                                </span>
-                                                {playingId === q.id && (
-                                                    <span className="flex items-center gap-1 text-[10px] text-accent font-plex font-bold ml-1 animate-pulse">
-                                                        <Volume2 size={12} /> Playing
+                                            {/* Header Actions */}
+                                            <div className="flex justify-between items-center p-4 sm:p-5 border-b border-border bg-surface2/40">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-plex text-[12px] md:text-[13px] text-muted tracking-widest uppercase font-semibold">
+                                                        {isFlipped ? 'Answer' : 'Question'} {q.id}
                                                     </span>
+                                                    {playingId === q.id && (
+                                                        <span className="flex items-center gap-1 text-[11px] text-accent font-plex font-bold ml-1 animate-pulse border border-accent/30 bg-accent/10 px-2 py-0.5 rounded-full">
+                                                            <Volume2 size={12} /> Playing Audio
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`font-plex text-[11px] px-3 py-0.5 rounded-full border ${catInfo?.tag} hidden sm:inline-block uppercase tracking-wider`}>
+                                                        {catInfo?.name}
+                                                    </span>
+                                                    <div onClick={(e) => toggleBookmark(e, q.id)} title="Bookmark" className={`cursor-pointer hover:scale-110 transition-transform ${bookmarks[q.id] ? 'text-accent' : 'text-muted hover:text-text'}`}>
+                                                        <Bookmark size={20} fill={bookmarks[q.id] ? "currentColor" : "none"} />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Card Content area */}
+                                            <div className="flex-1 p-6 md:p-10 flex flex-col cursor-pointer justify-center items-center group relative overflow-y-auto custom-scrollbar" onClick={toggleFlip}>
+
+                                                {!isFlipped ? (
+                                                    <div className="flex flex-col items-center justify-center text-center w-full animate-fadeIn" onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}>
+                                                        <div className={`font-serif ${getQuestionTextSizeClass()} text-text hover:text-accent transition-colors font-medium leading-[1.6]`}>
+                                                            {q.q}
+                                                        </div>
+                                                        <div className="absolute bottom-6 font-plex text-[12px] text-muted flex items-center gap-2 bg-tag-bg/80 backdrop-blur-sm px-5 py-2.5 rounded-full border border-border opacity-70 group-hover:opacity-100 transition-opacity">
+                                                            <Volume2 size={14} className="text-accent" /> Tap text to listen, background to flip
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col w-full animate-fadeIn text-left h-full" onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}>
+                                                        <div className={`font-serif ${getTextSizeClass()} text-text opacity-95 hover:text-accent transition-colors leading-[1.8]`} dangerouslySetInnerHTML={{ __html: q.a }}>
+                                                        </div>
+                                                        {q.highlight && (
+                                                            <div className="bg-[#e8c547]/5 border-l-4 border-accent p-4 md:p-5 rounded-r-lg mt-6 font-plex text-[13px] md:text-[14px] leading-relaxed text-accent">
+                                                                {q.highlight}
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute top-4 right-4 font-plex text-[11px] text-muted flex items-center justify-center gap-2 bg-tag-bg/80 backdrop-blur-sm px-4 py-1.5 rounded-full border border-border opacity-30 group-hover:opacity-100 transition-opacity">
+                                                            <RotateCcw size={12} className="text-accent" /> Tap to flip back
+                                                        </div>
+                                                    </div>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`font-plex text-[9px] px-2 py-[2px] rounded-full border ${catInfo?.tag} hidden sm:inline-block uppercase tracking-wider`}>
-                                                    {catInfo?.short}
+
+                                            {/* Footer Controls */}
+                                            <div className="flex justify-between items-center p-4 border-t border-border bg-surface2/40">
+                                                <div className="flex gap-1.5 bg-surface p-1 rounded-lg border border-border">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('small'); }} className={`px-2.5 py-1 text-[11px] font-plex rounded-md transition-colors ${textSize === 'small' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A-</button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('medium'); }} className={`px-2.5 py-1 text-[12px] font-plex rounded-md transition-colors ${textSize === 'medium' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A</button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('large'); }} className={`px-2.5 py-1 text-[13px] font-plex rounded-md transition-colors ${textSize === 'large' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A+</button>
+                                                </div>
+
+                                                <div className="flex items-center font-plex text-[11px] text-muted">
+                                                    {viewed[q.id] && <><CheckCircle size={14} className="text-accent4 mr-1.5" /> <span className="text-accent4">Viewed</span></>}
+                                                </div>
+
+                                                {playingId === q.id && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); stopAudio(); }}
+                                                        className="flex items-center gap-1.5 text-[12px] text-red-500 bg-red-500/10 px-4 py-2 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors font-plex uppercase tracking-wider font-semibold"
+                                                    >
+                                                        <Square size={12} fill="currentColor" /> Stop
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Pagination Controls */}
+                                        <div className="flex items-center justify-between w-full max-w-sm bg-surface border border-border p-2 rounded-2xl shadow-sm">
+                                            <button
+                                                onClick={handlePrev}
+                                                disabled={currentIndex === 0}
+                                                className={`flex items-center justify-center p-3 rounded-xl transition-colors ${currentIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface2 text-text'}`}
+                                            >
+                                                <ChevronLeft size={24} />
+                                            </button>
+
+                                            <div className="flex flex-col items-center">
+                                                <span className="font-plex text-[14px] font-semibold text-text">
+                                                    {currentIndex + 1} <span className="text-muted font-normal mx-1">/</span> {filteredQuestions.length}
                                                 </span>
-                                                <div onClick={(e) => toggleBookmark(e, q.id)} title="Bookmark" className={`cursor-pointer hover:scale-110 transition-transform ${bookmarks[q.id] ? 'text-accent' : 'text-muted hover:text-text'}`}>
-                                                    <Bookmark size={16} fill={bookmarks[q.id] ? "currentColor" : "none"} />
-                                                </div>
                                             </div>
-                                        </div>
 
-                                        {/* Card Content area */}
-                                        <div className="flex-1 p-5 md:p-6 flex flex-col cursor-pointer min-h-[220px]" onClick={() => toggleCard(q.id)}>
-                                            {!isExpanded ? (
-                                                <div className="flex flex-col items-center justify-center text-center h-full w-full animate-fadeIn flex-1" onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}>
-                                                    <div className={`font-serif ${getQuestionTextSizeClass()} text-text mb-6 hover:text-accent transition-colors font-medium`}>
-                                                        {q.q}
-                                                    </div>
-                                                    <div className="font-plex text-[11px] text-muted flex items-center gap-2 bg-tag-bg px-4 py-2 rounded-full mt-auto cursor-pointer hover:text-text transition-colors border border-border">
-                                                        <Volume2 size={13} className="text-accent" /> Tap text to listen, background to flip
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-col flex-1 w-full animate-fadeIn text-left" onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}>
-                                                    <div className={`font-serif ${getTextSizeClass()} text-text opacity-90 mb-4 hover:text-accent transition-colors`} dangerouslySetInnerHTML={{ __html: q.a }}>
-                                                    </div>
-                                                    {q.highlight && (
-                                                        <div className="bg-[#e8c547]/5 border-l-2 border-accent p-3 rounded-r-md mb-6 font-plex text-[12px] text-accent">
-                                                            {q.highlight}
-                                                        </div>
-                                                    )}
-                                                    <div className="font-plex text-[11px] text-muted flex items-center justify-center gap-2 bg-tag-bg px-4 py-2 rounded-full mt-auto mx-auto w-max cursor-pointer hover:text-text transition-colors border border-border">
-                                                        <Shuffle size={13} className="text-accent" /> Tap background to flip back
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Footer Controls */}
-                                        <div className="flex justify-between items-center p-3 border-t border-border bg-surface2/30">
-                                            <div className="flex gap-1 md:gap-1.5 bg-surface p-1 rounded-md border border-border hidden sm:flex">
-                                                <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('small'); }} className={`px-2 py-0.5 text-[10px] font-plex rounded-sm transition-colors ${textSize === 'small' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A-</button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('medium'); }} className={`px-2 py-0.5 text-[11px] font-plex rounded-sm transition-colors ${textSize === 'medium' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A</button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('large'); }} className={`px-2 py-0.5 text-[12px] font-plex rounded-sm transition-colors ${textSize === 'large' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A+</button>
-                                            </div>
-                                            <div className="sm:hidden flex items-center font-plex text-[10px] text-muted ml-1">
-                                                {viewed[q.id] && <><CheckCircle size={10} className="text-accent4 mr-1" /> <span className="text-accent4">Viewed</span></>}
-                                            </div>
-                                            {playingId === q.id ? (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); stopAudio(); }}
-                                                    className="flex items-center gap-1.5 text-[11px] text-red-500 bg-red-500/10 px-3 py-1.5 rounded-md border border-red-500/20 hover:bg-red-500/20 transition-colors font-plex uppercase tracking-wider font-semibold ml-auto"
-                                                >
-                                                    <Square size={10} fill="currentColor" /> Stop Audio
-                                                </button>
-                                            ) : (
-                                                <div className="flex items-center gap-1 font-plex text-[10px] text-muted hidden sm:flex ml-auto">
-                                                    {viewed[q.id] && <><CheckCircle size={10} className="text-accent4" /> <span className="text-accent4">Viewed</span></>}
-                                                </div>
-                                            )}
+                                            <button
+                                                onClick={handleNext}
+                                                disabled={currentIndex === filteredQuestions.length - 1}
+                                                className={`flex items-center justify-center p-3 rounded-xl transition-colors ${currentIndex === filteredQuestions.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface2 text-text'}`}
+                                            >
+                                                <ChevronRight size={24} />
+                                            </button>
                                         </div>
                                     </div>
                                 )
-                            })
+                            })()
                         )}
                     </div>
                 </div>
