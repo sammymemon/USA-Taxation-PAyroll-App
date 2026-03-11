@@ -44,17 +44,17 @@ function Admin() {
 
     const handleAdd = () => {
         const newId = data.questions.length > 0 ? Math.max(...data.questions.map(q => q.id)) + 1 : 1;
-        setEditingCard(newId);
+        setEditingCard('new');
         setFormData({ id: newId, q: '', a: '', cat: data.categories[0]?.id || '', diff: 'basic', highlight: '' });
     };
 
     const saveQuestion = async () => {
         try {
-            if (data.questions.find(q => q.id === formData.id) && editingCard !== formData.id) {
+            if (editingCard !== 'new' && data.questions.find(q => q.id === formData.id) && editingCard !== formData.id) {
                 alert("Question ID already exists."); return;
             }
 
-            if (data.questions.find(q => q.id === formData.id) && data.questions.find(q => q.id === editingCard)) {
+            if (editingCard !== 'new') {
                 // Update
                 await axios.put(`/api/questions/${formData.id}`, formData);
             } else {
@@ -81,6 +81,49 @@ function Admin() {
         }
     };
 
+    const renderForm = () => (
+        <div className="flex flex-col gap-4">
+            <div className="flex gap-4">
+                <div className="flex-1">
+                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">Question</label>
+                    <textarea value={formData.q} onChange={e => setFormData({ ...formData, q: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text" rows="2" />
+                </div>
+            </div>
+            <div>
+                <label className="block font-plex text-[10px] text-muted uppercase mb-1">Answer (HTML)</label>
+                <textarea value={formData.a} onChange={e => setFormData({ ...formData, a: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text font-mono text-xs" rows="4" />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">ID</label>
+                    <input type="number" value={formData.id} disabled className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-muted opacity-50" />
+                </div>
+                <div>
+                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">Category</label>
+                    <select value={formData.cat} onChange={e => setFormData({ ...formData, cat: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text">
+                        {data.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">Difficulty</label>
+                    <select value={formData.diff} onChange={e => setFormData({ ...formData, diff: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text">
+                        <option value="basic">Basic</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label className="block font-plex text-[10px] text-muted uppercase mb-1">Highlight Note (optional)</label>
+                <input type="text" value={formData.highlight || ''} onChange={e => setFormData({ ...formData, highlight: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text" />
+            </div>
+            <div className="flex justify-end gap-3 mt-2">
+                <button onClick={() => setEditingCard(null)} className="px-4 py-2 font-plex text-xs text-muted hover:text-text transition-colors">Cancel</button>
+                <button onClick={saveQuestion} className="flex items-center gap-2 bg-accent text-[#0f0e0d] px-4 py-2 rounded-md font-plex font-bold text-xs hover:bg-[#c2a233] transition-colors"><Save size={16} /> Save</button>
+            </div>
+        </div>
+    );
+
     if (loading) return <div className="text-center p-20 text-muted">Loading Admin Data...</div>;
 
     return (
@@ -101,49 +144,16 @@ function Admin() {
             </div>
 
             <div className="grid gap-4">
+                {editingCard === 'new' && (
+                    <div className="bg-surface border border-accent p-5 rounded-lg mb-4">
+                        <h2 className="text-xl font-serif font-bold text-accent mb-4 border-b border-border pb-2">Add New Question</h2>
+                        {renderForm()}
+                    </div>
+                )}
                 {data.questions.slice().reverse().map(q => (
                     <div key={q.id} className="bg-surface border border-border p-5 rounded-lg">
                         {editingCard === q.id ? (
-                            <div className="flex flex-col gap-4">
-                                <div className="flex gap-4">
-                                    <div className="flex-1">
-                                        <label className="block font-plex text-[10px] text-muted uppercase mb-1">Question</label>
-                                        <textarea value={formData.q} onChange={e => setFormData({ ...formData, q: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text" rows="2" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">Answer (HTML)</label>
-                                    <textarea value={formData.a} onChange={e => setFormData({ ...formData, a: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text font-mono text-xs" rows="4" />
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div>
-                                        <label className="block font-plex text-[10px] text-muted uppercase mb-1">ID</label>
-                                        <input type="number" value={formData.id} disabled className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-muted opacity-50" />
-                                    </div>
-                                    <div>
-                                        <label className="block font-plex text-[10px] text-muted uppercase mb-1">Category</label>
-                                        <select value={formData.cat} onChange={e => setFormData({ ...formData, cat: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text">
-                                            {data.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block font-plex text-[10px] text-muted uppercase mb-1">Difficulty</label>
-                                        <select value={formData.diff} onChange={e => setFormData({ ...formData, diff: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text">
-                                            <option value="basic">Basic</option>
-                                            <option value="intermediate">Intermediate</option>
-                                            <option value="advanced">Advanced</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">Highlight Note (optional)</label>
-                                    <input type="text" value={formData.highlight || ''} onChange={e => setFormData({ ...formData, highlight: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text" />
-                                </div>
-                                <div className="flex justify-end gap-3 mt-2">
-                                    <button onClick={() => setEditingCard(null)} className="px-4 py-2 font-plex text-xs text-muted hover:text-text transition-colors">Cancel</button>
-                                    <button onClick={saveQuestion} className="flex items-center gap-2 bg-accent text-[#0f0e0d] px-4 py-2 rounded-md font-plex font-bold text-xs hover:bg-[#c2a233] transition-colors"><Save size={16} /> Save</button>
-                                </div>
-                            </div>
+                            renderForm()
                         ) : (
                             <div className="flex items-start justify-between gap-4">
                                 <div>
