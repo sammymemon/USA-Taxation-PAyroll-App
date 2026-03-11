@@ -157,6 +157,13 @@ function Home() {
     };
 
     useEffect(() => {
+        if ('speechSynthesis' in window) {
+            const loadVoices = () => window.speechSynthesis.getVoices();
+            loadVoices();
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = loadVoices;
+            }
+        }
         return () => {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -171,14 +178,22 @@ function Home() {
         }
     };
 
-    const playAudio = (id, text, e) => {
-        e.stopPropagation();
+    const playIndianAudio = (id, text, e) => {
+        if (e) e.stopPropagation();
         if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel(); // Stop playing any current audio
+            window.speechSynthesis.cancel();
 
-            // Clean up text (remove HTML tags like <b>, <br>)
             const plainText = text.replace(/<[^>]+>/g, ' ');
             const utterance = new SpeechSynthesisUtterance(plainText);
+
+            const voices = window.speechSynthesis.getVoices();
+            const indianVoice = voices.find(v => v.lang === 'en-IN' || v.name.toLowerCase().includes('india'));
+
+            if (indianVoice) {
+                utterance.voice = indianVoice;
+            } else {
+                utterance.lang = 'en-IN';
+            }
 
             utterance.onend = () => setPlayingId(null);
             utterance.onerror = () => setPlayingId(null);
@@ -384,69 +399,88 @@ function Home() {
                         <div className="font-plex text-[11px] text-muted">Click to expand answers</div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
                         {filteredQuestions.length === 0 ? (
-                            <div className="text-center py-16 font-plex text-[13px] text-muted">🔍 No questions found. Try a different search.</div>
+                            <div className="text-center py-16 font-plex text-[13px] text-muted col-span-full">🔍 No questions found. Try a different search.</div>
                         ) : (
                             filteredQuestions.map((q) => {
                                 const isExpanded = expandedCards[q.id];
                                 const catInfo = data.categories.find(c => c.id === q.cat) || data.categories[0];
                                 return (
-                                    <div key={q.id} className={`bg-surface border rounded-xl overflow-hidden transition-colors ${isExpanded ? 'border-[#3e3c38]' : 'border-border hover:border-[#3e3c38]'}`}>
-                                        <div className="flex items-start gap-3 p-4 md:px-5 cursor-pointer select-none relative" onClick={() => toggleCard(q.id)}>
-                                            <div className="font-plex text-[11px] text-muted min-w-[36px] mt-[4px]">Q{q.id}.</div>
-                                            <div className={`font-serif ${getQuestionTextSizeClass()} text-text flex-1 pr-16 md:pr-10`}>
-                                                {q.q}
+                                    <div key={q.id} className={`bg-surface border rounded-2xl overflow-hidden transition-all duration-300 relative flex flex-col ${isExpanded ? 'border-accent shadow-md' : 'border-border hover:border-muted hover:shadow-lg'}`}>
+
+                                        {/* Header Actions */}
+                                        <div className="flex justify-between items-center p-3 sm:p-4 border-b border-border bg-surface2/30">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-plex text-[11px] text-muted tracking-widest uppercase font-semibold">
+                                                    {isExpanded ? 'Answer' : 'Question'} {q.id}
+                                                </span>
+                                                {playingId === q.id && (
+                                                    <span className="flex items-center gap-1 text-[10px] text-accent font-plex font-bold ml-1 animate-pulse">
+                                                        <Volume2 size={12} /> Playing
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div className="absolute right-4 top-4 flex items-center gap-2 bg-surface pl-2 md:pl-0">
-                                                <span className={`font-plex text-[10px] px-2 py-[2px] rounded-full border ${catInfo?.tag} hidden md:inline-block`}>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-plex text-[9px] px-2 py-[2px] rounded-full border ${catInfo?.tag} hidden sm:inline-block uppercase tracking-wider`}>
                                                     {catInfo?.short}
                                                 </span>
-                                                <div onClick={(e) => toggleBookmark(e, q.id)} title="Bookmark" className={`hover:scale-110 transition-transform ${bookmarks[q.id] ? 'text-accent' : 'text-muted hover:text-white'}`}>
-                                                    <Bookmark size={15} fill={bookmarks[q.id] ? "currentColor" : "none"} />
+                                                <div onClick={(e) => toggleBookmark(e, q.id)} title="Bookmark" className={`cursor-pointer hover:scale-110 transition-transform ${bookmarks[q.id] ? 'text-accent' : 'text-muted hover:text-text'}`}>
+                                                    <Bookmark size={16} fill={bookmarks[q.id] ? "currentColor" : "none"} />
                                                 </div>
-                                                {isExpanded ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
                                             </div>
                                         </div>
-                                        {isExpanded && (
-                                            <div className="px-5 md:pl-[68px] md:pr-5 pb-4 pt-3 font-serif leading-relaxed text-text opacity-90 border-t border-border">
 
-                                                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-                                                    <div className="flex gap-1 bg-surface2 p-1 rounded-lg border border-border">
-                                                        <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('small'); }} className={`px-2 py-1 text-xs font-plex rounded-md transition-colors ${textSize === 'small' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A-</button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('medium'); }} className={`px-2 py-1 text-sm font-plex rounded-md transition-colors ${textSize === 'medium' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A</button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('large'); }} className={`px-2 py-1 text-base font-plex rounded-md transition-colors ${textSize === 'large' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A+</button>
+                                        {/* Card Content area */}
+                                        <div className="flex-1 p-5 md:p-6 flex flex-col cursor-pointer min-h-[220px]" onClick={() => toggleCard(q.id)}>
+                                            {!isExpanded ? (
+                                                <div className="flex flex-col items-center justify-center text-center h-full w-full animate-fadeIn flex-1" onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}>
+                                                    <div className={`font-serif ${getQuestionTextSizeClass()} text-text mb-6 hover:text-accent transition-colors font-medium`}>
+                                                        {q.q}
                                                     </div>
-                                                    {playingId === q.id ? (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); stopAudio(); }}
-                                                            className="flex items-center gap-1.5 text-xs text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors font-plex"
-                                                        >
-                                                            <Square size={12} fill="currentColor" /> Stop Reading
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            onClick={(e) => playAudio(q.id, q.a, e)}
-                                                            className="flex items-center gap-1.5 text-xs text-accent bg-accent/10 px-3 py-1.5 rounded-lg border border-accent/20 hover:bg-accent/20 transition-colors font-plex"
-                                                        >
-                                                            <Volume2 size={14} /> Read Answer
-                                                        </button>
-                                                    )}
+                                                    <div className="font-plex text-[11px] text-muted flex items-center gap-2 bg-tag-bg px-4 py-2 rounded-full mt-auto cursor-pointer hover:text-text transition-colors border border-border">
+                                                        <Volume2 size={13} className="text-accent" /> Tap text to listen, background to flip
+                                                    </div>
                                                 </div>
+                                            ) : (
+                                                <div className="flex flex-col flex-1 w-full animate-fadeIn text-left" onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}>
+                                                    <div className={`font-serif ${getTextSizeClass()} text-text opacity-90 mb-4 hover:text-accent transition-colors`} dangerouslySetInnerHTML={{ __html: q.a }}>
+                                                    </div>
+                                                    {q.highlight && (
+                                                        <div className="bg-[#e8c547]/5 border-l-2 border-accent p-3 rounded-r-md mb-6 font-plex text-[12px] text-accent">
+                                                            {q.highlight}
+                                                        </div>
+                                                    )}
+                                                    <div className="font-plex text-[11px] text-muted flex items-center justify-center gap-2 bg-tag-bg px-4 py-2 rounded-full mt-auto mx-auto w-max cursor-pointer hover:text-text transition-colors border border-border">
+                                                        <Shuffle size={13} className="text-accent" /> Tap background to flip back
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
 
-                                                <div className={`transition-all duration-300 ${getTextSizeClass()}`} dangerouslySetInnerHTML={{ __html: q.a }}></div>
-                                                {viewed[q.id] && (
-                                                    <div className="flex items-center gap-1 mt-3 font-plex text-[10px] text-accent4">
-                                                        <CheckCircle size={12} /> Viewed
-                                                    </div>
-                                                )}
-                                                {q.highlight && (
-                                                    <div className="bg-[#e8c547]/5 border-l-2 border-accent p-3 rounded-r-md my-3 font-plex text-[12px] text-accent">
-                                                        {q.highlight}
-                                                    </div>
-                                                )}
+                                        {/* Footer Controls */}
+                                        <div className="flex justify-between items-center p-3 border-t border-border bg-surface2/30">
+                                            <div className="flex gap-1 md:gap-1.5 bg-surface p-1 rounded-md border border-border hidden sm:flex">
+                                                <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('small'); }} className={`px-2 py-0.5 text-[10px] font-plex rounded-sm transition-colors ${textSize === 'small' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A-</button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('medium'); }} className={`px-2 py-0.5 text-[11px] font-plex rounded-sm transition-colors ${textSize === 'medium' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A</button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleTextSizeChange('large'); }} className={`px-2 py-0.5 text-[12px] font-plex rounded-sm transition-colors ${textSize === 'large' ? 'bg-accent text-[#0f0e0d] font-semibold' : 'text-muted hover:text-text'}`}>A+</button>
                                             </div>
-                                        )}
+                                            <div className="sm:hidden flex items-center font-plex text-[10px] text-muted ml-1">
+                                                {viewed[q.id] && <><CheckCircle size={10} className="text-accent4 mr-1" /> <span className="text-accent4">Viewed</span></>}
+                                            </div>
+                                            {playingId === q.id ? (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); stopAudio(); }}
+                                                    className="flex items-center gap-1.5 text-[11px] text-red-500 bg-red-500/10 px-3 py-1.5 rounded-md border border-red-500/20 hover:bg-red-500/20 transition-colors font-plex uppercase tracking-wider font-semibold ml-auto"
+                                                >
+                                                    <Square size={10} fill="currentColor" /> Stop Audio
+                                                </button>
+                                            ) : (
+                                                <div className="flex items-center gap-1 font-plex text-[10px] text-muted hidden sm:flex ml-auto">
+                                                    {viewed[q.id] && <><CheckCircle size={10} className="text-accent4" /> <span className="text-accent4">Viewed</span></>}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )
                             })
