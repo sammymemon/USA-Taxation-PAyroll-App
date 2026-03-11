@@ -582,13 +582,24 @@ function Home() {
                                                 {!isFlipped ? (
                                                     <div className="flex flex-col items-center justify-center text-center w-full h-full animate-fadeIn">
                                                         <div className="flex flex-col items-center justify-center flex-1 w-full">
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}
-                                                                className="mb-5 p-3.5 bg-surface2 border border-border rounded-full text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all hover:scale-105 shadow-md flex items-center justify-center"
-                                                                title="Play Audio"
-                                                            >
-                                                                <Volume2 size={24} />
-                                                            </button>
+                                                            <div className="flex gap-4 items-center mb-5">
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}
+                                                                    className="p-3.5 bg-surface2 border border-border rounded-full text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all hover:scale-105 shadow-md flex items-center justify-center"
+                                                                    title="Play Audio"
+                                                                >
+                                                                    <Volume2 size={24} />
+                                                                </button>
+                                                                {playingId === q.id && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); stopAudio(); }}
+                                                                        className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all hover:scale-105 shadow-md flex items-center justify-center"
+                                                                        title="Stop Audio"
+                                                                    >
+                                                                        <Square size={24} fill="currentColor" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                             <div
                                                                 className={`font-serif ${getQuestionTextSizeClass()} text-text hover:text-accent transition-colors font-medium leading-[1.6] px-4 py-4 w-full`}
                                                                 onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}
@@ -608,13 +619,24 @@ function Home() {
                                                     <div className="flex flex-col w-full h-full animate-fadeIn text-left relative pb-2">
                                                         <div className="flex-1">
                                                             <div className="flex items-center gap-3 mb-6 border-b border-border/50 pb-4">
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}
-                                                                    className="p-3 bg-surface2 border border-border rounded-full text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all hover:scale-105 shadow-md shrink-0 flex items-center justify-center"
-                                                                    title="Play Audio (S)"
-                                                                >
-                                                                    <Volume2 size={20} />
-                                                                </button>
+                                                                <div className="flex gap-2">
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}
+                                                                        className="p-3 bg-surface2 border border-border rounded-full text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all hover:scale-105 shadow-md shrink-0 flex items-center justify-center"
+                                                                        title="Play Audio (S)"
+                                                                    >
+                                                                        <Volume2 size={20} />
+                                                                    </button>
+                                                                    {playingId === q.id && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); stopAudio(); }}
+                                                                            className="p-3 bg-red-500/10 border border-red-500/20 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all hover:scale-105 shadow-md shrink-0 flex items-center justify-center"
+                                                                            title="Stop Audio"
+                                                                        >
+                                                                            <Square size={20} fill="currentColor" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                                 <span
                                                                     className="font-plex text-[12px] md:text-[13px] text-muted tracking-wide cursor-pointer hover:text-text transition-colors"
                                                                     onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}
