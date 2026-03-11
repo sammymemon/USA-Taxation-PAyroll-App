@@ -20,7 +20,10 @@ function Home() {
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [studyHistory, setStudyHistory] = useState({});
     const [mastered, setMastered] = useState({});
-    const [hideMastered, setHideMastered] = useState(false);
+    const [hideMastered, setHideMastered] = useState(() => {
+        const saved = localStorage.getItem('hideMasteredSetting');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
     const [voiceSpeed, setVoiceSpeed] = useState(() => parseFloat(localStorage.getItem('voiceSpeed')) || 1);
 
     // Flashcard View State
@@ -149,11 +152,6 @@ function Home() {
             setBookmarks(JSON.parse(localStorage.getItem('bookmarks')) || {});
             setViewed(JSON.parse(localStorage.getItem('viewed')) || {});
             setMastered(JSON.parse(localStorage.getItem('mastered')) || {});
-            
-            const savedHideMastered = localStorage.getItem('hideMastered');
-            if (savedHideMastered !== null) {
-                setHideMastered(JSON.parse(savedHideMastered));
-            }
         } catch (e) { }
     }, []);
 
@@ -257,7 +255,7 @@ function Home() {
     const toggleHideMastered = () => {
         const next = !hideMastered;
         setHideMastered(next);
-        localStorage.setItem('hideMastered', JSON.stringify(next));
+        localStorage.setItem('hideMasteredSetting', JSON.stringify(next));
     };
 
     const toggleCard = (id) => {
