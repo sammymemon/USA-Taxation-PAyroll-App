@@ -551,88 +551,62 @@ function Home() {
                                 return (
                                     <div className="flex flex-col items-center gap-6">
                                         {/* Flashcard Component */}
-                                        <div className="perspective-1000 w-full">
-                                            <div className={`flip-card-inner ${isFlipped ? 'rotate-y-180' : ''}`}>
-                                                
-                                                {/* FRONT OF CARD */}
-                                                <div className={`flip-card-front bg-surface border rounded-3xl overflow-hidden shadow-lg border-border`}>
-                                                    {/* Header Actions */}
-                                                    <div className="flex justify-between items-center p-4 sm:p-5 border-b border-border bg-surface2/40">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-plex text-[12px] md:text-[13px] text-muted tracking-widest uppercase font-semibold">
-                                                                Question {q.id}
-                                                            </span>
-                                                            {playingId === q.id && !isFlipped && (
-                                                                <span className="flex items-center gap-1 text-[11px] text-accent font-plex font-bold ml-1 animate-pulse border border-accent/30 bg-accent/10 px-2 py-0.5 rounded-full">
-                                                                    <Volume2 size={12} /> Playing
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className={`font-plex text-[11px] px-3 py-0.5 rounded-full border ${catInfo?.tag} hidden sm:inline-block uppercase tracking-wider`}>
-                                                                {catInfo?.name}
-                                                            </span>
-                                                            <div onClick={(e) => toggleBookmark(e, q.id)} title="Bookmark" className={`cursor-pointer hover:scale-110 transition-transform ${bookmarks[q.id] ? 'text-accent' : 'text-muted hover:text-text'}`}>
-                                                                <Bookmark size={20} fill={bookmarks[q.id] ? "currentColor" : "none"} />
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                        {/* Flashcard Component */}
+                                        <div className={`bg-surface border rounded-3xl overflow-hidden transition-all duration-300 relative flex flex-col w-full min-h-[400px] md:min-h-[450px] ${isFlipped ? 'border-accent shadow-xl shadow-accent/5' : 'border-border shadow-lg'}`}>
 
-                                                    {/* Card Content area */}
-                                                    <div className="flex-1 p-6 md:p-10 flex flex-col justify-center items-center relative overflow-y-auto custom-scrollbar min-h-[300px] md:min-h-[350px]">
-                                                        <div className="flex flex-col items-center justify-center text-center w-full h-full">
-                                                            <div className="flex flex-col items-center justify-center flex-1 w-full">
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}
-                                                                    className="mb-5 p-3.5 bg-surface2 border border-border rounded-full text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all hover:scale-105 shadow-md flex items-center justify-center"
-                                                                    title="Play Audio"
-                                                                >
-                                                                    <Volume2 size={24} />
-                                                                </button>
-                                                                <div
-                                                                    className={`font-serif ${getQuestionTextSizeClass()} text-text hover:text-accent transition-colors font-medium leading-[1.6] px-4 py-4 w-full`}
-                                                                    onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}
-                                                                    title="Click to hear question"
-                                                                >
-                                                                    {q.q}
-                                                                </div>
-                                                            </div>
-                                                            <button
-                                                                className="mt-6 font-plex text-[14px] md:text-[15px] font-semibold text-text flex items-center gap-2.5 bg-surface2 px-8 py-3.5 rounded-xl border border-border border-b-4 hover:border-b-accent hover:text-accent transition-all shadow-md active:translate-y-[2px] active:border-b-2 w-[80%] md:w-auto justify-center"
-                                                                onClick={(e) => { e.stopPropagation(); toggleFlip(); }}
-                                                            >
-                                                                <RotateCcw size={18} /> Show Answer (Space)
-                                                            </button>
-                                                        </div>
+                                            {/* Header Actions */}
+                                            <div className="flex justify-between items-center p-4 sm:p-5 border-b border-border bg-surface2/40">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-plex text-[12px] md:text-[13px] text-muted tracking-widest uppercase font-semibold">
+                                                        {isFlipped ? 'Answer' : 'Question'} {q.id}
+                                                    </span>
+                                                    {playingId === q.id && (
+                                                        <span className="flex items-center gap-1 text-[11px] text-accent font-plex font-bold ml-1 animate-pulse border border-accent/30 bg-accent/10 px-2 py-0.5 rounded-full">
+                                                            <Volume2 size={12} /> Playing Audio
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`font-plex text-[11px] px-3 py-0.5 rounded-full border ${catInfo?.tag} hidden sm:inline-block uppercase tracking-wider`}>
+                                                        {catInfo?.name}
+                                                    </span>
+                                                    <div onClick={(e) => toggleBookmark(e, q.id)} title="Bookmark" className={`cursor-pointer hover:scale-110 transition-transform ${bookmarks[q.id] ? 'text-accent' : 'text-muted hover:text-text'}`}>
+                                                        <Bookmark size={20} fill={bookmarks[q.id] ? "currentColor" : "none"} />
                                                     </div>
                                                 </div>
+                                            </div>
 
-                                                {/* BACK OF CARD */}
-                                                <div className={`flip-card-back bg-surface border rounded-3xl overflow-hidden shadow-xl border-accent shadow-accent/5`}>
-                                                    {/* Header Actions */}
-                                                    <div className="flex justify-between items-center p-4 sm:p-5 border-b border-border bg-surface2/40">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-plex text-[12px] md:text-[13px] text-accent tracking-widest uppercase font-semibold">
-                                                                Answer {q.id}
-                                                            </span>
-                                                            {playingId === q.id && isFlipped && (
-                                                                <span className="flex items-center gap-1 text-[11px] text-accent font-plex font-bold ml-1 animate-pulse border border-accent/30 bg-accent/10 px-2 py-0.5 rounded-full">
-                                                                    <Volume2 size={12} /> Playing
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className={`font-plex text-[11px] px-3 py-0.5 rounded-full border ${catInfo?.tag} hidden sm:inline-block uppercase tracking-wider`}>
-                                                                {catInfo?.name}
-                                                            </span>
-                                                            <div onClick={(e) => toggleBookmark(e, q.id)} title="Bookmark" className={`cursor-pointer hover:scale-110 transition-transform ${bookmarks[q.id] ? 'text-accent' : 'text-muted hover:text-text'}`}>
-                                                                <Bookmark size={20} fill={bookmarks[q.id] ? "currentColor" : "none"} />
+                                            {/* Card Content area */}
+                                            <div className="flex-1 p-6 md:p-10 flex flex-col justify-center items-center relative overflow-y-auto custom-scrollbar">
+
+                                                {!isFlipped ? (
+                                                    <div className="flex flex-col items-center justify-center text-center w-full h-full animate-fadeIn">
+                                                        <div className="flex flex-col items-center justify-center flex-1 w-full">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}
+                                                                className="mb-5 p-3.5 bg-surface2 border border-border rounded-full text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all hover:scale-105 shadow-md flex items-center justify-center"
+                                                                title="Play Audio"
+                                                            >
+                                                                <Volume2 size={24} />
+                                                            </button>
+                                                            <div
+                                                                className={`font-serif ${getQuestionTextSizeClass()} text-text hover:text-accent transition-colors font-medium leading-[1.6] px-4 py-4 w-full`}
+                                                                onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.q, e); }}
+                                                                title="Click to hear question"
+                                                            >
+                                                                {q.q}
                                                             </div>
                                                         </div>
+                                                        <button
+                                                            className="mt-6 font-plex text-[14px] md:text-[15px] font-semibold text-text flex items-center gap-2.5 bg-surface2 px-8 py-3.5 rounded-xl border border-border border-b-4 hover:border-b-accent hover:text-accent transition-all shadow-md active:translate-y-[2px] active:border-b-2 w-[80%] md:w-auto justify-center"
+                                                            onClick={(e) => { e.stopPropagation(); toggleFlip(); }}
+                                                        >
+                                                            <RotateCcw size={18} /> Show Answer (Space)
+                                                        </button>
                                                     </div>
-
-                                                    <div className="flex-1 p-6 md:p-10 flex flex-col items-start relative overflow-y-auto custom-scrollbar min-h-[300px] md:min-h-[350px]">
-                                                        <div className="flex-1 w-full">
+                                                ) : (
+                                                    <div className="flex flex-col w-full h-full animate-fadeIn text-left relative pb-2">
+                                                        <div className="flex-1">
                                                             <div className="flex items-center gap-3 mb-6 border-b border-border/50 pb-4">
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); playIndianAudio(q.id, q.a, e); }}
@@ -662,16 +636,16 @@ function Home() {
                                                             )}
                                                         </div>
 
-                                                        <div className="flex justify-center mt-10 w-full pt-6 border-t border-border/50">
+                                                        <div className="flex justify-center mt-10 pt-6 border-t border-border/50">
                                                             <button
                                                                 className="font-plex text-[14px] md:text-[15px] font-semibold text-text flex items-center gap-2 bg-surface2 px-8 py-3.5 rounded-xl border border-border border-b-4 hover:border-b-accent hover:text-accent transition-all shadow-md active:translate-y-[2px] active:border-b-2 w-[80%] md:w-auto justify-center"
                                                                 onClick={(e) => { e.stopPropagation(); toggleFlip(); }}
                                                             >
-                                                                <RotateCcw size={18} /> Back (Space)
+                                                                <RotateCcw size={18} /> Back to Question (Space)
                                                             </button>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
                                         </div>
 
