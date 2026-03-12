@@ -8,12 +8,18 @@ function InterviewMode() {
     const [loading, setLoading] = useState(true);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isListening, setIsListening] = useState(false);
-    const [transcript, setTranscript] = useState('');
     const [feedback, setFeedback] = useState(null);
     const [evaluating, setEvaluating] = useState(false);
     const [hint, setHint] = useState(null);
     const [loadingHint, setLoadingHint] = useState(false);
     const [playingMsg, setPlayingMsg] = useState(false);
+    
+    // Groq Whisper AI States
+    const [useGroqAI, setUseGroqAI] = useState(() => localStorage.getItem('useGroqAI') === 'true');
+    const [groqApiKey, setGroqApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
+    const [mediaRecorder, setMediaRecorder] = useState(null);
+    const [audioChunks, setAudioChunks] = useState([]);
+    const [transcribingGroq, setTranscribingGroq] = useState(false);
     const [voiceSpeed, setVoiceSpeed] = useState(() => parseFloat(localStorage.getItem('voiceSpeed')) || 1);
     const [questionsToAsk, setQuestionsToAsk] = useState([]);
     const [interviewActive, setInterviewActive] = useState(false);
@@ -41,9 +47,9 @@ function InterviewMode() {
             });
     }, []);
 
-    // Speech Recognition setup (Voice to Text)
+    // Speech Recognition setup (Voice to Text - Browser Native)
     useEffect(() => {
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        if (!useGroqAI && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognitionRef.current = new SpeechRecognition();
             // Need to set continuous=true so it doesn't stop, but interimResults=true can cause massive duplication
@@ -80,10 +86,10 @@ function InterviewMode() {
 
             recognitionRef.current.onend = () => {
                 // Browser might automatically end after silence. Let user restart if they want.
-                setIsListening(false);
+                if(!useGroqAI && isListening) setIsListening(false);
             };
         }
-    }, []);
+    }, [useGroqAI]);
 
     const stopAudio = () => {
         if ('speechSynthesis' in window) {
@@ -116,22 +122,81 @@ function InterviewMode() {
         }
     };
 
-    const startRecording = () => {
-        if (recognitionRef.current) {
-            setTranscript('');
-            finalTranscriptRef.current = '';
-            recognitionRef.current.start();
-            setIsListening(true);
+    const startRecording = async () => {
+        setTranscript('');
+        finalTranscriptRef.current = '';
+        
+        if (useGroqAI) {
+            if (!groqApiKey) {
+                alert("Please enter your free Groq API Key at the bottom of the page first!");
+                return;
+            }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                const chunks = [];
+                
+                recorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) chunks.push(e.data);
+                };
+                
+                recorder.onstop = () => {
+                    const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+                    processGroqAudio(audioBlob);
+                    // Stop all microphone tracks
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                recorder.start();
+                setMediaRecorder(recorder);
+                setIsListening(true);
+            } catch (error) {
+                console.error("Microphone error:", error);
+                alert("Please allow microphone permissions.");
+            }
         } else {
-            alert("Speech recognition is not supported in this browser. Try Google Chrome.");
+            if (recognitionRef.current) {
+                recognitionRef.current.start();
+                setIsListening(true);
+            } else {
+                alert("Speech recognition is not supported in this browser. Try Google Chrome or enable Groq Whisper AI.");
+            }
         }
     };
 
     const stopRecording = () => {
-        if (recognitionRef.current) {
+        if (useGroqAI && mediaRecorder) {
+            mediaRecorder.stop();
+            setIsListening(false);
+        } else if (recognitionRef.current) {
             recognitionRef.current.stop();
             setIsListening(false);
         }
+    };
+    
+    // Process Groq Whisper Audio
+    const processGroqAudio = async (audioBlob) => {
+        setTranscribingGroq(true);
+        const formData = new FormData();
+        const file = new File([audioBlob], 'audio.webm', { type: 'audio/webm' });
+        
+        formData.append('file', file);
+        formData.append('model', 'whisper-large-v3-turbo'); // Groq's super fast whisper model
+        formData.append('language', 'en'); // optimize for English
+
+        try {
+            const res = await axios.post('https://api.groq.com/openai/v1/audio/transcriptions', formData, {
+                headers: {
+                    'Authorization': `Bearer ${groqApiKey}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            setTranscript(res.data.text);
+        } catch (error) {
+            console.error(error);
+            alert("Groq AI Transcription Failed. Please check if your API Key is correct.");
+        }
+        setTranscribingGroq(false);
     };
 
     // Regex & Logic based answer evaluation
@@ -380,11 +445,15 @@ Output ONLY the hint text. No formatting, no json.`;
                         {/* User Answer Area */}
                         <div className="bg-surface border border-border rounded-2xl p-6 md:p-8 shadow-lg">
                             <div className="flex justify-between items-center mb-4">
-                                <h4 className="font-playfair text-lg text-accent border-b border-border pb-1">Your Voice Answer:</h4>
+                                <h4 className="font-playfair text-lg text-accent border-b border-border pb-1 flex items-center gap-2">
+                                    Your Voice Answer:
+                                    {useGroqAI && <span className="bg-accent text-[#0f0e0d] text-[10px] font-plex px-2 py-0.5 rounded-md uppercase font-bold tracking-wider">Groq Whisper AI Active</span>}
+                                </h4>
                                 {!feedback && (
                                     <button 
                                         onClick={isListening ? stopRecording : startRecording}
-                                        className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-surface2 border border-border hover:border-accent text-accent'}`}
+                                        disabled={transcribingGroq}
+                                        className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-surface2 border border-border hover:border-accent text-accent'} ${transcribingGroq ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
                                         {isListening ? <><MicOff size={18} /> Stop Listening</> : <><Mic size={18} /> Tap & Speak</>}
                                     </button>
@@ -392,7 +461,13 @@ Output ONLY the hint text. No formatting, no json.`;
                             </div>
 
                             <div className="min-h-[140px] bg-bg border border-border rounded-xl p-5 text-text/90 leading-relaxed text-lg font-serif">
-                                {transcript || <span className="text-muted italic text-base">Allow microphone permissions, tap the button and say your answer...</span>}
+                                {transcribingGroq ? (
+                                    <span className="text-accent animate-pulse flex items-center gap-2"><div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin"></div> 🤖 Groq AI is transcribing perfectly...</span>
+                                ) : transcript ? (
+                                    transcript
+                                ) : (
+                                    <span className="text-muted italic text-base">Allow microphone permissions, tap the button and say your answer...</span>
+                                )}
                             </div>
 
                             {!feedback && transcript && !isListening && (
@@ -453,7 +528,58 @@ Output ONLY the hint text. No formatting, no json.`;
                 )}
             </div>
             
-            <div className="max-w-3xl mx-auto p-4 md:p-6 mb-10">
+            <div className="max-w-3xl mx-auto p-4 md:p-6 mb-10 space-y-6">
+                
+                {/* Free Transcription Engine Toggle (Solution to User Request) */}
+                <div className="bg-surface border border-accent/30 rounded-xl p-5 md:p-6 shadow-lg shadow-accent/5">
+                    <div className="flex justify-between items-start gap-4 mb-4 flex-col md:flex-row">
+                        <div>
+                            <h4 className="font-playfair text-xl text-accent font-bold flex items-center gap-2">🎙️ Pro Transcription Engine (Groq Whisper)</h4>
+                            <p className="text-[14px] text-muted leading-relaxed font-serif mt-2">
+                                Having issues with the browser's built-in transcription duplicating words? Switch to the world's fastest, 100% Free AI Transcription Engine powered by <b>Groq (Whisper Large V3 Turbo)</b>! It's unlimited and lightning-fast.
+                            </p>
+                        </div>
+                        <div className="shrink-0 flex items-center bg-surface2 rounded-lg p-1 border border-border mt-2 md:mt-0">
+                            <button 
+                                onClick={() => { setUseGroqAI(false); localStorage.setItem('useGroqAI', 'false'); }}
+                                className={`px-4 py-2 font-plex text-[12px] font-semibold rounded-md transition-colors ${!useGroqAI ? 'bg-bg border border-border text-text shadow-sm' : 'text-muted hover:text-text'}`}
+                            >
+                                Built-in (Fixed)
+                            </button>
+                            <button 
+                                onClick={() => { setUseGroqAI(true); localStorage.setItem('useGroqAI', 'true'); }}
+                                className={`px-4 py-2 font-plex text-[12px] font-semibold rounded-md transition-colors flex items-center gap-1 ${useGroqAI ? 'bg-accent text-[#0f0e0d] shadow-sm shadow-accent/20' : 'text-muted hover:text-accent'}`}
+                            >
+                                ✨ Groq AI (Best)
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {useGroqAI && (
+                        <div className="animate-fadeIn mt-6 bg-surface2/50 border border-border p-4 rounded-lg">
+                            <h5 className="font-plex text-sm text-text font-semibold mb-2">Setup 100% Free Unlimited Groq AI:</h5>
+                            <ol className="text-[13px] font-serif text-muted/90 mb-4 pl-4 space-y-1 list-decimal">
+                                <li>Go to <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-accent hover:underline font-bold">console.groq.com/keys</a> and log in for free.</li>
+                                <li>Click "Create API Key" and copy the key (Starts with <code className="text-[11px] bg-bg px-1 py-0.5 rounded border border-border text-text">gsk_...</code>).</li>
+                                <li>Paste it here! It runs purely in your browser so it's totally safe, free, and insanely fast.</li>
+                            </ol>
+                            <div className="flex gap-2 w-full max-w-sm">
+                                <input 
+                                    type="password" 
+                                    placeholder="gsk_xxxxxxxx..."
+                                    value={groqApiKey}
+                                    onChange={(e) => { 
+                                        setGroqApiKey(e.target.value); 
+                                        localStorage.setItem('groqApiKey', e.target.value); 
+                                    }}
+                                    className="flex-1 bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent"
+                                />
+                                {groqApiKey && <div className="text-green-500 bg-green-500/10 border border-green-500/20 px-3 flex items-center rounded-lg text-xs font-plex relative group cursor-default">✔️ Ready<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block w-max bg-surface border border-border p-2 rounded text-[10px] text-muted">Key stored locally only.</div></div>}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 <div className="bg-surface2/30 border border-border rounded-xl p-5 md:p-6">
                     <h4 className="font-playfair text-xl text-accent mb-3 font-bold flex items-center gap-2">🤖 How to add Free AI for Smart Evaluation?</h4>
                     <p className="text-[15px] text-muted leading-relaxed font-serif">
