@@ -43,24 +43,31 @@ function InterviewMode() {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognitionRef.current = new SpeechRecognition();
+            // Need to set continuous=true so it doesn't stop, but interimResults=true can cause massive duplication
+            // if we don't handle the "isFinal" flag correctly. Let's fix the bug making it repeat text 4 times.
             recognitionRef.current.continuous = true;
-            recognitionRef.current.interimResults = true;
+            recognitionRef.current.interimResults = true; 
             // Use Indian English for better accent recognition
             recognitionRef.current.lang = 'en-IN';
 
+            let finalTranscript = ''; // Store stable finalized sentences
+
             recognitionRef.current.onresult = (event) => {
-                let currentTranscript = '';
+                let interimTranscript = '';
+                
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    currentTranscript += event.results[i][0].transcript;
+                    const latestResult = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        // Once phrase is finalised by browser, append to actual secure transcript memory
+                        finalTranscript += latestResult + ' ';
+                    } else {
+                        // Real-time guessing of the current phrase
+                        interimTranscript += latestResult;
+                    }
                 }
                 
-                // Append instead of replacing completely to avoid losing previous phrases in continuous mode, 
-                // but since we iterate from resultIndex, we should actually build the full transcript properly:
-                let fullTranscript = '';
-                for (let i = 0; i < event.results.length; i++) {
-                    fullTranscript += event.results[i][0].transcript + ' ';
-                }
-                setTranscript(fullTranscript);
+                // Show the user the locked-in history + whatever is currently being guessed
+                setTranscript(finalTranscript + interimTranscript);
             };
 
             recognitionRef.current.onerror = (event) => {
