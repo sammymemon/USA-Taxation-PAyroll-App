@@ -261,8 +261,10 @@ Compare the user's spoken answer to the actual correct answer.
 Actual Answer: ${(q.a || '').replace(/<[^>]+>/g, ' ')}
 User's Answer: ${transcript || ''}
 
+Provide your evaluation feedback and also suggest a simple, easy-to-remember correct answer in BOTH English and Hinglish.
+
 Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no other text):
-{"percentage": 85, "feedback": "Good attempt, but you missed X."}
+{"percentage": 85, "feedback": "Good attempt, but you missed X.\\n\\nSimple Answer / Suggestion (English): [Your simple English answer]\\n\\nSimple Answer / Suggestion (Hinglish): [Your simple Hinglish answer]"}
 `;
 
             const response = await axios.post(
@@ -270,8 +272,8 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
                 {
                     model: "llama-3.1-8b-instant",
                     messages: [{ role: "user", content: prompt }],
-                    max_tokens: 150,
-                    temperature: 0.1
+                    max_tokens: 350,
+                    temperature: 0.2
                 },
                 {
                     headers: {
@@ -578,7 +580,7 @@ Output ONLY the hint text. No formatting, no json.`;
                                     {feedback.feedback && (
                                         <div className="bg-surface2 p-5 rounded-xl border border-border mb-6">
                                             <h5 className="font-plex text-xs uppercase text-accent mb-2 font-semibold">AI Feedback:</h5>
-                                            <p className="text-[15px] leading-relaxed text-text/90">{feedback.feedback}</p>
+                                            <div className="text-[15px] leading-relaxed text-text/90 whitespace-pre-wrap">{feedback.feedback}</div>
                                         </div>
                                     )}
 
