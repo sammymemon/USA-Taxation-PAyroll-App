@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Mic, MicOff, Square, ChevronRight, ArrowLeft, Volume2, RefreshCcw, Play } from 'lucide-react';
@@ -14,7 +17,8 @@ function InterviewMode() {
     const [hint, setHint] = useState(null);
     const [loadingHint, setLoadingHint] = useState(false);
     const [playingMsg, setPlayingMsg] = useState(false);
-    
+    const [selectedCategory, setSelectedCategory] = useState('All');
+
     // Groq Whisper AI States
     const [useGroqAI, setUseGroqAI] = useState(() => localStorage.getItem('useGroqAI') === 'true');
     const [groqApiKey, setGroqApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
@@ -56,13 +60,13 @@ function InterviewMode() {
             // Need to set continuous=true so it doesn't stop, but interimResults=true can cause massive duplication
             // if we don't handle the "isFinal" flag correctly. Let's fix the bug making it repeat text 4 times.
             recognitionRef.current.continuous = true;
-            recognitionRef.current.interimResults = true; 
+            recognitionRef.current.interimResults = true;
             // Use Indian English for better accent recognition
             recognitionRef.current.lang = 'en-IN';
 
             recognitionRef.current.onresult = (event) => {
                 let interimTranscript = '';
-                
+
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const latestResult = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
@@ -73,7 +77,7 @@ function InterviewMode() {
                         interimTranscript += latestResult;
                     }
                 }
-                
+
                 // Show the user the locked-in history + whatever is currently being guessed
                 setTranscript(finalTranscriptRef.current + interimTranscript);
             };
@@ -87,7 +91,7 @@ function InterviewMode() {
 
             recognitionRef.current.onend = () => {
                 // Browser might automatically end after silence. Let user restart if they want.
-                if(!useGroqAI && isListening) setIsListening(false);
+                if (!useGroqAI && isListening) setIsListening(false);
             };
         }
     }, [useGroqAI]);
@@ -103,10 +107,10 @@ function InterviewMode() {
         if (!text) text = '';
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
-            
+
             const plainText = text.replace(/<[^>]+>/g, ' ');
             const utterance = new SpeechSynthesisUtterance(plainText);
-            
+
             const voices = window.speechSynthesis.getVoices();
             const indianVoice = voices.find(v => v.lang === 'en-IN' || v.name.toLowerCase().includes('india'));
             if (indianVoice) utterance.voice = indianVoice;
@@ -127,7 +131,7 @@ function InterviewMode() {
     const startRecording = async () => {
         setTranscript('');
         finalTranscriptRef.current = '';
-        
+
         if (useGroqAI) {
             if (!groqApiKey) {
                 alert("Please enter your free Groq API Key at the bottom of the page first!");
@@ -137,18 +141,18 @@ function InterviewMode() {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
                 const chunks = [];
-                
+
                 recorder.ondataavailable = (e) => {
                     if (e.data.size > 0) chunks.push(e.data);
                 };
-                
+
                 recorder.onstop = () => {
                     const audioBlob = new Blob(chunks, { type: 'audio/webm' });
                     processGroqAudio(audioBlob);
                     // Stop all microphone tracks
                     stream.getTracks().forEach(track => track.stop());
                 };
-                
+
                 recorder.start();
                 setMediaRecorder(recorder);
                 setIsListening(true);
@@ -175,13 +179,13 @@ function InterviewMode() {
             setIsListening(false);
         }
     };
-    
+
     // Process Groq Whisper Audio
     const processGroqAudio = async (audioBlob) => {
         setTranscribingGroq(true);
         const formData = new FormData();
         const file = new File([audioBlob], 'audio.webm', { type: 'audio/webm' });
-        
+
         formData.append('file', file);
         formData.append('model', 'whisper-large-v3-turbo'); // Groq's super fast whisper model
         formData.append('language', 'en'); // optimize for English
@@ -211,9 +215,9 @@ function InterviewMode() {
 
         // Basic stop words to ignore
         const stopwords = ['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'in', 'of', 'to', 'for', 'with', 'are', 'was', 'were', 'it', 'this', 'that', 'by', 'as', 'be', 'can', 'will'];
-        
+
         const getWords = (str) => str.split(/\s+/).filter(w => w.length > 2 && !stopwords.includes(w));
-        
+
         const actualWords = [...new Set(getWords(cleanActual))];
         const userWords = [...new Set(getWords(cleanUser))];
 
@@ -221,7 +225,7 @@ function InterviewMode() {
 
         let matchCount = 0;
         let matchedWords = [];
-        
+
         actualWords.forEach(word => {
             // regex to find if the actual word is present in user's spoken answer
             const regex = new RegExp(`\\b${word}\\b`, 'i');
@@ -232,7 +236,7 @@ function InterviewMode() {
         });
 
         let percentage = Math.round((matchCount / actualWords.length) * 100);
-        
+
         // Bonus points if user spoke a good length string
         if (userWords.length > actualWords.length * 0.5 && percentage < 100) {
             percentage += 15;
@@ -245,10 +249,10 @@ function InterviewMode() {
     const submitAnswer = async () => {
         stopRecording();
         const q = questionsToAsk[currentIndex] || { q: '', a: '' };
-        
+
         setEvaluating(true);
         setFeedback(null);
-        
+
         try {
             if (!useGroqAI || !groqApiKey) throw new Error("Groq API disabled or no key provided.");
 
@@ -260,7 +264,7 @@ User's Answer: ${transcript || ''}
 Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no other text):
 {"percentage": 85, "feedback": "Good attempt, but you missed X."}
 `;
-            
+
             const response = await axios.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 {
@@ -276,19 +280,19 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
                     }
                 }
             );
-            
+
             let resultData;
             try {
                 let generatedText = response.data?.choices?.[0]?.message?.content || "";
-                
+
                 if (generatedText.includes('```json')) {
                     generatedText = generatedText.split('```json')[1].split('```')[0].trim();
                 } else if (generatedText.includes('```')) {
                     generatedText = generatedText.split('```')[1].split('```')[0].trim();
                 }
-                
+
                 resultData = JSON.parse(generatedText);
-                
+
                 if (resultData.percent !== undefined && resultData.percentage === undefined) {
                     resultData.percentage = resultData.percent;
                 }
@@ -301,34 +305,34 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
                 else fallbackMsg = "You missed some key concepts. Don't worry, review the ideal answer below and try to catch the main keywords!";
                 resultData.feedback = `(Smart Regex Evaluator) ${fallbackMsg}`;
             }
-            
+
             setFeedback(resultData);
             setEvaluating(false);
-            
+
             const msg = `Score ${resultData.percentage}%. ${resultData.feedback || ""}`;
-            playAudio(msg, () => {});
-            
+            playAudio(msg, () => { });
+
         } catch (error) {
             console.error("AI Evaluation Error", error);
             const resultData = evaluateAnswer(transcript, q.a);
-            
+
             let fallbackMsg = "";
             if (resultData.percentage >= 80) fallbackMsg = "Excellent! You confidently hit all the major keywords for this topic.";
             else if (resultData.percentage >= 50) fallbackMsg = "Good effort. You got the main idea, but try to include more specific accounting terminology.";
             else fallbackMsg = "You missed some key concepts. Don't worry, review the ideal answer below and try to catch the main keywords!";
-            
+
             resultData.feedback = `(Smart Regex Evaluator) ${fallbackMsg}`;
             setFeedback(resultData);
             setEvaluating(false);
-            
-            playAudio(resultData.feedback, () => {});
+
+            playAudio(resultData.feedback, () => { });
         }
     };
 
     const generateHint = async () => {
         const q = questionsToAsk[currentIndex] || { q: '', a: '' };
         setLoadingHint(true);
-        
+
         try {
             if (!useGroqAI || !groqApiKey) throw new Error("Groq API disabled or no key provided.");
 
@@ -337,7 +341,7 @@ Question: ${q.q || ''}
 Actual Answer Context: ${(q.a || '').replace(/<[^>]+>/g, ' ')}
 
 Output ONLY the hint text. No formatting, no json.`;
-            
+
             const response = await axios.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 {
@@ -353,7 +357,7 @@ Output ONLY the hint text. No formatting, no json.`;
                     }
                 }
             );
-            
+
             let generatedText = response.data?.choices?.[0]?.message?.content || "";
             setHint(generatedText.trim().replace(/^['"]|['"]$/g, ''));
         } catch (error) {
@@ -384,9 +388,23 @@ Output ONLY the hint text. No formatting, no json.`;
     };
 
     const startInterview = () => {
+        let filteredQuestions = data.questions;
+        if (selectedCategory !== 'All') {
+            filteredQuestions = data.questions.filter(q => q.cat === parseInt(selectedCategory, 10));
+        }
+
+        if (filteredQuestions.length === 0) {
+            alert('No questions found for this category');
+            return;
+        }
+
+        const shuffled = [...filteredQuestions].sort(() => Math.random() - 0.5);
+        setQuestionsToAsk(shuffled);
+        setCurrentIndex(0);
         setInterviewActive(true);
-        if (questionsToAsk.length > 0) {
-            const q = questionsToAsk[0] || { q: '', a: '' };
+
+        if (shuffled.length > 0) {
+            const q = shuffled[0] || { q: '', a: '' };
             playAudio("Let's start the interview. Question 1: " + (q.q || ''));
         }
     };
@@ -413,11 +431,30 @@ Output ONLY the hint text. No formatting, no json.`;
                     <div className="bg-surface border border-border rounded-xl p-8 text-center shadow-lg">
                         <h2 className="text-2xl font-playfair font-bold text-accent mb-4">Ready for your Interview?</h2>
                         <p className="text-muted mb-8 max-w-lg mx-auto leading-relaxed">
-                            In this mode, the app will speak a question. 
+                            In this mode, the app will speak a question.
                             You will answer using your voice directly without typing.
                             We will use Regex filtering to evaluate your speech and score your answer based on keywords match.
                         </p>
-                        <button 
+
+                        <div className="mb-8 max-w-xs mx-auto text-left">
+                            <label className="block text-sm font-plex text-accent mb-2 uppercase tracking-wide">
+                                Select Category
+                            </label>
+                            <select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                className="w-full bg-bg border border-border px-4 py-3 rounded-lg text-text font-serif focus:border-accent outline-none appearance-none cursor-pointer"
+                            >
+                                <option value="All">All Categories ({data.questions?.length || 0})</option>
+                                {data.categories?.map(cat => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.name} ({cat.count || 0})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <button
                             onClick={startInterview}
                             className="bg-accent text-[#0f0e0d] font-bold px-8 py-4 rounded-xl text-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto"
                         >
@@ -437,11 +474,11 @@ Output ONLY the hint text. No formatting, no json.`;
                                     <Volume2 size={14} /> Speaking...
                                 </div>
                             )}
-                            
+
                             <h3 className="font-serif text-xl md:text-2xl text-text leading-relaxed mt-4">
                                 {currentQ?.q}
                             </h3>
-                            
+
                             <div className="mt-6 flex gap-3">
                                 <button
                                     onClick={() => playAudio(currentQ?.q)}
@@ -460,11 +497,11 @@ Output ONLY the hint text. No formatting, no json.`;
                                     </button>
                                 )}
                             </div>
-                            
+
                             {!feedback && (
                                 <div className="mt-6 border-t border-border pt-4 text-center">
                                     {!hint ? (
-                                        <button 
+                                        <button
                                             onClick={generateHint}
                                             disabled={loadingHint}
                                             className="text-sm font-plex text-accent hover:underline flex items-center gap-1.5 mx-auto opacity-80 hover:opacity-100"
@@ -488,7 +525,7 @@ Output ONLY the hint text. No formatting, no json.`;
                                     {useGroqAI && <span className="bg-accent text-[#0f0e0d] text-[10px] font-plex px-2 py-0.5 rounded-md uppercase font-bold tracking-wider">Groq Whisper AI Active</span>}
                                 </h4>
                                 {!feedback && (
-                                    <button 
+                                    <button
                                         onClick={isListening ? stopRecording : startRecording}
                                         disabled={transcribingGroq}
                                         className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-surface2 border border-border hover:border-accent text-accent'} ${transcribingGroq ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -509,7 +546,7 @@ Output ONLY the hint text. No formatting, no json.`;
                             </div>
 
                             {!feedback && transcript && !isListening && (
-                                <button 
+                                <button
                                     onClick={submitAnswer}
                                     disabled={evaluating}
                                     className={`w-full mt-6 text-[#0f0e0d] font-bold py-4 rounded-xl transition-all text-lg flex justify-center items-center gap-2 ${evaluating ? 'bg-accent/50 cursor-not-allowed animate-pulse' : 'bg-accent hover:scale-[1.02]'}`}
@@ -532,19 +569,19 @@ Output ONLY the hint text. No formatting, no json.`;
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     {feedback.feedback && (
                                         <div className="bg-surface2 p-5 rounded-xl border border-border mb-6">
                                             <h5 className="font-plex text-xs uppercase text-accent mb-2 font-semibold">AI Feedback:</h5>
                                             <p className="text-[15px] leading-relaxed text-text/90">{feedback.feedback}</p>
                                         </div>
                                     )}
-                                    
+
                                     <div className="bg-surface2 p-5 rounded-xl border border-border mb-6">
                                         <h5 className="font-plex text-xs uppercase text-accent mb-3 font-semibold">Ideal Answer & Keywords:</h5>
-                                        <div className="text-[15px] leading-relaxed text-text/80 mb-4" dangerouslySetInnerHTML={{__html: currentQ?.a || ""}}></div>
+                                        <div className="text-[15px] leading-relaxed text-text/80 mb-4" dangerouslySetInnerHTML={{ __html: currentQ?.a || "" }}></div>
                                         <div className="flex gap-4 items-center">
-                                            <button 
+                                            <button
                                                 onClick={() => playAudio("The correct answer is: " + (currentQ?.a || ''))}
                                                 className="text-accent text-sm flex items-center gap-1 hover:underline font-plex"
                                             >
@@ -553,7 +590,7 @@ Output ONLY the hint text. No formatting, no json.`;
                                         </div>
                                     </div>
 
-                                    <button 
+                                    <button
                                         onClick={nextQuestion}
                                         className="w-full bg-surface2 border border-border hover:border-accent text-accent font-bold py-4 rounded-xl transition-colors flex justify-center items-center gap-2 text-lg hover:bg-surface2/50"
                                     >
@@ -565,9 +602,9 @@ Output ONLY the hint text. No formatting, no json.`;
                     </div>
                 )}
             </div>
-            
+
             <div className="max-w-3xl mx-auto p-4 md:p-6 mb-10 space-y-6">
-                
+
                 {/* Free Transcription Engine Toggle (Solution to User Request) */}
                 <div className="bg-surface border border-accent/30 rounded-xl p-5 md:p-6 shadow-lg shadow-accent/5">
                     <div className="flex justify-between items-start gap-4 mb-4 flex-col md:flex-row">
@@ -578,13 +615,13 @@ Output ONLY the hint text. No formatting, no json.`;
                             </p>
                         </div>
                         <div className="shrink-0 flex items-center bg-surface2 rounded-lg p-1 border border-border mt-2 md:mt-0">
-                            <button 
+                            <button
                                 onClick={() => { setUseGroqAI(false); localStorage.setItem('useGroqAI', 'false'); }}
                                 className={`px-4 py-2 font-plex text-[12px] font-semibold rounded-md transition-colors ${!useGroqAI ? 'bg-bg border border-border text-text shadow-sm' : 'text-muted hover:text-text'}`}
                             >
                                 Built-in (Fixed)
                             </button>
-                            <button 
+                            <button
                                 onClick={() => { setUseGroqAI(true); localStorage.setItem('useGroqAI', 'true'); }}
                                 className={`px-4 py-2 font-plex text-[12px] font-semibold rounded-md transition-colors flex items-center gap-1 ${useGroqAI ? 'bg-accent text-[#0f0e0d] shadow-sm shadow-accent/20' : 'text-muted hover:text-accent'}`}
                             >
@@ -592,7 +629,7 @@ Output ONLY the hint text. No formatting, no json.`;
                             </button>
                         </div>
                     </div>
-                    
+
                     {useGroqAI && (
                         <div className="animate-fadeIn mt-6 bg-surface2/50 border border-border p-4 rounded-lg">
                             <h5 className="font-plex text-sm text-text font-semibold mb-2">Setup 100% Free Unlimited Groq AI:</h5>
@@ -602,13 +639,13 @@ Output ONLY the hint text. No formatting, no json.`;
                                 <li>Paste it here! It runs purely in your browser so it's totally safe, free, and insanely fast.</li>
                             </ol>
                             <div className="flex gap-2 w-full max-w-sm">
-                                <input 
-                                    type="password" 
+                                <input
+                                    type="password"
                                     placeholder="gsk_xxxxxxxx..."
                                     value={groqApiKey}
-                                    onChange={(e) => { 
-                                        setGroqApiKey(e.target.value); 
-                                        localStorage.setItem('groqApiKey', e.target.value); 
+                                    onChange={(e) => {
+                                        setGroqApiKey(e.target.value);
+                                        localStorage.setItem('groqApiKey', e.target.value);
                                     }}
                                     className="flex-1 bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent"
                                 />
