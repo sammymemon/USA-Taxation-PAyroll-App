@@ -99,6 +99,7 @@ function InterviewMode() {
     };
 
     const playAudio = (text, onEndCallback) => {
+        if (!text) text = '';
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
             
@@ -201,6 +202,8 @@ function InterviewMode() {
 
     // Regex & Logic based answer evaluation
     const evaluateAnswer = (userAns, actualAns) => {
+        userAns = userAns || '';
+        actualAns = actualAns || '';
         // Strip HTML and special chars
         const cleanActual = actualAns.replace(/<[^>]+>/g, ' ').toLowerCase().replace(/[^\w\s]/gi, ' ');
         const cleanUser = userAns.toLowerCase().replace(/[^\w\s]/gi, ' ');
@@ -240,7 +243,7 @@ function InterviewMode() {
 
     const submitAnswer = async () => {
         stopRecording();
-        const q = questionsToAsk[currentIndex];
+        const q = questionsToAsk[currentIndex] || { q: '', a: '' };
         
         setEvaluating(true);
         setFeedback(null);
@@ -248,8 +251,8 @@ function InterviewMode() {
         try {
             const prompt = `Task: Act as an accounting interview reviewer.
 Compare the user's spoken answer to the actual correct answer.
-Actual Answer: ${q.a.replace(/<[^>]+>/g, ' ')}
-User's Answer: ${transcript}
+Actual Answer: ${(q.a || '').replace(/<[^>]+>/g, ' ')}
+User's Answer: ${transcript || ''}
 
 Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no other text):
 {"percentage": 85, "feedback": "Good attempt, but you missed X."}
@@ -304,13 +307,13 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
     };
 
     const generateHint = async () => {
-        const q = questionsToAsk[currentIndex];
+        const q = questionsToAsk[currentIndex] || { q: '', a: '' };
         setLoadingHint(true);
         
         try {
             const prompt = `Task: Provide a very brief 1-sentence hint or 3 keywords to help the user answer this interview question.
-Question: ${q.q}
-Actual Answer Context: ${q.a.replace(/<[^>]+>/g, ' ')}
+Question: ${q.q || ''}
+Actual Answer Context: ${(q.a || '').replace(/<[^>]+>/g, ' ')}
 
 Output ONLY the hint text. No formatting, no json.`;
             
@@ -348,14 +351,14 @@ Output ONLY the hint text. No formatting, no json.`;
     const startInterview = () => {
         setInterviewActive(true);
         if (questionsToAsk.length > 0) {
-            const q = questionsToAsk[0];
-            playAudio("Let's start the interview. Question 1: " + q.q);
+            const q = questionsToAsk[0] || { q: '', a: '' };
+            playAudio("Let's start the interview. Question 1: " + (q.q || ''));
         }
     };
 
     if (loading) return <div className="text-center p-20 text-muted">Loading Interview...</div>;
 
-    const currentQ = questionsToAsk[currentIndex];
+    const currentQ = questionsToAsk[currentIndex] || { q: '', a: '' };
 
     return (
         <div className="min-h-screen bg-bg text-text font-serif">
@@ -504,10 +507,10 @@ Output ONLY the hint text. No formatting, no json.`;
                                     
                                     <div className="bg-surface2 p-5 rounded-xl border border-border mb-6">
                                         <h5 className="font-plex text-xs uppercase text-accent mb-3 font-semibold">Ideal Answer & Keywords:</h5>
-                                        <div className="text-[15px] leading-relaxed text-text/80 mb-4" dangerouslySetInnerHTML={{__html: currentQ?.a}}></div>
+                                        <div className="text-[15px] leading-relaxed text-text/80 mb-4" dangerouslySetInnerHTML={{__html: currentQ?.a || ""}}></div>
                                         <div className="flex gap-4 items-center">
                                             <button 
-                                                onClick={() => playAudio("The correct answer is: " + currentQ?.a)}
+                                                onClick={() => playAudio("The correct answer is: " + (currentQ?.a || ''))}
                                                 className="text-accent text-sm flex items-center gap-1 hover:underline font-plex"
                                             >
                                                 <Volume2 size={16} /> Listen to ideal answer
