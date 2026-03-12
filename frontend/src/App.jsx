@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './Home';
 import Admin from './Admin';
+import InterviewMode from './InterviewMode';
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/interview" element={<InterviewMode />} />
       </Routes>
     </BrowserRouter>
   );

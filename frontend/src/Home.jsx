@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2, Sun, Moon, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2, Sun, Moon, ChevronLeft, ChevronRight, RotateCcw, Mic } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Home() {
@@ -405,10 +405,13 @@ function Home() {
                         <button onClick={toggleTheme} className="p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent" title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}>
                             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                         </button>
-                        <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent">
+                        <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent shrink-0">
                             <Menu size={18} />
                         </button>
-                        <Link to="/admin" className="p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent">
+                        <Link to="/interview" className="px-3 py-1.5 bg-accent text-[#0f0e0d] font-semibold rounded-md hover:opacity-90 transition-colors text-[13px] flex items-center gap-1.5 shadow-md shrink-0 focus:ring-2 ring-offset-2 ring-accent outline-none">
+                            <Mic size={16} /> <span className="hidden sm:inline">Interview Mode</span>
+                        </Link>
+                        <Link to="/admin" className="p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent shrink-0">
                             <Settings size={18} />
                         </Link>
                     </div>
