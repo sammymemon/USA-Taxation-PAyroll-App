@@ -44,22 +44,33 @@ function InterviewMode() {
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.continuous = true;
             recognitionRef.current.interimResults = true;
-            recognitionRef.current.lang = 'en-US';
+            // Use Indian English for better accent recognition
+            recognitionRef.current.lang = 'en-IN';
 
             recognitionRef.current.onresult = (event) => {
                 let currentTranscript = '';
-                for (let i = 0; i < event.results.length; i++) {
+                for (let i = event.resultIndex; i < event.results.length; i++) {
                     currentTranscript += event.results[i][0].transcript;
                 }
-                setTranscript(currentTranscript);
+                
+                // Append instead of replacing completely to avoid losing previous phrases in continuous mode, 
+                // but since we iterate from resultIndex, we should actually build the full transcript properly:
+                let fullTranscript = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    fullTranscript += event.results[i][0].transcript + ' ';
+                }
+                setTranscript(fullTranscript);
             };
 
             recognitionRef.current.onerror = (event) => {
-                console.error("Speech recognition error", event.error);
-                setIsListening(false);
+                console.error("Speech recognition error:", event.error);
+                if (event.error !== 'no-speech') {
+                    setIsListening(false);
+                }
             };
 
             recognitionRef.current.onend = () => {
+                // Browser might automatically end after silence. Let user restart if they want.
                 setIsListening(false);
             };
         }
