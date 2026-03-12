@@ -250,6 +250,8 @@ function InterviewMode() {
         setFeedback(null);
         
         try {
+            if (!useGroqAI || !groqApiKey) throw new Error("Groq API disabled or no key provided.");
+
             const prompt = `Task: Act as an accounting interview reviewer.
 Compare the user's spoken answer to the actual correct answer.
 Actual Answer: ${(q.a || '').replace(/<[^>]+>/g, ' ')}
@@ -260,10 +262,16 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
 `;
             
             const response = await axios.post(
-                "https://api-inference.huggingface.co/models/RinggAI/Ringg-Squirrel-Free-API",
-                { inputs: prompt, parameters: { max_new_tokens: 100, return_full_text: false } },
+                "https://api.groq.com/openai/v1/chat/completions",
+                {
+                    model: "llama-3.1-8b-instant",
+                    messages: [{ role: "user", content: prompt }],
+                    max_tokens: 150,
+                    temperature: 0.1
+                },
                 {
                     headers: {
+                        "Authorization": `Bearer ${groqApiKey}`,
                         "Content-Type": "application/json"
                     }
                 }
@@ -271,7 +279,7 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
             
             let resultData;
             try {
-                let generatedText = response.data[0]?.generated_text || response.data?.generated_text || "";
+                let generatedText = response.data?.choices?.[0]?.message?.content || "";
                 
                 if (generatedText.includes('```json')) {
                     generatedText = generatedText.split('```json')[1].split('```')[0].trim();
@@ -322,6 +330,8 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
         setLoadingHint(true);
         
         try {
+            if (!useGroqAI || !groqApiKey) throw new Error("Groq API disabled or no key provided.");
+
             const prompt = `Task: Provide a very brief 1-sentence hint or 3 keywords to help the user answer this interview question.
 Question: ${q.q || ''}
 Actual Answer Context: ${(q.a || '').replace(/<[^>]+>/g, ' ')}
@@ -329,12 +339,22 @@ Actual Answer Context: ${(q.a || '').replace(/<[^>]+>/g, ' ')}
 Output ONLY the hint text. No formatting, no json.`;
             
             const response = await axios.post(
-                "https://api-inference.huggingface.co/models/RinggAI/Ringg-Squirrel-Free-API",
-                { inputs: prompt, parameters: { max_new_tokens: 50, return_full_text: false } },
-                { headers: { "Content-Type": "application/json" } }
+                "https://api.groq.com/openai/v1/chat/completions",
+                {
+                    model: "llama-3.1-8b-instant",
+                    messages: [{ role: "user", content: prompt }],
+                    max_tokens: 50,
+                    temperature: 0.5
+                },
+                {
+                    headers: {
+                        "Authorization": `Bearer ${groqApiKey}`,
+                        "Content-Type": "application/json"
+                    }
+                }
             );
             
-            let generatedText = response.data[0]?.generated_text || response.data?.generated_text || "";
+            let generatedText = response.data?.choices?.[0]?.message?.content || "";
             setHint(generatedText.trim().replace(/^['"]|['"]$/g, ''));
         } catch (error) {
             console.error(error);
@@ -449,7 +469,7 @@ Output ONLY the hint text. No formatting, no json.`;
                                             disabled={loadingHint}
                                             className="text-sm font-plex text-accent hover:underline flex items-center gap-1.5 mx-auto opacity-80 hover:opacity-100"
                                         >
-                                            {loadingHint ? "🤖 Thinking..." : "💡 Generate AI Idea / Hint (RinggAI)"}
+                                            {loadingHint ? "🤖 Thinking..." : "💡 Generate AI Idea / Hint (Groq AI)"}
                                         </button>
                                     ) : (
                                         <div className="bg-surface2/50 border border-border p-4 rounded-lg text-sm text-text/90 italic animate-fadeIn">
