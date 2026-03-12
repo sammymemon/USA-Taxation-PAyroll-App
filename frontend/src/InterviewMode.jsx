@@ -8,6 +8,7 @@ function InterviewMode() {
     const [loading, setLoading] = useState(true);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isListening, setIsListening] = useState(false);
+    const [transcript, setTranscript] = useState('');
     const [feedback, setFeedback] = useState(null);
     const [evaluating, setEvaluating] = useState(false);
     const [hint, setHint] = useState(null);
