@@ -287,7 +287,11 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
             } catch (err) {
                 console.log("AI Parse error or unexpected output format. Output:", response.data);
                 resultData = evaluateAnswer(transcript, q.a);
-                resultData.feedback = "Used Regex Fallback: " + (resultData.percentage > 50 ? "Good attempt based on keywords!" : "Missed some keywords.");
+                let fallbackMsg = "";
+                if (resultData.percentage >= 80) fallbackMsg = "Excellent! You confidently hit all the major keywords for this topic.";
+                else if (resultData.percentage >= 50) fallbackMsg = "Good effort. You got the main idea, but try to include more specific accounting terminology.";
+                else fallbackMsg = "You missed some key concepts. Don't worry, review the ideal answer below and try to catch the main keywords!";
+                resultData.feedback = `(Smart Regex Evaluator) ${fallbackMsg}`;
             }
             
             setFeedback(resultData);
@@ -299,7 +303,13 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
         } catch (error) {
             console.error("AI Evaluation Error", error);
             const resultData = evaluateAnswer(transcript, q.a);
-            resultData.feedback = "API error, used Regex Fallback. Your score is " + resultData.percentage + "%.";
+            
+            let fallbackMsg = "";
+            if (resultData.percentage >= 80) fallbackMsg = "Excellent! You confidently hit all the major keywords for this topic.";
+            else if (resultData.percentage >= 50) fallbackMsg = "Good effort. You got the main idea, but try to include more specific accounting terminology.";
+            else fallbackMsg = "You missed some key concepts. Don't worry, review the ideal answer below and try to catch the main keywords!";
+            
+            resultData.feedback = `(Smart Regex Evaluator) ${fallbackMsg}`;
             setFeedback(resultData);
             setEvaluating(false);
             
@@ -328,7 +338,11 @@ Output ONLY the hint text. No formatting, no json.`;
             setHint(generatedText.trim().replace(/^['"]|['"]$/g, ''));
         } catch (error) {
             console.error(error);
-            setHint("Hint: Focus on the core accounting principle related to this topic.");
+            // Smart local keyword extraction for Hint
+            const cleanAns = (q.a || '').replace(/<[^>]+>/g, ' ').replace(/[^\w\s]/gi, ' ');
+            const words = cleanAns.split(/\s+/).filter(w => w.length > 6);
+            const hints = [...new Set(words)].slice(0, 3).join(", ");
+            setHint(`Try to mention these keywords: ${hints || 'core principles, rules, compliance'}`);
         }
         setLoadingHint(false);
     };
