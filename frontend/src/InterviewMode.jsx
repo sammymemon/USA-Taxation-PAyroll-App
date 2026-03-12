@@ -11,12 +11,15 @@ function InterviewMode() {
     const [transcript, setTranscript] = useState('');
     const [feedback, setFeedback] = useState(null);
     const [evaluating, setEvaluating] = useState(false);
+    const [hint, setHint] = useState(null);
+    const [loadingHint, setLoadingHint] = useState(false);
     const [playingMsg, setPlayingMsg] = useState(false);
     const [voiceSpeed, setVoiceSpeed] = useState(() => parseFloat(localStorage.getItem('voiceSpeed')) || 1);
     const [questionsToAsk, setQuestionsToAsk] = useState([]);
     const [interviewActive, setInterviewActive] = useState(false);
 
     const recognitionRef = useRef(null);
+    const finalTranscriptRef = useRef("");
 
     useEffect(() => {
         axios.get('/data.json')
@@ -50,8 +53,6 @@ function InterviewMode() {
             // Use Indian English for better accent recognition
             recognitionRef.current.lang = 'en-IN';
 
-            let finalTranscript = ''; // Store stable finalized sentences
-
             recognitionRef.current.onresult = (event) => {
                 let interimTranscript = '';
                 
@@ -59,7 +60,7 @@ function InterviewMode() {
                     const latestResult = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
                         // Once phrase is finalised by browser, append to actual secure transcript memory
-                        finalTranscript += latestResult + ' ';
+                        finalTranscriptRef.current += latestResult + ' ';
                     } else {
                         // Real-time guessing of the current phrase
                         interimTranscript += latestResult;
@@ -67,7 +68,7 @@ function InterviewMode() {
                 }
                 
                 // Show the user the locked-in history + whatever is currently being guessed
-                setTranscript(finalTranscript + interimTranscript);
+                setTranscript(finalTranscriptRef.current + interimTranscript);
             };
 
             recognitionRef.current.onerror = (event) => {
@@ -118,6 +119,7 @@ function InterviewMode() {
     const startRecording = () => {
         if (recognitionRef.current) {
             setTranscript('');
+            finalTranscriptRef.current = '';
             recognitionRef.current.start();
             setIsListening(true);
         } else {
@@ -236,10 +238,38 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
         }
     };
 
+    const generateHint = async () => {
+        const q = questionsToAsk[currentIndex];
+        setLoadingHint(true);
+        
+        try {
+            const prompt = `Task: Provide a very brief 1-sentence hint or 3 keywords to help the user answer this interview question.
+Question: ${q.q}
+Actual Answer Context: ${q.a.replace(/<[^>]+>/g, ' ')}
+
+Output ONLY the hint text. No formatting, no json.`;
+            
+            const response = await axios.post(
+                "https://api-inference.huggingface.co/models/RinggAI/Ringg-Squirrel-Free-API",
+                { inputs: prompt, parameters: { max_new_tokens: 50, return_full_text: false } },
+                { headers: { "Content-Type": "application/json" } }
+            );
+            
+            let generatedText = response.data[0]?.generated_text || response.data?.generated_text || "";
+            setHint(generatedText.trim().replace(/^['"]|['"]$/g, ''));
+        } catch (error) {
+            console.error(error);
+            setHint("Hint: Focus on the core accounting principle related to this topic.");
+        }
+        setLoadingHint(false);
+    };
+
     const nextQuestion = () => {
         stopAudio();
         setTranscript('');
+        finalTranscriptRef.current = '';
         setFeedback(null);
+        setHint(null);
         if (currentIndex < questionsToAsk.length - 1) {
             setCurrentIndex(prev => prev + 1);
             // Automatically read next question
@@ -327,6 +357,24 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
                                     </button>
                                 )}
                             </div>
+                            
+                            {!feedback && (
+                                <div className="mt-6 border-t border-border pt-4 text-center">
+                                    {!hint ? (
+                                        <button 
+                                            onClick={generateHint}
+                                            disabled={loadingHint}
+                                            className="text-sm font-plex text-accent hover:underline flex items-center gap-1.5 mx-auto opacity-80 hover:opacity-100"
+                                        >
+                                            {loadingHint ? "🤖 Thinking..." : "💡 Generate AI Idea / Hint (RinggAI)"}
+                                        </button>
+                                    ) : (
+                                        <div className="bg-surface2/50 border border-border p-4 rounded-lg text-sm text-text/90 italic animate-fadeIn">
+                                            💡 <span className="text-accent font-semibold flex-1">Idea:</span> {hint}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* User Answer Area */}
