@@ -98,11 +98,18 @@ function Admin() {
         const categoryId = formData.cat || data.categories[0]?.id;
         const categoryName = data.categories.find(c => String(c.id) === String(categoryId))?.name || "Accounting";
 
+        const existingQuestions = data.questions
+            .filter(q => String(q.cat) === String(categoryId))
+            .map(q => q.q);
+
         setGeneratingAI(true);
         try {
             const prompt = `Task: Generate a new, unique interview question and answer for the category: "${categoryName}".
 The difficulty should be one of: basic, intermediate, advanced.
 Ensure the answer is professional and accurate.
+
+IMPORTANT: Do NOT generate any variations of the following already existing questions:
+${JSON.stringify(existingQuestions)}
 
 Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no other text):
 {"q": "Generated question text here?", "a": "The detailed answer text here (can include basic HTML like <strong> or <ul>)", "diff": "intermediate", "highlight": "A short 1-sentence summary or key point of the answer"}
