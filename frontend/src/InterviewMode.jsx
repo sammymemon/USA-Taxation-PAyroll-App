@@ -10,6 +10,7 @@ function InterviewMode() {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState('');
     const [feedback, setFeedback] = useState(null);
+    const [evaluating, setEvaluating] = useState(false);
     const [playingMsg, setPlayingMsg] = useState(false);
     const [voiceSpeed, setVoiceSpeed] = useState(() => parseFloat(localStorage.getItem('voiceSpeed')) || 1);
     const [questionsToAsk, setQuestionsToAsk] = useState([]);
@@ -163,19 +164,69 @@ function InterviewMode() {
         return { percentage, matchedWords, totalWords: actualWords.length };
     };
 
-    const submitAnswer = () => {
+    const submitAnswer = async () => {
         stopRecording();
         const q = questionsToAsk[currentIndex];
-        const result = evaluateAnswer(transcript, q.a);
-        setFeedback(result);
         
-        // Announce the percentage automatically
-        let msg = `Your answer is ${result.percentage}% correct. `;
-        if (result.percentage > 75) msg += "Excellent job!";
-        else if (result.percentage > 50) msg += "Good attempt, but you missed some keywords.";
-        else msg += "You should review this topic. Try again later.";
+        setEvaluating(true);
+        setFeedback(null);
         
-        playAudio(msg, () => {});
+        try {
+            const prompt = `Task: Act as an accounting interview reviewer.
+Compare the user's spoken answer to the actual correct answer.
+Actual Answer: ${q.a.replace(/<[^>]+>/g, ' ')}
+User's Answer: ${transcript}
+
+Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no other text):
+{"percentage": 85, "feedback": "Good attempt, but you missed X."}
+`;
+            
+            const response = await axios.post(
+                "https://api-inference.huggingface.co/models/RinggAI/Ringg-Squirrel-Free-API",
+                { inputs: prompt, parameters: { max_new_tokens: 100, return_full_text: false } },
+                {
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                }
+            );
+            
+            let resultData;
+            try {
+                let generatedText = response.data[0]?.generated_text || response.data?.generated_text || "";
+                
+                if (generatedText.includes('```json')) {
+                    generatedText = generatedText.split('```json')[1].split('```')[0].trim();
+                } else if (generatedText.includes('```')) {
+                    generatedText = generatedText.split('```')[1].split('```')[0].trim();
+                }
+                
+                resultData = JSON.parse(generatedText);
+                
+                if (resultData.percent !== undefined && resultData.percentage === undefined) {
+                    resultData.percentage = resultData.percent;
+                }
+            } catch (err) {
+                console.log("AI Parse error or unexpected output format. Output:", response.data);
+                resultData = evaluateAnswer(transcript, q.a);
+                resultData.feedback = "Used Regex Fallback: " + (resultData.percentage > 50 ? "Good attempt based on keywords!" : "Missed some keywords.");
+            }
+            
+            setFeedback(resultData);
+            setEvaluating(false);
+            
+            const msg = `Score ${resultData.percentage}%. ${resultData.feedback || ""}`;
+            playAudio(msg, () => {});
+            
+        } catch (error) {
+            console.error("AI Evaluation Error", error);
+            const resultData = evaluateAnswer(transcript, q.a);
+            resultData.feedback = "API error, used Regex Fallback. Your score is " + resultData.percentage + "%.";
+            setFeedback(resultData);
+            setEvaluating(false);
+            
+            playAudio(resultData.feedback, () => {});
+        }
     };
 
     const nextQuestion = () => {
@@ -292,9 +343,10 @@ function InterviewMode() {
                             {!feedback && transcript && !isListening && (
                                 <button 
                                     onClick={submitAnswer}
-                                    className="w-full mt-6 bg-accent text-[#0f0e0d] font-bold py-4 rounded-xl hover:scale-[1.02] transition-transform text-lg"
+                                    disabled={evaluating}
+                                    className={`w-full mt-6 text-[#0f0e0d] font-bold py-4 rounded-xl transition-all text-lg flex justify-center items-center gap-2 ${evaluating ? 'bg-accent/50 cursor-not-allowed animate-pulse' : 'bg-accent hover:scale-[1.02]'}`}
                                 >
-                                    Check My Answer (%)
+                                    {evaluating ? "🤖 AI Evaluating Answer..." : "Check My Answer (%)"}
                                 </button>
                             )}
 
@@ -307,9 +359,18 @@ function InterviewMode() {
                                         </div>
                                         <div>
                                             <div className="font-playfair text-xl font-bold text-text mb-1">Match Score</div>
-                                            <div className="text-sm font-plex text-muted uppercase tracking-widest">Based on Keyword Regex</div>
+                                            <div className="text-sm font-plex text-muted uppercase tracking-widest bg-surface px-2 py-0.5 rounded-full border border-border mt-1 inline-block">
+                                                {feedback.feedback && feedback.feedback.includes("Fallback") ? "Regex Keyword Evaluator" : "🤖 AI Ringg-Squirrel Evaluator"}
+                                            </div>
                                         </div>
                                     </div>
+                                    
+                                    {feedback.feedback && (
+                                        <div className="bg-surface2 p-5 rounded-xl border border-border mb-6">
+                                            <h5 className="font-plex text-xs uppercase text-accent mb-2 font-semibold">AI Feedback:</h5>
+                                            <p className="text-[15px] leading-relaxed text-text/90">{feedback.feedback}</p>
+                                        </div>
+                                    )}
                                     
                                     <div className="bg-surface2 p-5 rounded-xl border border-border mb-6">
                                         <h5 className="font-plex text-xs uppercase text-accent mb-3 font-semibold">Ideal Answer & Keywords:</h5>
