@@ -8,6 +8,10 @@ function Admin() {
     const [loading, setLoading] = useState(true);
     const [editingCard, setEditingCard] = useState(null);
 
+    // AI Generation state
+    const [groqApiKey, setGroqApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
+    const [generatingAI, setGeneratingAI] = useState(false);
+
     // Form states
     const [formData, setFormData] = useState({ id: '', q: '', a: '', cat: '', diff: '', highlight: '' });
 
@@ -22,6 +26,10 @@ function Admin() {
         axios.get('/data.json')
             .then(res => {
                 setData(prev => prev.questions && prev.questions.length > 0 ? prev : res.data);
+                // Set default form category to first category if not set
+                if (res.data.categories && res.data.categories.length > 0) {
+                    setFormData(prev => ({ ...prev, cat: res.data.categories[0].id }));
+                }
                 setLoading(false);
             })
             .catch(console.error);
@@ -81,26 +89,82 @@ function Admin() {
         }
     };
 
+    const generateWithAI = async () => {
+        if (!groqApiKey) {
+            alert("Please set your Groq API key in the Voice Interview mode first!");
+            return;
+        }
+
+        const categoryId = formData.cat || data.categories[0]?.id;
+        const categoryName = data.categories.find(c => String(c.id) === String(categoryId))?.name || "Accounting";
+
+        setGeneratingAI(true);
+        try {
+            const prompt = `Task: Generate a new, unique interview question and answer for the category: "${categoryName}".
+The difficulty should be one of: basic, intermediate, advanced.
+Ensure the answer is professional and accurate.
+
+Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no other text):
+{"q": "Generated question text here?", "a": "The detailed answer text here (can include basic HTML like <strong> or <ul>)", "diff": "intermediate", "highlight": "A short 1-sentence summary or key point of the answer"}
+`;
+
+            const response = await axios.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                {
+                    model: "llama-3.1-8b-instant",
+                    messages: [{ role: "user", content: prompt }],
+                    max_tokens: 350,
+                    temperature: 0.7
+                },
+                {
+                    headers: {
+                        "Authorization": `Bearer ${groqApiKey}`,
+                        "Content-Type": "application/json"
+                    }
+                }
+            );
+
+            let generatedText = response.data?.choices?.[0]?.message?.content || "";
+            if (generatedText.includes('```json')) {
+                generatedText = generatedText.split('```json')[1].split('```')[0].trim();
+            } else if (generatedText.includes('```')) {
+                generatedText = generatedText.split('```')[1].split('```')[0].trim();
+            }
+
+            const resultData = JSON.parse(generatedText);
+            
+            setFormData(prev => ({
+                ...prev,
+                q: resultData.q || prev.q,
+                a: resultData.a || prev.a,
+                diff: resultData.diff?.toLowerCase() || prev.diff,
+                highlight: resultData.highlight || prev.highlight
+            }));
+        } catch (error) {
+            console.error("AI Generation failed:", error);
+            alert("Failed to generate question with AI. Check console for details.");
+        }
+        setGeneratingAI(false);
+    };
+
     const renderForm = () => (
         <div className="flex flex-col gap-4">
-            <div className="flex gap-4">
-                <div className="flex-1">
-                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">Question</label>
-                    <textarea value={formData.q} onChange={e => setFormData({ ...formData, q: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text" rows="2" />
-                </div>
+            <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-plex text-muted uppercase">Question Details</span>
+                <button 
+                    onClick={generateWithAI} 
+                    disabled={generatingAI}
+                    type="button"
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md font-plex text-[11px] font-bold ${generatingAI ? 'bg-accent/50 cursor-not-allowed animate-pulse' : 'bg-surface2 border border-accent text-accent hover:bg-accent hover:text-[#0f0e0d] transition-colors'}`}
+                >
+                    🤖 {generatingAI ? "Generating..." : "Auto-Generate with AI"}
+                </button>
             </div>
-            <div>
-                <label className="block font-plex text-[10px] text-muted uppercase mb-1">Answer (HTML)</label>
-                <textarea value={formData.a} onChange={e => setFormData({ ...formData, a: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text font-mono text-xs" rows="4" />
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">ID</label>
-                    <input type="number" value={formData.id} disabled className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-muted opacity-50" />
-                </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
                 <div>
                     <label className="block font-plex text-[10px] text-muted uppercase mb-1">Category</label>
-                    <select value={formData.cat} onChange={e => setFormData({ ...formData, cat: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text">
+                    <select value={formData.cat} onChange={e => setFormData({ ...formData, cat: Number(e.target.value) })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text">
                         {data.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
@@ -112,6 +176,21 @@ function Admin() {
                         <option value="advanced">Advanced</option>
                     </select>
                 </div>
+                <div>
+                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">ID</label>
+                    <input type="number" value={formData.id} disabled className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-muted opacity-50" />
+                </div>
+            </div>
+
+            <div className="flex gap-4">
+                <div className="flex-1">
+                    <label className="block font-plex text-[10px] text-muted uppercase mb-1">Question</label>
+                    <textarea value={formData.q} onChange={e => setFormData({ ...formData, q: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text" rows="2" />
+                </div>
+            </div>
+            <div>
+                <label className="block font-plex text-[10px] text-muted uppercase mb-1">Answer (HTML)</label>
+                <textarea value={formData.a} onChange={e => setFormData({ ...formData, a: e.target.value })} className="w-full bg-surface2 border border-border rounded-md p-2 text-sm text-text font-mono text-xs" rows="4" />
             </div>
             <div>
                 <label className="block font-plex text-[10px] text-muted uppercase mb-1">Highlight Note (optional)</label>
