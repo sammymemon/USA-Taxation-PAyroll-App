@@ -655,19 +655,6 @@ Output ONLY the hint text. No formatting, no json.`;
                     )}
                 </div>
 
-                <div className="bg-surface2/30 border border-border rounded-xl p-5 md:p-6">
-                    <h4 className="font-playfair text-xl text-accent mb-3 font-bold flex items-center gap-2">🤖 How to add Free AI for Smart Evaluation?</h4>
-                    <p className="text-[15px] text-muted leading-relaxed font-serif">
-                        Currently, we use Regex string matching to calculate the %. To make it 100% smart like ChatGPT, you can plug in a free AI model:
-                    </p>
-                    <ul className="text-sm text-text mt-4 space-y-3 font-plex bg-surface p-4 rounded-lg border border-border">
-                        <li><b>1. Get Free API Key:</b> Go to <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" className="text-accent underline">Google AI Studio (Gemini 1.5 Flash is FREE)</a> or Groq.</li>
-                        <li><b>2. Create Backend Route:</b> In your `server.js`, add an endpoint `POST /api/evaluate`.</li>
-                        <li><b>3. Send Data:</b> Send `currentQuestion.a` (actual answer) and the `transcript` (user's spoken answer) to your endpoint.</li>
-                        <li><b>4. AI Prompt:</b> Tell AI: <i>"Compare the user's answer to the actual answer. Output only a JSON with exactly &#123; percent: number, feedback: string &#125;"</i>.</li>
-                        <li><b>5. Implement:</b> Replace the `evaluateAnswer` function in this component with an `axios.post('/api/evaluate')` call.</li>
-                    </ul>
-                </div>
             </div>
         </div>
     );
