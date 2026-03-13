@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2, Sun, Moon, ChevronLeft, ChevronRight, RotateCcw, Mic } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2, Sun, Moon, ChevronLeft, ChevronRight, RotateCcw, Mic, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Home() {
@@ -410,6 +410,9 @@ function Home() {
                         </button>
                         <Link to="/interview" className="px-3 py-1.5 bg-accent text-[#0f0e0d] font-semibold rounded-md hover:opacity-90 transition-colors text-[13px] flex items-center gap-1.5 shadow-md shrink-0 focus:ring-2 ring-offset-2 ring-accent outline-none">
                             <Mic size={16} /> <span className="hidden sm:inline">Interview Mode</span>
+                        </Link>
+                        <Link to="/journal" className="px-3 py-1.5 bg-[#4ade80] text-[#0f0e0d] font-semibold rounded-md hover:opacity-90 transition-colors text-[13px] flex items-center gap-1.5 shadow-md shrink-0 focus:ring-2 ring-offset-2 ring-[#4ade80] outline-none">
+                            <BookOpen size={16} /> <span className="hidden sm:inline">Journal Mode</span>
                         </Link>
                         <Link to="/admin" className="p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent shrink-0">
                             <Settings size={18} />
