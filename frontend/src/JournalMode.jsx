@@ -121,8 +121,10 @@ function JournalMode() {
     // Entry State
     const [generatingText, setGeneratingText] = useState(false);
     const [questionText, setQuestionText] = useState('');
-    const [drRows, setDrRows] = useState([{ account: '', amount: '' }]);
-    const [crRows, setCrRows] = useState([{ account: '', amount: '' }]);
+    const [journalRows, setJournalRows] = useState([
+        { account: '', debit: '', credit: '', description: '', name: '' },
+        { account: '', debit: '', credit: '', description: '', name: '' }
+    ]);
     
     const [evaluating, setEvaluating] = useState(false);
     const [feedback, setFeedback] = useState(null);
@@ -158,8 +160,10 @@ function JournalMode() {
         setGeneratingText(true);
         setQuestionText('');
         setFeedback(null);
-        setDrRows([{ account: '', amount: '' }]);
-        setCrRows([{ account: '', amount: '' }]);
+        setJournalRows([
+            { account: '', debit: '', credit: '', description: '', name: '' },
+            { account: '', debit: '', credit: '', description: '', name: '' }
+        ]);
 
         const prompt = `You are a practical accounting test generator. Generate ONE short journal entry scenario for American bookkeeping in the category "${selectedCategory}" at the "${selectedLevel}" level. 
         It must contain exact dollar amounts so the user can answer it. 
@@ -192,20 +196,14 @@ function JournalMode() {
         setGeneratingText(false);
     };
 
-    const addDrRow = () => setDrRows([...drRows, { account: '', amount: '' }]);
-    const removeDrRow = (index) => setDrRows(drRows.filter((_, i) => i !== index));
-    const updateDrRow = (index, field, value) => {
-        const newRows = [...drRows];
+    const addRow = () => setJournalRows([...journalRows, { account: '', debit: '', credit: '', description: '', name: '' }]);
+    const removeRow = (index) => setJournalRows(journalRows.filter((_, i) => i !== index));
+    const updateRow = (index, field, value) => {
+        const newRows = [...journalRows];
+        if (field === 'debit' && value !== '') newRows[index].credit = '';
+        if (field === 'credit' && value !== '') newRows[index].debit = '';
         newRows[index][field] = value;
-        setDrRows(newRows);
-    };
-
-    const addCrRow = () => setCrRows([...crRows, { account: '', amount: '' }]);
-    const removeCrRow = (index) => setCrRows(crRows.filter((_, i) => i !== index));
-    const updateCrRow = (index, field, value) => {
-        const newRows = [...crRows];
-        newRows[index][field] = value;
-        setCrRows(newRows);
+        setJournalRows(newRows);
     };
 
     const submitAnswer = async () => {
@@ -215,14 +213,18 @@ function JournalMode() {
         let totalDr = 0;
         let totalCr = 0;
 
-        const cleanDr = drRows.filter(r => r.account && r.amount).map(r => {
-            totalDr += parseFloat(r.amount) || 0;
-            return { account: r.account, amount: parseFloat(r.amount) };
-        });
-        
-        const cleanCr = crRows.filter(r => r.account && r.amount).map(r => {
-            totalCr += parseFloat(r.amount) || 0;
-            return { account: r.account, amount: parseFloat(r.amount) };
+        const cleanDr = [];
+        const cleanCr = [];
+
+        journalRows.forEach(r => {
+            if (r.account && r.debit) {
+                totalDr += parseFloat(r.debit) || 0;
+                cleanDr.push({ account: r.account, amount: parseFloat(r.debit) });
+            }
+            if (r.account && r.credit) {
+                totalCr += parseFloat(r.credit) || 0;
+                cleanCr.push({ account: r.account, amount: parseFloat(r.credit) });
+            }
         });
 
         if (cleanDr.length === 0 || cleanCr.length === 0) {
@@ -353,85 +355,100 @@ Provide your evaluation and standard solution in JSON format ONLY:
 
                         {/* Journal Entry Form */}
                         <div className="space-y-6">
-                            {/* Debits */}
-                            <div className="bg-surface2/30 border border-border rounded-xl p-5">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-plex text-sm text-green-500 uppercase tracking-widest font-bold">Dr. (Debit)</h4>
-                                </div>
-                                <div className="space-y-3">
-                                    {drRows.map((row, idx) => (
-                                        <div key={idx} className="flex gap-3 items-center">
-                                            <div className="flex-1">
-                                                <input 
-                                                    type="text" 
-                                                    list="accountsList"
-                                                    value={row.account}
-                                                    onChange={e => updateDrRow(idx, 'account', e.target.value)}
-                                                    placeholder="Account Code / Name" 
-                                                    className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-sm text-text focus:border-accent outline-none"
-                                                />
-                                            </div>
-                                            <div className="w-[120px]">
-                                                <input 
-                                                    type="number" 
-                                                    value={row.amount}
-                                                    onChange={e => updateDrRow(idx, 'amount', e.target.value)}
-                                                    placeholder="$ Amount" 
-                                                    className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-sm text-text focus:border-accent outline-none"
-                                                />
-                                            </div>
-                                            {drRows.length > 1 && (
-                                                <button onClick={() => removeDrRow(idx)} className="text-red-500 hover:text-red-400 p-2">
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                                <button onClick={addDrRow} className="mt-4 flex items-center gap-1 text-sm font-plex text-muted hover:text-green-500 transition-colors">
-                                    <Plus size={16} /> Add Debit Line
-                                </button>
+                        {/* Journal Entry Form - QuickBooks Style */}
+                        <div className="bg-surface border border-border rounded-xl shadow-md overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-surface2/50 border-b border-border text-xs uppercase tracking-wider font-plex text-muted">
+                                            <th className="p-3 w-10 text-center">#</th>
+                                            <th className="p-3 min-w-[200px]">Account</th>
+                                            <th className="p-3 w-[120px]">Debits</th>
+                                            <th className="p-3 w-[120px]">Credits</th>
+                                            <th className="p-3 min-w-[150px]">Description</th>
+                                            <th className="p-3 min-w-[150px]">Name</th>
+                                            <th className="p-3 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {journalRows.map((row, idx) => (
+                                            <tr key={idx} className="hover:bg-surface2/20 transition-colors">
+                                                <td className="p-3 text-center text-muted font-plex text-xs">{idx + 1}</td>
+                                                <td className="p-2">
+                                                    <input 
+                                                        type="text" 
+                                                        list="accountsList"
+                                                        value={row.account}
+                                                        onChange={e => updateRow(idx, 'account', e.target.value)}
+                                                        placeholder="Account Code / Name" 
+                                                        className="w-full bg-transparent border border-transparent hover:border-border focus:border-accent px-2 py-1 rounded-md text-sm text-text outline-none transition-colors"
+                                                    />
+                                                </td>
+                                                <td className="p-2">
+                                                    <input 
+                                                        type="number" 
+                                                        value={row.debit}
+                                                        onChange={e => updateRow(idx, 'debit', e.target.value)}
+                                                        placeholder="" 
+                                                        className="w-full bg-transparent border border-transparent hover:border-border focus:border-accent px-2 py-1 rounded-md text-sm text-text outline-none transition-colors"
+                                                    />
+                                                </td>
+                                                <td className="p-2">
+                                                    <input 
+                                                        type="number" 
+                                                        value={row.credit}
+                                                        onChange={e => updateRow(idx, 'credit', e.target.value)}
+                                                        placeholder="" 
+                                                        className="w-full bg-transparent border border-transparent hover:border-border focus:border-accent px-2 py-1 rounded-md text-sm text-text outline-none transition-colors"
+                                                    />
+                                                </td>
+                                                <td className="p-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={row.description}
+                                                        onChange={e => updateRow(idx, 'description', e.target.value)}
+                                                        placeholder="Description" 
+                                                        className="w-full bg-transparent border border-transparent hover:border-border focus:border-accent px-2 py-1 rounded-md text-sm text-text outline-none transition-colors"
+                                                    />
+                                                </td>
+                                                <td className="p-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={row.name}
+                                                        onChange={e => updateRow(idx, 'name', e.target.value)}
+                                                        placeholder="Name" 
+                                                        className="w-full bg-transparent border border-transparent hover:border-border focus:border-accent px-2 py-1 rounded-md text-sm text-text outline-none transition-colors"
+                                                    />
+                                                </td>
+                                                <td className="p-2 text-center">
+                                                    {journalRows.length > 2 && (
+                                                        <button onClick={() => removeRow(idx)} className="text-red-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-colors" title="Delete Line">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-
-                            {/* Credits */}
-                            <div className="bg-surface2/30 border border-border rounded-xl p-5 ml-0 md:ml-12 border-l-4 border-l-red-500/50">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-plex text-sm text-red-500 uppercase tracking-widest font-bold">Cr. (Credit)</h4>
-                                </div>
-                                <div className="space-y-3">
-                                    {crRows.map((row, idx) => (
-                                        <div key={idx} className="flex gap-3 items-center">
-                                            <div className="flex-1">
-                                                <input 
-                                                    type="text" 
-                                                    list="accountsList"
-                                                    value={row.account}
-                                                    onChange={e => updateCrRow(idx, 'account', e.target.value)}
-                                                    placeholder="Account Code / Name" 
-                                                    className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-sm text-text focus:border-accent outline-none"
-                                                />
-                                            </div>
-                                            <div className="w-[120px]">
-                                                <input 
-                                                    type="number" 
-                                                    value={row.amount}
-                                                    onChange={e => updateCrRow(idx, 'amount', e.target.value)}
-                                                    placeholder="$ Amount" 
-                                                    className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-sm text-text focus:border-accent outline-none"
-                                                />
-                                            </div>
-                                            {crRows.length > 1 && (
-                                                <button onClick={() => removeCrRow(idx)} className="text-red-500 hover:text-red-400 p-2">
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                                <button onClick={addCrRow} className="mt-4 flex items-center gap-1 text-sm font-plex text-muted hover:text-red-500 transition-colors">
-                                    <Plus size={16} /> Add Credit Line
+                            <div className="p-3 border-t border-border bg-surface2/30 flex justify-between items-center">
+                                <button onClick={addRow} className="flex items-center gap-1 text-sm font-plex text-accent hover:text-accent-light transition-colors py-1 px-3 rounded-md hover:bg-accent/10 border border-transparent hover:border-accent/20">
+                                    <Plus size={16} /> Add lines
                                 </button>
+                                
+                                <div className="flex gap-8 px-4 font-plex text-sm">
+                                    <div className="flex gap-2">
+                                        <span className="text-muted">Total Debits:</span>
+                                        <span className="font-bold text-text">${journalRows.reduce((sum, r) => sum + (parseFloat(r.debit) || 0), 0).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <span className="text-muted">Total Credits:</span>
+                                        <span className="font-bold text-text">${journalRows.reduce((sum, r) => sum + (parseFloat(r.credit) || 0), 0).toFixed(2)}</span>
+                                    </div>
+                                </div>
                             </div>
+                        </div>
                             
                             <datalist id="accountsList">
                                 {CHART_OF_ACCOUNTS.map(acc => <option key={acc} value={acc} />)}
