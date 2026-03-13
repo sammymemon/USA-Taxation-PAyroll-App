@@ -3,32 +3,109 @@ import axios from 'axios';
 import { ArrowLeft, Plus, Trash2, CheckCircle, RefreshCcw, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+// A comprehensive American Chart of Accounts for a typical bookkeeping test/app
 const CHART_OF_ACCOUNTS = [
+    // --- ASSETS (1000 - 1999) ---
+    // Current Assets
     "1000 - Cash",
+    "1010 - Petty Cash",
+    "1020 - Checking Account",
+    "1030 - Savings Account",
     "1200 - Accounts Receivable",
+    "1210 - Allowance for Doubtful Accounts",
     "1300 - Inventory",
     "1400 - Prepaid Expenses",
+    "1410 - Prepaid Insurance",
+    "1420 - Prepaid Rent",
+    "1450 - Supplies",
+    // Fixed/Long-Term Assets
     "1500 - Equipment",
-    "1550 - Accumulated Depreciation",
+    "1510 - Accumulated Depreciation - Equipment",
+    "1600 - Furniture & Fixtures",
+    "1610 - Accumulated Depreciation - Furniture",
+    "1700 - Vehicles",
+    "1710 - Accumulated Depreciation - Vehicles",
+    "1800 - Buildings",
+    "1810 - Accumulated Depreciation - Buildings",
+    "1900 - Land",
+
+    // --- LIABILITIES (2000 - 2999) ---
+    // Current Liabilities
     "2000 - Accounts Payable",
+    "2010 - Credit Card Payable",
     "2100 - Wages Payable",
+    "2110 - Salaries Payable",
     "2150 - Payroll Taxes Payable",
+    "2160 - FICA Taxes Payable",
+    "2170 - Federal Unemployment Taxes Payable (FUTA)",
+    "2180 - State Unemployment Taxes Payable (SUTA)",
+    "2190 - State Income Tax Payable",
     "2200 - Accrued Liabilities",
-    "2300 - Notes Payable",
+    "2210 - Accrued Interest Payable",
+    "2300 - Notes Payable (Short-Term)",
     "2400 - Unearned Revenue",
+    "2410 - Customer Deposits",
+    "2500 - Sales Tax Payable",
+    // Long-Term Liabilities
+    "2700 - Notes Payable (Long-Term)",
+    "2800 - Mortgage Payable",
+    "2900 - Bonds Payable",
+
+    // --- EQUITY (3000 - 3999) ---
     "3000 - Common Stock",
+    "3010 - Preferred Stock",
+    "3050 - Additional Paid-In Capital",
     "3100 - Retained Earnings",
     "3200 - Dividends",
+    "3300 - Owner's Equity / Capital",
+    "3400 - Owner's Draws",
+
+    // --- REVENUE (4000 - 4999) ---
     "4000 - Sales Revenue",
+    "4010 - Product Sales",
+    "4050 - Sales Returns & Allowances",
+    "4060 - Sales Discounts",
     "4100 - Service Revenue",
+    "4150 - Consulting Revenue",
     "4200 - Interest Income",
+    "4300 - Dividend Income",
+    "4400 - Rental Income",
+
+    // --- COST OF GOODS SOLD (5000 - 5099) ---
     "5000 - Cost of Goods Sold",
+    "5010 - Purchases",
+    "5020 - Purchase Returns & Allowances",
+    "5030 - Purchase Discounts",
+    "5050 - Freight In",
+
+    // --- EXPENSES (5100 - 5999) ---
     "5100 - Payroll Expense",
+    "5110 - Salaries Expense",
+    "5120 - Wages Expense",
     "5150 - Payroll Tax Expense",
+    "5160 - Employee Benefits Expense",
     "5200 - Rent Expense",
     "5300 - Utilities Expense",
+    "5310 - Telephone & Internet Expense",
     "5400 - Depreciation Expense",
-    "5900 - Miscellaneous Expense"
+    "5450 - Amortization Expense",
+    "5500 - Advertising & Marketing Expense",
+    "5510 - Website Expense",
+    "5600 - Office Supplies Expense",
+    "5610 - Postage & Delivery Expense",
+    "5700 - Insurance Expense",
+    "5710 - Maintenance & Repairs Expense",
+    "5800 - Professional Fees (Legal & Accounting)",
+    "5810 - Travel & Entertainment Expense",
+    "5820 - Bank Service Charges",
+    "5830 - Interest Expense",
+    "5840 - Bad Debt Expense",
+    "5900 - Miscellaneous Expense",
+    "5950 - Taxes & Licenses Expense",
+    
+    // --- GAINS/LOSSES (7000) ---
+    "7000 - Gain on Sale of Asset",
+    "7100 - Loss on Sale of Asset"
 ];
 
 function JournalMode() {
