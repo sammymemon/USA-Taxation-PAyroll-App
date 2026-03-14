@@ -223,6 +223,7 @@ export default function InterviewMode() {
     const startInterview = async () => {
         if (!apiKey) { setShowSettings(true); return; }
         setErrorMsg('');
+        setAiSpeaking(true); // Show loading on setup screen
 
         let filtered = data.questions || [];
         if (selectedCategory !== 'All') {
@@ -236,48 +237,48 @@ export default function InterviewMode() {
             );
         }
         if (filtered.length === 0) filtered = data.questions || [];
-        if (filtered.length === 0) { setErrorMsg('No questions found in the data. Please reload the page.'); return; }
+        if (filtered.length === 0) {
+            setAiSpeaking(false);
+            setErrorMsg('No questions found. Please reload the page.');
+            return;
+        }
 
         const shuffled = [...filtered].sort(() => Math.random() - 0.5).slice(0, selectedTotal);
 
-        // Reset all state
+        // Build the first message BEFORE switching phase
+        const name = interviewName.trim() || 'there';
+        let greeting = `Hi ${name}! 👋 Welcome to your accounting interview with me, Aria. I'll ask you ${selectedTotal} questions — just speak or type your answers. Let's begin!`;
+
+        try {
+            const res = await groqChat(apiKey, [
+                {
+                    role: 'system',
+                    content: `You are Aria, an expert US accounting & bookkeeping interviewer AI. Warm, professional, concise.`
+                },
+                {
+                    role: 'user',
+                    content: `Greet "${name}", say you'll ask ${selectedTotal} accounting questions. 2 sentences, enthusiastic.`
+                }
+            ], 'llama-3.3-70b-versatile', 120);
+            if (res && res.trim()) greeting = res;
+        } catch (err) {
+            console.error('Greeting fetch error (using fallback):', err);
+        }
+
+        // NOW switch phase — messages already have content
+        setMessages([{ role: 'ai', content: greeting }]);
         setQuestionsQueue(shuffled);
         setCurrentQIdx(0);
         setQuestionsAsked(0);
         setScores([]);
-        setMessages([]);
-        setPhase('interview');
         setInterviewDone(false);
         setSummary(null);
         setWaitingForAnswer(false);
-        setAiSpeaking(true);
+        setAiSpeaking(false);
+        setPhase('interview'); // Switch LAST — screen is never blank
 
-        try {
-            const name = interviewName.trim() || 'there';
-            const typingId = addTypingIndicator();
-
-            const greeting = await groqChat(apiKey, [
-                {
-                    role: 'system',
-                    content: `You are Aria, an expert US accounting & bookkeeping interviewer AI. You are warm, professional, and encouraging. Keep responses concise (2-3 sentences max).`
-                },
-                {
-                    role: 'user',
-                    content: `Greet the candidate named "${name}" and say you will ask ${selectedTotal} accounting questions. Be warm. 2 sentences max.`
-                }
-            ], 'llama-3.3-70b-versatile', 120);
-
-            removeTypingAndAdd(typingId, greeting);
-            setAiSpeaking(false);
-            speak(greeting, () => setTimeout(() => askNextQuestion(shuffled, 0), 800));
-        } catch (err) {
-            console.error('Aria greeting error:', err);
-            setAiSpeaking(false);
-            // Skip greeting on error, still start interview
-            const fallback = `Hi! Welcome to your accounting interview. Let's get started with ${selectedTotal} questions!`;
-            addAIMessage(fallback);
-            setTimeout(() => askNextQuestion(shuffled, 0), 500);
-        }
+        speak(greeting, () => setTimeout(() => askNextQuestion(shuffled, 0), 800));
+        setTimeout(() => askNextQuestion(shuffled, 0), 3500); // Fallback if TTS not supported
     };
 
     // ── Ask Next Question ─────────────────────────────────────────────────────
@@ -621,14 +622,20 @@ Format your response EXACTLY as JSON:
 
                             <button
                                 onClick={startInterview}
-                                disabled={!apiKey}
+                                disabled={!apiKey || aiSpeaking}
                                 className={`w-full font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-base ${
-                                    apiKey
-                                        ? 'bg-accent text-[#0f0e0d] hover:scale-[1.02] shadow-lg shadow-accent/25'
-                                        : 'bg-surface2 text-muted cursor-not-allowed'
+                                    !apiKey
+                                        ? 'bg-surface2 text-muted cursor-not-allowed'
+                                        : aiSpeaking
+                                        ? 'bg-accent/70 text-[#0f0e0d] cursor-wait'
+                                        : 'bg-accent text-[#0f0e0d] hover:scale-[1.02] shadow-lg shadow-accent/25'
                                 }`}
                             >
-                                <Play size={20} fill="currentColor" /> Start Interview with Aria
+                                {aiSpeaking ? (
+                                    <><Loader2 size={20} className="animate-spin" /> Connecting to Aria...</>
+                                ) : (
+                                    <><Play size={20} fill="currentColor" /> Start Interview with Aria</>
+                                )}
                             </button>
 
                             {errorMsg && (
