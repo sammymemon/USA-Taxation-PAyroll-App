@@ -91,7 +91,7 @@ export default function InterviewMode() {
     const [questionsQueue, setQuestionsQueue] = useState([]);
     const [currentQIdx, setCurrentQIdx] = useState(0);
     const [questionsAsked, setQuestionsAsked] = useState(0);
-    const [totalQuestions] = useState(5);
+    const [selectedTotal, setSelectedTotal] = useState(10);
     const [scores, setScores] = useState([]);
     const [aiSpeaking, setAiSpeaking] = useState(false);
     const [waitingForAnswer, setWaitingForAnswer] = useState(false);
@@ -236,7 +236,7 @@ export default function InterviewMode() {
         }
         if (filtered.length === 0) filtered = data.questions;
 
-        const shuffled = [...filtered].sort(() => Math.random() - 0.5).slice(0, totalQuestions);
+        const shuffled = [...filtered].sort(() => Math.random() - 0.5).slice(0, selectedTotal);
         setQuestionsQueue(shuffled);
         setCurrentQIdx(0);
         setQuestionsAsked(0);
@@ -258,7 +258,7 @@ export default function InterviewMode() {
             },
             {
                 role: 'user',
-                content: `Greet the candidate named "${name}" and tell them you'll ask ${totalQuestions} accounting questions. Be warm and energetic. Keep it to 2 sentences only.`
+                content: `Greet the candidate named "${name}" and tell them you'll ask ${selectedTotal} accounting questions. Be warm and energetic. Keep it to 2 sentences only.`
             }
         ], 'llama-3.3-70b-versatile', 120);
 
@@ -572,6 +572,26 @@ Format your response EXACTLY as JSON:
                                 </div>
                             </div>
 
+                            <div>
+                                <label className="block text-[10px] uppercase font-bold tracking-widest text-muted mb-2">Number of Questions</label>
+                                <div className="grid grid-cols-5 gap-2">
+                                    {[5, 10, 20, 30, 50].map(n => (
+                                        <button
+                                            key={n}
+                                            onClick={() => setSelectedTotal(n)}
+                                            className={`py-2.5 rounded-xl text-xs font-bold font-plex border transition-all ${
+                                                selectedTotal === n
+                                                    ? 'bg-accent text-[#0f0e0d] border-accent shadow-md shadow-accent/20'
+                                                    : 'bg-bg border-border text-muted hover:border-accent/50 hover:text-text'
+                                            }`}
+                                        >
+                                            {n}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-muted font-plex mt-1.5">Select how many questions you want to practice</p>
+                            </div>
+
                             {!apiKey && (
                                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs font-plex text-red-400">
                                     ⚠ Add your free Groq API key in <button onClick={() => setShowSettings(true)} className="underline font-bold">Settings ⚙</button> to start.
@@ -593,7 +613,7 @@ Format your response EXACTLY as JSON:
                         </div>
 
                         <p className="text-center text-[11px] text-muted mt-4 font-plex">
-                            Free · Powered by Groq LLaMA 3.3 70B · {totalQuestions} questions per session
+                            Free · Powered by Groq LLaMA 3.3 70B · {selectedTotal} questions per session
                         </p>
                     </div>
                 </div>
