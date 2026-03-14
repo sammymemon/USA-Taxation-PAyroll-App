@@ -98,6 +98,7 @@ export default function InterviewMode() {
     const [evaluating, setEvaluating] = useState(false);
     const [interviewDone, setInterviewDone] = useState(false);
     const [summary, setSummary] = useState(null);
+    const [errorMsg, setErrorMsg] = useState('');
 
     // Voice
     const [isListening, setIsListening] = useState(false);
@@ -220,23 +221,26 @@ export default function InterviewMode() {
 
     // ── Start Interview ──────────────────────────────────────────────────────
     const startInterview = async () => {
-        if (!apiKey) { alert('Please add your Groq API key in Settings ⚙ first!'); setShowSettings(true); return; }
+        if (!apiKey) { setShowSettings(true); return; }
+        setErrorMsg('');
 
-        let filtered = data.questions;
+        let filtered = data.questions || [];
         if (selectedCategory !== 'All') {
-            const catId = data.categories.find(c => c.name === selectedCategory)?.id;
-            if (catId !== undefined) filtered = data.questions.filter(q => q.cat === catId);
+            const catId = data.categories?.find(c => c.name === selectedCategory)?.id;
+            if (catId !== undefined) filtered = filtered.filter(q => q.cat === catId);
         }
         if (selectedDifficulty !== 'Mixed') {
-            // Rough difficulty filter by question length
             filtered = filtered.filter(q =>
                 selectedDifficulty === 'Beginner' ? (q.q?.length || 0) < 80 :
                 selectedDifficulty === 'Intermediate' ? (q.q?.length || 0) < 150 : true
             );
         }
-        if (filtered.length === 0) filtered = data.questions;
+        if (filtered.length === 0) filtered = data.questions || [];
+        if (filtered.length === 0) { setErrorMsg('No questions found in the data. Please reload the page.'); return; }
 
         const shuffled = [...filtered].sort(() => Math.random() - 0.5).slice(0, selectedTotal);
+
+        // Reset all state
         setQuestionsQueue(shuffled);
         setCurrentQIdx(0);
         setQuestionsAsked(0);
@@ -245,61 +249,77 @@ export default function InterviewMode() {
         setPhase('interview');
         setInterviewDone(false);
         setSummary(null);
-
-        // Opening greeting from AI
-        const name = interviewName.trim() || 'there';
-        const typingId = addTypingIndicator();
+        setWaitingForAnswer(false);
         setAiSpeaking(true);
 
-        const greeting = await groqChat(apiKey, [
-            {
-                role: 'system',
-                content: `You are Aria, an expert US accounting & bookkeeping interviewer AI. You are warm, professional, and encouraging. Keep responses concise (2-3 sentences max). You will interview candidates on US accounting, bookkeeping, payroll, and QuickBooks topics.`
-            },
-            {
-                role: 'user',
-                content: `Greet the candidate named "${name}" and tell them you'll ask ${selectedTotal} accounting questions. Be warm and energetic. Keep it to 2 sentences only.`
-            }
-        ], 'llama-3.3-70b-versatile', 120);
+        try {
+            const name = interviewName.trim() || 'there';
+            const typingId = addTypingIndicator();
 
-        removeTypingAndAdd(typingId, greeting);
-        setAiSpeaking(false);
-        speak(greeting, () => {
-            // Ask first question after greeting
-            setTimeout(() => askNextQuestion(shuffled, 0), 800);
-        });
+            const greeting = await groqChat(apiKey, [
+                {
+                    role: 'system',
+                    content: `You are Aria, an expert US accounting & bookkeeping interviewer AI. You are warm, professional, and encouraging. Keep responses concise (2-3 sentences max).`
+                },
+                {
+                    role: 'user',
+                    content: `Greet the candidate named "${name}" and say you will ask ${selectedTotal} accounting questions. Be warm. 2 sentences max.`
+                }
+            ], 'llama-3.3-70b-versatile', 120);
+
+            removeTypingAndAdd(typingId, greeting);
+            setAiSpeaking(false);
+            speak(greeting, () => setTimeout(() => askNextQuestion(shuffled, 0), 800));
+        } catch (err) {
+            console.error('Aria greeting error:', err);
+            setAiSpeaking(false);
+            // Skip greeting on error, still start interview
+            const fallback = `Hi! Welcome to your accounting interview. Let's get started with ${selectedTotal} questions!`;
+            addAIMessage(fallback);
+            setTimeout(() => askNextQuestion(shuffled, 0), 500);
+        }
     };
 
     // ── Ask Next Question ─────────────────────────────────────────────────────
     const askNextQuestion = async (queue, idx) => {
-        if (idx >= queue.length) {
+        if (idx >= (queue?.length || 0)) {
             finishInterview();
             return;
         }
 
         const q = queue[idx];
+        if (!q) { finishInterview(); return; }
+
         const typingId = addTypingIndicator();
         setAiSpeaking(true);
         setWaitingForAnswer(false);
-
-        // Use Groq to rephrase question naturally
-        const questionMsg = await groqChat(apiKey, [
-            {
-                role: 'system',
-                content: 'You are Aria, a professional accounting interviewer. Ask the following question naturally as if in a real interview. Keep it to 1-2 sentences max. Do NOT give hints or answers.'
-            },
-            {
-                role: 'user',
-                content: `Question ${idx + 1} of ${queue.length}: ${q.q}`
-            }
-        ], 'llama-3.3-70b-versatile', 100);
-
-        removeTypingAndAdd(typingId, questionMsg);
-        setAiSpeaking(false);
         setCurrentQIdx(idx);
         setQuestionsAsked(idx + 1);
-        setWaitingForAnswer(true);
-        speak(questionMsg);
+
+        try {
+            // Use Groq to rephrase question naturally
+            const questionMsg = await groqChat(apiKey, [
+                {
+                    role: 'system',
+                    content: 'You are Aria, a professional accounting interviewer. Ask the following question naturally as if in a real interview. Keep it to 1-2 sentences max. Do NOT give hints or answers.'
+                },
+                {
+                    role: 'user',
+                    content: `Question ${idx + 1} of ${queue.length}: ${q.q}`
+                }
+            ], 'llama-3.3-70b-versatile', 100);
+
+            removeTypingAndAdd(typingId, questionMsg);
+            setAiSpeaking(false);
+            setWaitingForAnswer(true);
+            speak(questionMsg);
+        } catch (err) {
+            console.error('Question error:', err);
+            // Fallback: show the raw question
+            removeTypingAndAdd(typingId, `Question ${idx + 1}: ${q.q}`);
+            setAiSpeaking(false);
+            setWaitingForAnswer(true);
+        }
     };
 
     // ── Submit Answer ────────────────────────────────────────────────────────
@@ -610,6 +630,12 @@ Format your response EXACTLY as JSON:
                             >
                                 <Play size={20} fill="currentColor" /> Start Interview with Aria
                             </button>
+
+                            {errorMsg && (
+                                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs font-plex text-red-400">
+                                    ⚠ {errorMsg}
+                                </div>
+                            )}
                         </div>
 
                         <p className="text-center text-[11px] text-muted mt-4 font-plex">
@@ -626,11 +652,11 @@ Format your response EXACTLY as JSON:
                     {/* Progress bar */}
                     {phase === 'interview' && (
                         <div className="flex items-center gap-2 px-1">
-                            <span className="text-[10px] font-plex text-muted shrink-0">Q {Math.min(questionsAsked, totalQuestions)}/{totalQuestions}</span>
+                            <span className="text-[10px] font-plex text-muted shrink-0">Q {Math.min(questionsAsked, selectedTotal)}/{selectedTotal}</span>
                             <div className="flex-1 bg-surface border border-border rounded-full h-1.5 overflow-hidden">
                                 <div
                                     className="bg-accent h-full rounded-full transition-all duration-700"
-                                    style={{ width: `${(Math.min(questionsAsked, totalQuestions) / totalQuestions) * 100}%` }}
+                                    style={{ width: `${(Math.min(questionsAsked, selectedTotal) / selectedTotal) * 100}%` }}
                                 />
                             </div>
                             {scores.length > 0 && (
