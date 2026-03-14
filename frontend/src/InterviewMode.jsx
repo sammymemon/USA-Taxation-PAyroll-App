@@ -422,35 +422,46 @@ Output ONLY the hint text. No formatting, no json.`;
 
     return (
         <div className="min-h-screen bg-bg text-text font-serif">
-            <div className="bg-surface border-b border-border p-6 flex justify-between items-center sticky top-0 z-50">
-                <div className="flex items-center gap-4">
-                    <Link to="/" onClick={stopAudio} className="p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent">
+            {/* Header */}
+            <div className="bg-surface/80 backdrop-blur-md border-b border-border p-4 md:p-5 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <Link to="/" onClick={stopAudio} className="p-2 bg-bg border border-border rounded-lg hover:bg-surface2 hover:border-accent/50 transition-all text-muted hover:text-accent shadow-sm">
                         <ArrowLeft size={18} />
                     </Link>
-                    <h1 className="font-playfair text-xl md:text-2xl font-bold text-accent">
-                        🎤 Voice Interview Mode
+                    <h1 className="font-playfair text-lg md:text-2xl font-bold text-text flex items-center gap-2">
+                        <div className="p-1.5 bg-accent/10 rounded-lg text-accent">
+                            <Mic size={18} />
+                        </div>
+                        <span className="hidden sm:inline">Voice Interview Mode</span>
+                        <span className="inline sm:hidden">Interview</span>
                     </h1>
                 </div>
+                {interviewActive && (
+                    <span className="font-plex text-xs text-muted bg-surface2 border border-border px-3 py-1.5 rounded-full">
+                        Q {currentIndex + 1}/{questionsToAsk.length}
+                    </span>
+                )}
             </div>
 
-            <div className="max-w-3xl mx-auto p-6 md:p-10">
+            <div className="max-w-3xl mx-auto px-4 py-6 md:p-10">
                 {!interviewActive ? (
-                    <div className="bg-surface border border-border rounded-xl p-8 text-center shadow-lg">
-                        <h2 className="text-2xl font-playfair font-bold text-accent mb-4">Ready for your Interview?</h2>
-                        <p className="text-muted mb-8 max-w-lg mx-auto leading-relaxed">
-                            In this mode, the app will speak a question.
-                            You will answer using your voice directly without typing.
-                            We will use Regex filtering to evaluate your speech and score your answer based on keywords match.
+                    <div className="bg-surface border border-border rounded-2xl p-6 md:p-10 shadow-xl text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto mb-5">
+                            <Mic size={30} className="text-accent" />
+                        </div>
+                        <h2 className="text-2xl md:text-3xl font-playfair font-bold text-text mb-3">Ready for Your Interview?</h2>
+                        <p className="text-muted mb-8 max-w-md mx-auto leading-relaxed font-plex text-sm">
+                            The app will speak a question aloud. Answer using your voice — AI will evaluate your response and score it based on keyword match.
                         </p>
 
                         <div className="mb-8 max-w-xs mx-auto text-left">
-                            <label className="block text-sm font-plex text-accent mb-2 uppercase tracking-wide">
+                            <label className="block text-xs font-plex text-accent mb-2 uppercase tracking-widest font-bold">
                                 Select Category
                             </label>
                             <select
                                 value={selectedCategory}
                                 onChange={(e) => setSelectedCategory(e.target.value)}
-                                className="w-full bg-bg border border-border px-4 py-3 rounded-lg text-text font-serif focus:border-accent outline-none appearance-none cursor-pointer"
+                                className="w-full bg-bg border border-border px-4 py-3 rounded-xl text-text font-plex text-sm focus:border-accent outline-none appearance-none cursor-pointer shadow-sm"
                             >
                                 <option value="All">All Categories ({data.questions?.length || 0})</option>
                                 {data.categories?.map(cat => (
@@ -460,95 +471,105 @@ Output ONLY the hint text. No formatting, no json.`;
                                 ))}
                             </select>
                         </div>
-
                         <button
                             onClick={startInterview}
-                            className="bg-accent text-[#0f0e0d] font-bold px-8 py-4 rounded-xl text-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto"
+                            className="bg-accent text-[#0f0e0d] font-bold px-10 py-4 rounded-xl text-base hover:scale-105 transition-transform flex items-center gap-2 mx-auto shadow-lg shadow-accent/20"
                         >
                             <Play size={20} fill="currentColor" /> Start Voice Interview
                         </button>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-6">
-                        <div className="flex justify-between items-center font-plex text-xs text-muted uppercase tracking-widest">
-                            <span>Question {currentIndex + 1} of {questionsToAsk.length}</span>
+                    <div className="flex flex-col gap-5">
+                        {/* Progress Bar */}
+                        <div className="w-full bg-surface border border-border rounded-full h-1.5 overflow-hidden">
+                            <div
+                                className="bg-accent h-full rounded-full transition-all duration-500"
+                                style={{ width: `${((currentIndex + 1) / questionsToAsk.length) * 100}%` }}
+                            />
                         </div>
 
                         {/* Question Card */}
-                        <div className="bg-surface border border-border rounded-2xl p-6 md:p-8 shadow-lg relative">
+                        <div className="bg-surface border border-border rounded-2xl p-5 md:p-8 shadow-lg relative">
                             {playingMsg && (
-                                <div className="absolute top-4 right-4 flex items-center gap-1.5 text-xs text-accent font-plex font-bold animate-pulse border border-accent/30 bg-accent/10 px-3 py-1 rounded-full">
-                                    <Volume2 size={14} /> Speaking...
+                                <div className="absolute top-3 right-3 flex items-center gap-1 text-[10px] text-accent font-plex font-bold animate-pulse border border-accent/30 bg-accent/10 px-2.5 py-1 rounded-full">
+                                    <Volume2 size={11} /> Speaking...
                                 </div>
                             )}
-
-                            <h3 className="font-serif text-xl md:text-2xl text-text leading-relaxed mt-4">
+                            <p className="font-plex text-[10px] text-muted uppercase tracking-widest mb-3 font-bold">Question {currentIndex + 1}</p>
+                            <h3 className="font-serif text-lg md:text-2xl text-text leading-relaxed">
                                 {currentQ?.q}
                             </h3>
 
-                            <div className="mt-6 flex gap-3">
+                            <div className="mt-5 flex flex-wrap gap-2">
                                 <button
                                     onClick={() => playAudio(currentQ?.q)}
-                                    className="p-3 bg-surface2 border border-border rounded-full text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all"
-                                    title="Repeat Question"
+                                    className="flex items-center gap-1.5 text-xs font-plex px-3 py-2 bg-surface2 border border-border rounded-lg text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all"
                                 >
-                                    <RefreshCcw size={18} />
+                                    <RefreshCcw size={13} /> Repeat
                                 </button>
                                 {playingMsg && (
                                     <button
                                         onClick={stopAudio}
-                                        className="p-3 bg-red-500/10 border border-red-500/20 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all"
-                                        title="Stop Audio"
+                                        className="flex items-center gap-1.5 text-xs font-plex px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all"
                                     >
-                                        <Square size={18} fill="currentColor" />
+                                        <Square size={13} fill="currentColor" /> Stop
                                     </button>
                                 )}
                             </div>
 
                             {!feedback && (
-                                <div className="mt-6 border-t border-border pt-4 text-center">
+                                <div className="mt-4 border-t border-border pt-4">
                                     {!hint ? (
                                         <button
                                             onClick={generateHint}
                                             disabled={loadingHint}
-                                            className="text-sm font-plex text-accent hover:underline flex items-center gap-1.5 mx-auto opacity-80 hover:opacity-100"
+                                            className="text-xs font-plex text-accent hover:underline flex items-center gap-1.5 opacity-80 hover:opacity-100"
                                         >
-                                            {loadingHint ? "🤖 Thinking..." : "💡 Generate AI Idea / Hint (Groq AI)"}
+                                            {loadingHint ? "🤖 Generating hint..." : "💡 Get AI Hint (Groq)"}
                                         </button>
                                     ) : (
-                                        <div className="bg-surface2/50 border border-border p-4 rounded-lg text-sm text-text/90 italic animate-fadeIn">
-                                            💡 <span className="text-accent font-semibold flex-1">Idea:</span> {hint}
+                                        <div className="bg-accent/5 border border-accent/20 p-3 rounded-xl text-sm text-text/90 italic animate-fadeIn">
+                                            💡 <span className="text-accent font-semibold not-italic">Hint: </span>{hint}
                                         </div>
                                     )}
                                 </div>
                             )}
                         </div>
 
-                        {/* User Answer Area */}
-                        <div className="bg-surface border border-border rounded-2xl p-6 md:p-8 shadow-lg">
-                            <div className="flex justify-between items-center mb-4">
-                                <h4 className="font-playfair text-lg text-accent border-b border-border pb-1 flex items-center gap-2">
-                                    Your Voice Answer:
-                                    {useGroqAI && <span className="bg-accent text-[#0f0e0d] text-[10px] font-plex px-2 py-0.5 rounded-md uppercase font-bold tracking-wider">Groq Whisper AI Active</span>}
-                                </h4>
+                        {/* Answer Area */}
+                        <div className="bg-surface border border-border rounded-2xl p-5 md:p-8 shadow-lg">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                                <div>
+                                    <h4 className="font-playfair text-base md:text-lg text-text font-bold">Your Answer</h4>
+                                    {useGroqAI && (
+                                        <span className="bg-accent/10 text-accent border border-accent/20 text-[10px] font-plex px-2 py-0.5 rounded-md uppercase font-bold tracking-wider mt-1 inline-block">
+                                            Groq Whisper Active
+                                        </span>
+                                    )}
+                                </div>
                                 {!feedback && (
                                     <button
                                         onClick={isListening ? stopRecording : startRecording}
                                         disabled={transcribingGroq}
-                                        className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-surface2 border border-border hover:border-accent text-accent'} ${transcribingGroq ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        className={`flex items-center gap-2 px-5 py-3 rounded-full font-bold font-plex text-sm transition-all w-full sm:w-auto justify-center ${
+                                            isListening
+                                                ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
+                                                : 'bg-accent text-[#0f0e0d] shadow-lg shadow-accent/20'
+                                        } ${transcribingGroq ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
                                     >
-                                        {isListening ? <><MicOff size={18} /> Stop Listening</> : <><Mic size={18} /> Tap & Speak</>}
+                                        {isListening ? <><MicOff size={17} /> Stop</> : <><Mic size={17} /> Tap &amp; Speak</>}
                                     </button>
                                 )}
                             </div>
 
-                            <div className="min-h-[140px] bg-bg border border-border rounded-xl p-5 text-text/90 leading-relaxed text-lg font-serif">
+                            <div className="min-h-[110px] md:min-h-[140px] bg-bg border border-border rounded-xl p-4 md:p-5 text-text/90 leading-relaxed text-base md:text-lg font-serif">
                                 {transcribingGroq ? (
-                                    <span className="text-accent animate-pulse flex items-center gap-2"><div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin"></div> 🤖 Groq AI is transcribing perfectly...</span>
-                                ) : transcript ? (
-                                    transcript
-                                ) : (
-                                    <span className="text-muted italic text-base">Allow microphone permissions, tap the button and say your answer...</span>
+                                    <span className="text-accent animate-pulse flex items-center gap-2 text-sm">
+                                        <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+                                        Groq AI transcribing...
+                                    </span>
+                                ) : transcript ? transcript : (
+                                    <span className="text-muted/70 italic text-sm">Tap the button above and speak your answer...</span>
                                 )}
                             </div>
 
@@ -556,50 +577,53 @@ Output ONLY the hint text. No formatting, no json.`;
                                 <button
                                     onClick={submitAnswer}
                                     disabled={evaluating}
-                                    className={`w-full mt-6 text-[#0f0e0d] font-bold py-4 rounded-xl transition-all text-lg flex justify-center items-center gap-2 ${evaluating ? 'bg-accent/50 cursor-not-allowed animate-pulse' : 'bg-accent hover:scale-[1.02]'}`}
+                                    className={`w-full mt-4 text-[#0f0e0d] font-bold py-4 rounded-xl transition-all font-plex flex justify-center items-center gap-2 ${
+                                        evaluating ? 'bg-accent/50 cursor-not-allowed animate-pulse' : 'bg-accent hover:scale-[1.01] shadow-lg shadow-accent/20'
+                                    }`}
                                 >
-                                    {evaluating ? "🤖 AI Evaluating Answer..." : "Check My Answer (%)"}
+                                    {evaluating ? "🤖 Evaluating..." : "✓ Check My Answer"}
                                 </button>
                             )}
 
-                            {/* Feedback Section */}
+                            {/* Feedback */}
                             {feedback && (
-                                <div className="mt-8 pt-6 border-t border-border animate-fadeIn">
-                                    <div className="flex items-center gap-5 mb-6">
-                                        <div className={`text-5xl font-black ${feedback.percentage >= 70 ? 'text-green-500' : feedback.percentage >= 40 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                <div className="mt-6 pt-6 border-t border-border animate-fadeIn space-y-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`text-4xl md:text-5xl font-black ${
+                                            feedback.percentage >= 70 ? 'text-green-500' :
+                                            feedback.percentage >= 40 ? 'text-yellow-500' : 'text-red-500'
+                                        }`}>
                                             {feedback.percentage}%
                                         </div>
                                         <div>
-                                            <div className="font-playfair text-xl font-bold text-text mb-1">Match Score</div>
-                                            <div className="text-sm font-plex text-muted uppercase tracking-widest bg-surface px-2 py-0.5 rounded-full border border-border mt-1 inline-block">
-                                                {feedback.feedback && feedback.feedback.includes("Fallback") ? "Regex Keyword Evaluator" : "🤖 AI Ringg-Squirrel Evaluator"}
+                                            <div className="font-playfair text-lg font-bold text-text">Match Score</div>
+                                            <div className="text-[10px] font-plex text-muted uppercase tracking-widest bg-surface px-2 py-0.5 rounded-full border border-border mt-1 inline-block">
+                                                {feedback.feedback?.includes("Regex") ? "Regex Evaluator" : "🤖 AI Evaluator"}
                                             </div>
                                         </div>
                                     </div>
 
                                     {feedback.feedback && (
-                                        <div className="bg-surface2 p-5 rounded-xl border border-border mb-6">
-                                            <h5 className="font-plex text-xs uppercase text-accent mb-2 font-semibold">AI Feedback:</h5>
-                                            <div className="text-[15px] leading-relaxed text-text/90 whitespace-pre-wrap">{feedback.feedback}</div>
+                                        <div className="bg-surface2/50 p-4 rounded-xl border border-border">
+                                            <h5 className="font-plex text-[10px] uppercase text-accent mb-2 font-bold tracking-widest">AI Feedback</h5>
+                                            <div className="text-sm leading-relaxed text-text/90 whitespace-pre-wrap">{feedback.feedback}</div>
                                         </div>
                                     )}
 
-                                    <div className="bg-surface2 p-5 rounded-xl border border-border mb-6">
-                                        <h5 className="font-plex text-xs uppercase text-accent mb-3 font-semibold">Ideal Answer & Keywords:</h5>
-                                        <div className="text-[15px] leading-relaxed text-text/80 mb-4" dangerouslySetInnerHTML={{ __html: currentQ?.a || "" }}></div>
-                                        <div className="flex gap-4 items-center">
-                                            <button
-                                                onClick={() => playAudio("The correct answer is: " + (currentQ?.a || ''))}
-                                                className="text-accent text-sm flex items-center gap-1 hover:underline font-plex"
-                                            >
-                                                <Volume2 size={16} /> Listen to ideal answer
-                                            </button>
-                                        </div>
+                                    <div className="bg-surface2/50 p-4 rounded-xl border border-border">
+                                        <h5 className="font-plex text-[10px] uppercase text-accent mb-3 font-bold tracking-widest">Ideal Answer &amp; Keywords</h5>
+                                        <div className="text-sm leading-relaxed text-text/80 mb-3" dangerouslySetInnerHTML={{ __html: currentQ?.a || "" }}></div>
+                                        <button
+                                            onClick={() => playAudio("The correct answer is: " + (currentQ?.a || ''))}
+                                            className="text-accent text-xs flex items-center gap-1 hover:underline font-plex"
+                                        >
+                                            <Volume2 size={13} /> Listen to answer
+                                        </button>
                                     </div>
 
                                     <button
                                         onClick={nextQuestion}
-                                        className="w-full bg-surface2 border border-border hover:border-accent text-accent font-bold py-4 rounded-xl transition-colors flex justify-center items-center gap-2 text-lg hover:bg-surface2/50"
+                                        className="w-full bg-accent text-[#0f0e0d] font-bold py-4 rounded-xl font-plex flex justify-center items-center gap-2 hover:scale-[1.01] shadow-lg shadow-accent/20 transition-all"
                                     >
                                         Next Question <ChevronRight size={20} />
                                     </button>
@@ -610,42 +634,47 @@ Output ONLY the hint text. No formatting, no json.`;
                 )}
             </div>
 
-            <div className="max-w-3xl mx-auto p-4 md:p-6 mb-10 space-y-6">
-
-                {/* Free Transcription Engine Toggle (Solution to User Request) */}
-                <div className="bg-surface border border-accent/30 rounded-xl p-5 md:p-6 shadow-lg shadow-accent/5">
-                    <div className="flex justify-between items-start gap-4 mb-4 flex-col md:flex-row">
-                        <div>
-                            <h4 className="font-playfair text-xl text-accent font-bold flex items-center gap-2">🎙️ Pro Transcription Engine (Groq Whisper)</h4>
-                            <p className="text-[14px] text-muted leading-relaxed font-serif mt-2">
-                                Having issues with the browser's built-in transcription duplicating words? Switch to the world's fastest, 100% Free AI Transcription Engine powered by <b>Groq (Whisper Large V3 Turbo)</b>! It's unlimited and lightning-fast.
+            <div className="max-w-3xl mx-auto px-4 py-6 md:p-10 mb-10">
+                {/* Transcription Engine Settings */}
+                <div className="bg-surface border border-accent/20 rounded-2xl p-5 md:p-6 shadow-lg">
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4">
+                        <div className="flex-1">
+                            <h4 className="font-playfair text-lg md:text-xl text-accent font-bold flex items-center gap-2">
+                                🎙️ Transcription Engine
+                            </h4>
+                            <p className="text-xs md:text-sm text-muted leading-relaxed font-plex mt-2">
+                                Switch between browser built-in or <b>Groq Whisper Large V3 Turbo</b> — unlimited, lightning-fast, and free.
                             </p>
                         </div>
-                        <div className="shrink-0 flex items-center bg-surface2 rounded-lg p-1 border border-border mt-2 md:mt-0">
+                        <div className="shrink-0 flex items-center bg-surface2 rounded-xl p-1 border border-border self-start">
                             <button
                                 onClick={() => { setUseGroqAI(false); localStorage.setItem('useGroqAI', 'false'); }}
-                                className={`px-4 py-2 font-plex text-[12px] font-semibold rounded-md transition-colors ${!useGroqAI ? 'bg-bg border border-border text-text shadow-sm' : 'text-muted hover:text-text'}`}
+                                className={`px-3 py-2 font-plex text-xs font-semibold rounded-lg transition-all ${
+                                    !useGroqAI ? 'bg-bg border border-border text-text shadow-sm' : 'text-muted hover:text-text'
+                                }`}
                             >
-                                Built-in (Fixed)
+                                Built-in
                             </button>
                             <button
                                 onClick={() => { setUseGroqAI(true); localStorage.setItem('useGroqAI', 'true'); }}
-                                className={`px-4 py-2 font-plex text-[12px] font-semibold rounded-md transition-colors flex items-center gap-1 ${useGroqAI ? 'bg-accent text-[#0f0e0d] shadow-sm shadow-accent/20' : 'text-muted hover:text-accent'}`}
+                                className={`px-3 py-2 font-plex text-xs font-semibold rounded-lg transition-all flex items-center gap-1 ${
+                                    useGroqAI ? 'bg-accent text-[#0f0e0d] shadow-sm' : 'text-muted hover:text-accent'
+                                }`}
                             >
-                                ✨ Groq AI (Best)
+                                ✨ Groq AI
                             </button>
                         </div>
                     </div>
 
                     {useGroqAI && (
-                        <div className="animate-fadeIn mt-6 bg-surface2/50 border border-border p-4 rounded-lg">
-                            <h5 className="font-plex text-sm text-text font-semibold mb-2">Setup 100% Free Unlimited Groq AI:</h5>
-                            <ol className="text-[13px] font-serif text-muted/90 mb-4 pl-4 space-y-1 list-decimal">
-                                <li>Go to <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-accent hover:underline font-bold">console.groq.com/keys</a> and log in for free.</li>
-                                <li>Click "Create API Key" and copy the key (Starts with <code className="text-[11px] bg-bg px-1 py-0.5 rounded border border-border text-text">gsk_...</code>).</li>
-                                <li>Paste it here! It runs purely in your browser so it's totally safe, free, and insanely fast.</li>
+                        <div className="animate-fadeIn bg-surface2/50 border border-border p-4 rounded-xl">
+                            <h5 className="font-plex text-xs text-text font-bold mb-3">🔑 Enter your free Groq API Key:</h5>
+                            <ol className="text-xs font-plex text-muted mb-4 pl-4 space-y-1 list-decimal">
+                                <li>Go to <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-accent hover:underline font-bold">console.groq.com/keys</a> and log in free.</li>
+                                <li>Create API Key (starts with <code className="text-[10px] bg-bg px-1 py-0.5 rounded border border-border text-text">gsk_...</code>).</li>
+                                <li>Paste it below — stored locally, never sent to our servers.</li>
                             </ol>
-                            <div className="flex gap-2 w-full max-w-sm">
+                            <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
                                 <input
                                     type="password"
                                     placeholder="gsk_xxxxxxxx..."
@@ -654,14 +683,13 @@ Output ONLY the hint text. No formatting, no json.`;
                                         setGroqApiKey(e.target.value);
                                         localStorage.setItem('groqApiKey', e.target.value);
                                     }}
-                                    className="flex-1 bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent"
+                                    className="flex-1 bg-bg border border-border px-3 py-2.5 rounded-lg text-xs font-plex outline-none focus:border-accent"
                                 />
-                                {groqApiKey && <div className="text-green-500 bg-green-500/10 border border-green-500/20 px-3 flex items-center rounded-lg text-xs font-plex relative group cursor-default">✔️ Ready<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block w-max bg-surface border border-border p-2 rounded text-[10px] text-muted">Key stored locally only.</div></div>}
+                                {groqApiKey && <div className="text-green-500 bg-green-500/10 border border-green-500/20 px-3 py-2 flex items-center justify-center rounded-lg text-xs font-plex font-bold">✔ Ready</div>}
                             </div>
                         </div>
                     )}
                 </div>
-
             </div>
         </div>
     );
