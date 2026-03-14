@@ -26,8 +26,58 @@ async function callGroq(apiKey, messages, maxTokens = 400) {
     }
 }
 
-// ─── Pick best Indian female voice ───────────────────────────────────────────
-// Priority: Priya > Heera > Raveena > any en-IN > en-US female > any English
+// ─── Ringg Squirrel TTS (Free Indian Female Voice API) ───────────────────────
+// Docs: https://huggingface.co/RinggAI/Ringg-Squirrel-Free-API
+// No API key needed. Returns audio/mpeg audio bytes directly.
+
+// Indian English female voice IDs from Ringg Squirrel catalogue
+// voice_id from the documented example — English Indian female
+const RINGG_VOICE_ID = '83ba74e4-9efb-4db3-913a-f2a0ad66904d';
+const RINGG_API_URL  = 'https://prod-api2.desivocal.com/dv/api/v0/tts_api/generate_squirrel';
+
+// Module-level Audio element to control play/stop
+let _ringgAudio = null;
+
+async function ringgSpeak(text, onEnd) {
+    try {
+        // Stop anything currently playing
+        ringgStop();
+
+        // Ringg API has 300 char limit — split and play first chunk
+        const clean = text.replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+        const chunk = clean.slice(0, 280); // stay under 300 char limit
+
+        const res = await fetch(RINGG_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: chunk, voice_id: RINGG_VOICE_ID }),
+            signal: AbortSignal.timeout(8000) // 8s timeout
+        });
+
+        if (!res.ok) throw new Error(`Ringg API ${res.status}`);
+
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        _ringgAudio = new Audio(url);
+        _ringgAudio.onended = () => { URL.revokeObjectURL(url); onEnd?.(); };
+        _ringgAudio.onerror = () => { URL.revokeObjectURL(url); onEnd?.(); };
+        _ringgAudio.play();
+        return true; // success
+    } catch (e) {
+        console.warn('Ringg TTS failed, using browser TTS fallback:', e.message);
+        return false; // tell caller to use fallback
+    }
+}
+
+function ringgStop() {
+    if (_ringgAudio) {
+        _ringgAudio.pause();
+        _ringgAudio.src = '';
+        _ringgAudio = null;
+    }
+}
+
+// ─── Browser TTS fallback (Indian female voice) ───────────────────────────────
 function getIndianFemaleVoice() {
     const voices = window.speechSynthesis.getVoices();
     if (!voices.length) return null;
@@ -36,33 +86,34 @@ function getIndianFemaleVoice() {
         const v = voices.find(v => v.name.toLowerCase().includes(name));
         if (v) return v;
     }
-    const enINF = voices.find(v => v.lang === 'en-IN' && v.name.toLowerCase().includes('female'));
-    if (enINF) return enINF;
-    const enIN  = voices.find(v => v.lang === 'en-IN');
+    const enIN = voices.find(v => v.lang === 'en-IN');
     if (enIN)  return enIN;
-    const enUSF = voices.find(v => v.lang === 'en-US' &&
-        (v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('aria') || v.name.toLowerCase().includes('female')));
-    if (enUSF) return enUSF;
     return voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
 }
 
-// ─── TTS ─────────────────────────────────────────────────────────────────────
-function ttsSpeak(text) {
+function browserTtsSpeak(text) {
     try {
         if (!window.speechSynthesis) return;
         window.speechSynthesis.cancel();
         const clean = text.replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
-        const u = new SpeechSynthesisUtterance(clean);
+        const u     = new SpeechSynthesisUtterance(clean);
         u.rate  = 0.95;
         u.pitch = 1.1;
         u.lang  = 'en-IN';
-        // Voices may load async — try to assign if available
         const voice = getIndianFemaleVoice();
         if (voice) u.voice = voice;
         window.speechSynthesis.speak(u);
     } catch (e) { /* non-critical */ }
 }
+
+// Master ttsSpeak — tries Ringg first, falls back to browser TTS
+async function ttsSpeak(text) {
+    const ok = await ringgSpeak(text);
+    if (!ok) browserTtsSpeak(text); // fallback
+}
+
 function ttsStop() {
+    ringgStop();
     try { window.speechSynthesis?.cancel(); } catch (e) { }
 }
 
@@ -84,31 +135,40 @@ const Bubble = ({ msg }) => {
     const ai = msg.role === 'ai';
     const [tts, setTts] = useState('idle'); // idle | speaking | paused
 
-    const handleTTS = () => {
-        if (!('speechSynthesis' in window)) return;
+    const handleTTS = async () => {
         if (tts === 'speaking') {
-            window.speechSynthesis.pause();
+            // Pause Ringg audio or browser TTS
+            if (_ringgAudio) { _ringgAudio.pause(); }
+            else { try { window.speechSynthesis?.pause(); } catch(e){} }
             setTts('paused');
         } else if (tts === 'paused') {
-            window.speechSynthesis.resume();
+            // Resume
+            if (_ringgAudio) { _ringgAudio.play(); }
+            else { try { window.speechSynthesis?.resume(); } catch(e){} }
             setTts('speaking');
         } else {
-            // Stop whatever is currently playing
+            // Stop any currently playing voice
             if (_activeTtsSetter) { _activeTtsSetter('idle'); _activeTtsSetter = null; }
-            window.speechSynthesis.cancel();
-
-            const u = new SpeechSynthesisUtterance(cleanForTTS(msg.content));
-            u.rate = 0.95;
-            u.pitch = 1.1;
-            u.lang = 'en-IN';
-            const voice = getIndianFemaleVoice();
-            if (voice) u.voice = voice;
-            u.onstart = () => { setTts('speaking'); _activeTtsSetter = setTts; };
-            u.onend   = () => { setTts('idle');     _activeTtsSetter = null; };
-            u.onerror = () => { setTts('idle');     _activeTtsSetter = null; };
+            ttsStop();
             setTts('speaking');
             _activeTtsSetter = setTts;
-            window.speechSynthesis.speak(u);
+
+            // Try Ringg API first, fallback to browser TTS
+            const ok = await ringgSpeak(cleanForTTS(msg.content), () => {
+                setTts('idle');
+                if (_activeTtsSetter === setTts) _activeTtsSetter = null;
+            });
+            if (!ok) {
+                // Browser TTS fallback
+                const u = new SpeechSynthesisUtterance(cleanForTTS(msg.content));
+                u.rate = 0.95; u.pitch = 1.1; u.lang = 'en-IN';
+                const voice = getIndianFemaleVoice();
+                if (voice) u.voice = voice;
+                u.onend   = () => { setTts('idle'); _activeTtsSetter = null; };
+                u.onerror = () => { setTts('idle'); _activeTtsSetter = null; };
+                window.speechSynthesis?.cancel();
+                window.speechSynthesis?.speak(u);
+            }
         }
     };
 
