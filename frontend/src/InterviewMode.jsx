@@ -135,6 +135,21 @@ const Bubble = ({ msg }) => {
     const ai = msg.role === 'ai';
     const [tts, setTts] = useState('idle'); // idle | speaking | paused
 
+    // Extract only the "Full Correct Answer" section from feedback for TTS
+    const getListenText = () => {
+        const content = msg.content || '';
+        // Find "Full Correct Answer:" section
+        const marker = 'Full Correct Answer:';
+        const startIdx = content.indexOf(marker);
+        if (startIdx === -1) return cleanForTTS(content); // fallback: speak all
+        // Extract from after the marker until the next section (line starting with emoji)
+        const afterMarker = content.slice(startIdx + marker.length).trim();
+        // Stop at next section that starts with an emoji bullet
+        const nextSection = afterMarker.search(/\n[\u{1F300}-\u{1FFFF}\u2600-\u27FF]/u);
+        const answer = nextSection !== -1 ? afterMarker.slice(0, nextSection).trim() : afterMarker.trim();
+        return cleanForTTS(answer);
+    };
+
     const handleTTS = async () => {
         if (tts === 'speaking') {
             // Pause Ringg audio or browser TTS
@@ -153,14 +168,17 @@ const Bubble = ({ msg }) => {
             setTts('speaking');
             _activeTtsSetter = setTts;
 
+            // Only speak the Full Correct Answer section
+            const listenText = getListenText();
+
             // Try Ringg API first, fallback to browser TTS
-            const ok = await ringgSpeak(cleanForTTS(msg.content), () => {
+            const ok = await ringgSpeak(listenText, () => {
                 setTts('idle');
                 if (_activeTtsSetter === setTts) _activeTtsSetter = null;
             });
             if (!ok) {
                 // Browser TTS fallback
-                const u = new SpeechSynthesisUtterance(cleanForTTS(msg.content));
+                const u = new SpeechSynthesisUtterance(listenText);
                 u.rate = 0.95; u.pitch = 1.1; u.lang = 'en-IN';
                 const voice = getIndianFemaleVoice();
                 if (voice) u.voice = voice;
