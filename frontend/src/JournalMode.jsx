@@ -362,7 +362,9 @@ Provide your evaluation and standard solution in JSON format ONLY:
                         <div className="space-y-6">
                         {/* Journal Entry Form - Premium Style */}
                         <div className="bg-bg border border-border rounded-xl shadow-inner overflow-hidden">
-                            <div className="overflow-x-auto">
+                            
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full text-left border-collapse min-w-[800px]">
                                     <thead>
                                         <tr className="bg-surface border-b border-border text-[11px] uppercase tracking-widest font-plex text-muted">
@@ -437,19 +439,96 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                     </tbody>
                                 </table>
                             </div>
-                            <div className="p-4 border-t border-border bg-surface flex justify-between items-center rounded-b-xl">
-                                <button onClick={addRow} className="flex items-center gap-1 text-sm font-plex font-bold text-accent hover:text-accent-light transition-all py-2 px-4 rounded-lg bg-accent/5 hover:bg-accent/10 border border-accent/20 hover:border-accent/40 shadow-sm">
+
+                            {/* Mobile Card View */}
+                            <div className="block md:hidden border-b border-border/50 divide-y divide-border/50 bg-surface/30">
+                                {journalRows.map((row, idx) => (
+                                    <div key={idx} className="p-4 space-y-4 relative group hover:bg-surface/80 transition-colors">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-accent/80 font-plex text-[10px] uppercase font-bold tracking-widest bg-accent/10 border border-accent/20 px-2.5 py-1 rounded-md">Line {idx + 1}</span>
+                                            {journalRows.length > 2 && (
+                                                <button onClick={() => removeRow(idx)} className="text-red-500 hover:text-red-400 p-2 rounded-md hover:bg-red-500/10 transition-all bg-surface border border-transparent shadow-sm" title="Delete Line">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Account</label>
+                                                <input 
+                                                    type="text" 
+                                                    list="accountsList"
+                                                    value={row.account}
+                                                    onChange={e => updateRow(idx, 'account', e.target.value)}
+                                                    placeholder="Select account..." 
+                                                    className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
+                                                />
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <div className="flex-1">
+                                                    <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Debit</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={row.debit}
+                                                        onChange={e => updateRow(idx, 'debit', e.target.value)}
+                                                        placeholder="$ 0.00" 
+                                                        className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all font-plex shadow-sm"
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Credit</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={row.credit}
+                                                        onChange={e => updateRow(idx, 'credit', e.target.value)}
+                                                        placeholder="$ 0.00" 
+                                                        className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all font-plex shadow-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <div className="flex-1">
+                                                    <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Description</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={row.description}
+                                                        onChange={e => updateRow(idx, 'description', e.target.value)}
+                                                        placeholder="Memo..." 
+                                                        className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-2.5 rounded-lg text-xs text-text outline-none transition-all shadow-sm"
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Name</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={row.name}
+                                                        onChange={e => updateRow(idx, 'name', e.target.value)}
+                                                        placeholder="Vendor..." 
+                                                        className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-2.5 rounded-lg text-xs text-text outline-none transition-all shadow-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="p-4 md:p-5 border-t border-border bg-surface flex flex-col md:flex-row justify-between items-center gap-6 md:gap-4 rounded-b-xl">
+                                <button onClick={addRow} className="flex items-center justify-center gap-1 w-full md:w-auto text-sm font-plex font-bold text-accent hover:text-accent-light transition-all py-3 md:py-2 px-4 rounded-lg bg-accent/5 hover:bg-accent/10 border border-accent/20 hover:border-accent/40 shadow-sm">
                                     <Plus size={16} /> Add lines
                                 </button>
                                 
-                                <div className="flex gap-10 px-6 font-plex text-sm">
-                                    <div className="flex flex-col items-end gap-1">
-                                        <span className="text-muted/80 text-[10px] uppercase font-bold tracking-widest">Total Debits</span>
-                                        <span className="font-bold text-text text-lg">${journalRows.reduce((sum, r) => sum + (parseFloat(r.debit) || 0), 0).toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <span className="text-muted/80 text-[10px] uppercase font-bold tracking-widest">Total Credits</span>
-                                        <span className="font-bold text-text text-lg">${journalRows.reduce((sum, r) => sum + (parseFloat(r.credit) || 0), 0).toFixed(2)}</span>
+                                <div className="flex justify-between w-full md:w-auto md:gap-10 px-2 md:px-6 font-plex text-sm bg-bg md:bg-transparent p-4 md:p-0 rounded-xl md:rounded-none border border-border md:border-none shadow-sm md:shadow-none">
+                                    <div className="flex justify-between md:flex-col items-center md:items-end w-full md:w-auto gap-4 md:gap-1">
+                                        <div className="flex flex-col items-start md:items-end gap-1">
+                                            <span className="text-muted/80 text-[10px] uppercase font-bold tracking-widest">Total Debits</span>
+                                            <span className="font-bold text-text text-lg">${journalRows.reduce((sum, r) => sum + (parseFloat(r.debit) || 0), 0).toFixed(2)}</span>
+                                        </div>
+                                        <div className="hidden md:block w-px h-8 bg-border/50 mx-2"></div>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span className="text-muted/80 text-[10px] uppercase font-bold tracking-widest">Total Credits</span>
+                                            <span className="font-bold text-text text-lg">${journalRows.reduce((sum, r) => sum + (parseFloat(r.credit) || 0), 0).toFixed(2)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
