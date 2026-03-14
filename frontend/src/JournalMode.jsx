@@ -284,28 +284,48 @@ function JournalMode() {
         if (!groqApiKey) return alert('Please enter your Groq API Key first.');
         setParsingVoice(true);
 
-        const prompt = `You are an expert accountant assistant. A student spoke the following journal entry out loud:
+        const prompt = `You are a highly skilled accounting AI assistant. Your ONLY job is to convert spoken journal entry text into structured JSON.
+
+SPOKEN TRANSCRIPT:
 "${transcript}"
 
-Parse this speech into structured journal entry rows. Match account names to the closest account in this Chart of Accounts:
-${CHART_OF_ACCOUNTS.join(', ')}
+CONTEXT - The question scenario the student is answering:
+"${questionText}"
 
-Return ONLY valid JSON in this exact format, no explanation:
-{
-  "rows": [
-    { "account": "1000 - Cash", "debit": 500, "credit": 0, "description": "", "name": "" },
-    { "account": "4000 - Sales Revenue", "debit": 0, "credit": 500, "description": "", "name": "" }
-  ]
-}
-Use 0 for debit or credit when not applicable.`;
+RULES:
+1. Identify every DEBIT and CREDIT account mentioned.
+2. Convert ALL spoken/written numbers to numeric values:
+   - "one thousand" → 1000
+   - "five hundred" → 500
+   - "two thousand five hundred" → 2500
+   - "1,500" → 1500
+3. Match each account name to the CLOSEST account from this Chart of Accounts:
+${CHART_OF_ACCOUNTS.slice(0, 40).join('\n')}
+${CHART_OF_ACCOUNTS.slice(40).join('\n')}
+4. For each row: set "debit" to the dollar amount if it is a debit entry, else 0. Set "credit" to the dollar amount if it is a credit entry, else 0. NEVER have both debit and credit non-zero in the same row.
+5. The total debits MUST equal total credits.
+6. Return ONLY raw JSON — no markdown, no explanation, no code fences.
+
+EXAMPLE INPUT: "debit cash one thousand, credit sales revenue one thousand"
+EXAMPLE OUTPUT:
+{"rows":[{"account":"1000 - Cash","debit":1000,"credit":0,"description":"","name":""},{"account":"4000 - Sales Revenue","debit":0,"credit":1000,"description":"","name":""}]}
+
+NOW PARSE THE TRANSCRIPT AND RETURN JSON ONLY:`;
 
         try {
             const response = await axios.post(
                 'https://api.groq.com/openai/v1/chat/completions',
                 {
-                    model: 'llama-3.1-8b-instant',
-                    messages: [{ role: 'user', content: prompt }],
-                    temperature: 0.1
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are an accounting AI that ONLY outputs valid JSON. Never output anything other than a raw JSON object. No markdown. No explanation.'
+                        },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.0,
+                    max_tokens: 800
                 },
                 {
                     headers: {
@@ -316,21 +336,25 @@ Use 0 for debit or credit when not applicable.`;
             );
 
             let text = response.data.choices[0].message.content || '';
-            if (text.includes('```json')) text = text.split('```json')[1].split('```')[0].trim();
-            else if (text.includes('```')) text = text.split('```')[1].split('```')[0].trim();
+            // Strip any accidental markdown fences
+            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            // Extract first valid JSON object
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error('No JSON found in response');
 
-            const parsed = JSON.parse(text);
+            const parsed = JSON.parse(jsonMatch[0]);
             if (parsed.rows && parsed.rows.length > 0) {
                 const newRows = parsed.rows.map(r => ({
                     account: r.account || '',
-                    debit: r.debit > 0 ? String(r.debit) : '',
-                    credit: r.credit > 0 ? String(r.credit) : '',
+                    debit: parseFloat(r.debit) > 0 ? String(parseFloat(r.debit)) : '',
+                    credit: parseFloat(r.credit) > 0 ? String(parseFloat(r.credit)) : '',
                     description: r.description || '',
                     name: r.name || ''
                 }));
-                // pad to at least 2 rows
                 while (newRows.length < 2) newRows.push({ account: '', debit: '', credit: '', description: '', name: '' });
                 setJournalRows(newRows);
+            } else {
+                alert('AI could not identify any journal entries from your voice. Please try speaking more clearly, e.g. "Debit Cash 1000, Credit Sales Revenue 1000"');
             }
         } catch (err) {
             console.error('Voice parse error:', err);
