@@ -281,19 +281,34 @@ Rules:
 
         const tid = addTyping();
 
-        // Ask question in simple English style for Indian KPO context
+        // Vary the question style randomly for a more natural interview feel
+        const styles = ['direct', 'scenario', 'explain'];
+        const style = styles[idx % 3];
+
+        const styleInstruction =
+            style === 'scenario'
+                ? 'Put the question as a small real-life work situation. Start with "Imagine" or "Suppose". 2 sentences max.'
+                : style === 'explain'
+                ? 'Ask the candidate to explain it in their own words. Start with "In your own words" or "Can you explain". 1 sentence.'
+                : 'Ask the question directly and simply. 1 short sentence. No extra words.';
+
         const aiQ = await callGroq(apiKey, [
             {
                 role: 'system',
-                content: `You are Aria, an interviewer for an Indian KPO firm that does USA bookkeeping and payroll work.
-Rules for asking questions:
-- Use very simple, easy English. Short sentences.
-- Ask the question directly. Do not add extra words.
+                content: `You are Aria, an interviewer at an Indian KPO firm that handles USA bookkeeping and payroll.
+You are asking interview question number ${idx + 1}.
+
+Rules:
+- Use very simple, clear English. Short words.
 - Do NOT give the answer or any hint.
-- 1 sentence only.`
+- ${styleInstruction}
+- Sound friendly and professional, like a real interviewer.`
             },
-            { role: 'user', content: `Ask this question simply: ${q.q}` }
-        ], 60);
+            {
+                role: 'user',
+                content: `Question to ask: ${q.q}`
+            }
+        ], 80);
 
         const finalQ = aiQ || q.q;
         resolveTyping(tid, finalQ);
@@ -319,67 +334,76 @@ Rules for asking questions:
         const q = queue[qIdx];
         const tid = addTyping();
 
-        // Evaluate — simple English feedback, Indian KPO context
+        // Evaluate — structured feedback with real-world example
+        const correctAns = (q.a || '').replace(/<[^>]+>/g, ' ').trim();
         const raw = await callGroq(apiKey, [
             {
                 role: 'system',
-                content: `You are Aria. You check answers for USA bookkeeping and payroll questions.
+                content: `You are Aria, an expert USA bookkeeping and payroll trainer for an Indian KPO firm.
+Your job: check the candidate's answer and give clear, simple feedback.
+
 Rules:
-- Use extremely simple, easy English. Like explaining to a beginner.
-- Short sentences. No big words.
-- Return ONLY valid JSON. Example:
+- Use very simple English. Short sentences. Like explaining to a new employee.
+- Be warm and encouraging, even when the answer is wrong.
+- Give a real-world USA work example to explain the correct answer.
+- Return ONLY valid JSON in exactly this format:
 {
-  "score": 40,
-  "correct": false,
-  "feedback": "Your answer is not complete. You missed the main point.",
-  "explanation": "The correct answer is: W-4 form is filled by the employee to tell the employer how much tax to deduct from salary.",
-  "tip": "Remember: W-4 is by employee. W-2 is given by employer at year end."
+  "score": <number 0 to 100>,
+  "verdict": "<one of: Correct / Partially Correct / Incorrect>",
+  "feedback": "<1-2 short sentences: what was right or wrong in their answer>",
+  "correct_answer": "<the correct answer explained simply, as if teaching a beginner>",
+  "example": "<one real USA work example, like: For example, when XYZ company pays employee John...>",
+  "tip": "<one short thing to remember, max 15 words>"
 }`
             },
             {
                 role: 'user',
-                content: `Question: ${q.q}\nCorrect Answer: ${(q.a || '').replace(/<[^>]+>/g, ' ')}\nCandidate said: ${ans}`
+                content: `Question: ${q.q}\nCorrect Answer (reference): ${correctAns}\nCandidate said: ${ans}`
             }
-        ], 300);
+        ], 400);
 
         let score = 50;
-        let feedbackContent = '❌ Could not check your answer. Try again!';
+        let feedbackContent = '❌ Could not check your answer. Please try again.';
         try {
             const match = (raw || '').match(/\{[\s\S]*\}/);
             const parsed = JSON.parse(match ? match[0] : raw);
             score = Math.max(0, Math.min(100, Number(parsed.score) || 50));
 
-            const isCorrect = score >= 70;
+            const verdict = parsed.verdict || (score >= 70 ? 'Correct' : score >= 40 ? 'Partially Correct' : 'Incorrect');
+            const icon = verdict === 'Correct' ? '✅' : verdict === 'Partially Correct' ? '⚠️' : '❌';
+
             const parts = [];
 
-            // ✅ or ❌ + feedback
-            parts.push(isCorrect
-                ? `✅ ${parsed.feedback || 'Good answer!'}`
-                : `❌ ${parsed.feedback || 'Your answer needs improvement.'}`
-            );
+            // Result line
+            parts.push(`${icon} ${verdict.toUpperCase()} — ${parsed.feedback || ''}`);
 
-            // 📖 Correct answer explanation (always shown, most important when wrong)
-            if (parsed.explanation) {
-                parts.push(`\n📖 ${parsed.explanation}`);
+            // Correct answer explanation
+            if (parsed.correct_answer) {
+                parts.push(`\n📖 Correct Answer:\n${parsed.correct_answer}`);
             }
 
-            // 💡 Tip to remember
+            // Real-world example
+            if (parsed.example) {
+                parts.push(`\n🏢 Example:\n${parsed.example}`);
+            }
+
+            // Quick tip
             if (parsed.tip) {
-                parts.push(`\n💡 ${parsed.tip}`);
+                parts.push(`\n💡 Remember: ${parsed.tip}`);
             }
 
             feedbackContent = parts.join('\n');
         } catch {
-            feedbackContent = '❌ Could not evaluate. Try again!';
+            feedbackContent = '❌ Could not evaluate. Please try again.';
         }
 
         resolveTyping(tid, feedbackContent, { score });
         setScores(prev => [...prev, score]);
         setBusy(false);
 
-        // Next question after 2.5s (more time to read feedback)
+        // Next question after 3.5s so candidate can read full feedback
         const nextIdx = qIdx + 1;
-        setTimeout(() => askQuestion(queue, nextIdx), 2500);
+        setTimeout(() => askQuestion(queue, nextIdx), 3500);
     };
 
     // ── END INTERVIEW (called by user pressing End button) ────────────────────
