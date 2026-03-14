@@ -324,33 +324,62 @@ Rules for asking questions:
             {
                 role: 'system',
                 content: `You are Aria. You check answers for USA bookkeeping and payroll questions.
-Rules for feedback:
-- Use very simple, short English.
-- Tell them if the answer is correct or not.
-- Give one short tip to improve.
-- Return ONLY valid JSON like this: {"score": 75, "feedback": "Good answer. You mentioned the main point.", "tip": "Also mention the tax form number next time."}`
+Rules:
+- Use extremely simple, easy English. Like explaining to a beginner.
+- Short sentences. No big words.
+- Return ONLY valid JSON. Example:
+{
+  "score": 40,
+  "correct": false,
+  "feedback": "Your answer is not complete. You missed the main point.",
+  "explanation": "The correct answer is: W-4 form is filled by the employee to tell the employer how much tax to deduct from salary.",
+  "tip": "Remember: W-4 is by employee. W-2 is given by employer at year end."
+}`
             },
             {
                 role: 'user',
                 content: `Question: ${q.q}\nCorrect Answer: ${(q.a || '').replace(/<[^>]+>/g, ' ')}\nCandidate said: ${ans}`
             }
-        ], 220);
+        ], 300);
 
-        let score = 50, feedbackContent = 'Good try! Keep practicing.';
+        let score = 50;
+        let feedbackContent = '❌ Could not check your answer. Try again!';
         try {
             const match = (raw || '').match(/\{[\s\S]*\}/);
             const parsed = JSON.parse(match ? match[0] : raw);
-            score = Math.max(0, Math.min(100, parsed.score || 50));
-            feedbackContent = `${parsed.feedback || ''}${parsed.tip ? `\n\n💡 Tip: ${parsed.tip}` : ''}`;
-        } catch { /* use defaults */ }
+            score = Math.max(0, Math.min(100, Number(parsed.score) || 50));
+
+            const isCorrect = score >= 70;
+            const parts = [];
+
+            // ✅ or ❌ + feedback
+            parts.push(isCorrect
+                ? `✅ ${parsed.feedback || 'Good answer!'}`
+                : `❌ ${parsed.feedback || 'Your answer needs improvement.'}`
+            );
+
+            // 📖 Correct answer explanation (always shown, most important when wrong)
+            if (parsed.explanation) {
+                parts.push(`\n📖 ${parsed.explanation}`);
+            }
+
+            // 💡 Tip to remember
+            if (parsed.tip) {
+                parts.push(`\n💡 ${parsed.tip}`);
+            }
+
+            feedbackContent = parts.join('\n');
+        } catch {
+            feedbackContent = '❌ Could not evaluate. Try again!';
+        }
 
         resolveTyping(tid, feedbackContent, { score });
         setScores(prev => [...prev, score]);
         setBusy(false);
 
-        // Auto next question after 1.5s (infinite — no end condition here)
+        // Next question after 2.5s (more time to read feedback)
         const nextIdx = qIdx + 1;
-        setTimeout(() => askQuestion(queue, nextIdx), 1500);
+        setTimeout(() => askQuestion(queue, nextIdx), 2500);
     };
 
     // ── END INTERVIEW (called by user pressing End button) ────────────────────
