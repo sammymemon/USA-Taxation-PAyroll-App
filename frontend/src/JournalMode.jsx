@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Plus, Trash2, CheckCircle, RefreshCcw, Activity } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CheckCircle, RefreshCcw, Activity, Mic, MicOff, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // A comprehensive American Chart of Accounts for a typical bookkeeping test/app
@@ -129,6 +129,12 @@ function JournalMode() {
     const [evaluating, setEvaluating] = useState(false);
     const [feedback, setFeedback] = useState(null);
 
+    // Voice Mode State
+    const [isListening, setIsListening] = useState(false);
+    const [voiceTranscript, setVoiceTranscript] = useState('');
+    const [parsingVoice, setParsingVoice] = useState(false);
+    const recognitionRef = useRef(null);
+
     useEffect(() => {
         const fetchCategories = async () => {
             try {
@@ -204,6 +210,106 @@ function JournalMode() {
         if (field === 'credit' && value !== '') newRows[index].debit = '';
         newRows[index][field] = value;
         setJournalRows(newRows);
+    };
+
+    // --- Voice Mode ---
+    const startVoiceEntry = () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('Voice recognition is not supported in this browser. Please use Chrome.');
+            return;
+        }
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognitionRef.current = recognition;
+
+        recognition.onstart = () => {
+            setIsListening(true);
+            setVoiceTranscript('');
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            setVoiceTranscript(transcript);
+            parseVoiceToJournal(transcript);
+        };
+
+        recognition.onerror = (e) => {
+            console.error('Speech recognition error:', e.error);
+            setIsListening(false);
+            if (e.error !== 'aborted') alert('Voice recognition error: ' + e.error);
+        };
+
+        recognition.onend = () => setIsListening(false);
+
+        recognition.start();
+    };
+
+    const parseVoiceToJournal = async (transcript) => {
+        if (!groqApiKey) return alert('Please enter your Groq API Key first.');
+        setParsingVoice(true);
+
+        const prompt = `You are an expert accountant assistant. A student spoke the following journal entry out loud:
+"${transcript}"
+
+Parse this speech into structured journal entry rows. Match account names to the closest account in this Chart of Accounts:
+${CHART_OF_ACCOUNTS.join(', ')}
+
+Return ONLY valid JSON in this exact format, no explanation:
+{
+  "rows": [
+    { "account": "1000 - Cash", "debit": 500, "credit": 0, "description": "", "name": "" },
+    { "account": "4000 - Sales Revenue", "debit": 0, "credit": 500, "description": "", "name": "" }
+  ]
+}
+Use 0 for debit or credit when not applicable.`;
+
+        try {
+            const response = await axios.post(
+                'https://api.groq.com/openai/v1/chat/completions',
+                {
+                    model: 'llama-3.1-8b-instant',
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.1
+                },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${groqApiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            let text = response.data.choices[0].message.content || '';
+            if (text.includes('```json')) text = text.split('```json')[1].split('```')[0].trim();
+            else if (text.includes('```')) text = text.split('```')[1].split('```')[0].trim();
+
+            const parsed = JSON.parse(text);
+            if (parsed.rows && parsed.rows.length > 0) {
+                const newRows = parsed.rows.map(r => ({
+                    account: r.account || '',
+                    debit: r.debit > 0 ? String(r.debit) : '',
+                    credit: r.credit > 0 ? String(r.credit) : '',
+                    description: r.description || '',
+                    name: r.name || ''
+                }));
+                // pad to at least 2 rows
+                while (newRows.length < 2) newRows.push({ account: '', debit: '', credit: '', description: '', name: '' });
+                setJournalRows(newRows);
+            }
+        } catch (err) {
+            console.error('Voice parse error:', err);
+            alert('Could not parse your voice input. Please try again or fill manually.');
+        }
+        setParsingVoice(false);
     };
 
     const submitAnswer = async () => {
@@ -540,11 +646,93 @@ Provide your evaluation and standard solution in JSON format ONLY:
 
                         </div>
 
+                        {/* Voice Entry Section */}
+                        <div className={`rounded-2xl border p-5 transition-all duration-300 ${isListening ? 'border-red-500/60 bg-red-500/5 shadow-[0_0_30px_rgba(239,68,68,0.1)]' : parsingVoice ? 'border-accent/60 bg-accent/5 shadow-[0_0_30px_rgba(var(--accent-rgb),0.08)]' : 'border-border bg-surface'}`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h4 className="font-plex font-bold text-text text-sm flex items-center gap-2">
+                                        <Mic size={16} className={isListening ? 'text-red-500' : 'text-accent'} />
+                                        Voice Entry
+                                    </h4>
+                                    <p className="font-plex text-xs text-muted mt-0.5">
+                                        Speak your journal entry and AI will fill the table
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={startVoiceEntry}
+                                    disabled={parsingVoice}
+                                    className={`relative flex items-center gap-2 px-5 py-3 rounded-xl font-plex font-bold text-sm transition-all shadow-md ${
+                                        isListening
+                                            ? 'bg-red-500 text-white hover:bg-red-600 shadow-red-500/30'
+                                            : parsingVoice
+                                            ? 'bg-accent/50 text-bg cursor-not-allowed'
+                                            : 'bg-accent text-bg hover:bg-accent/90 shadow-accent/20'
+                                    }`}
+                                >
+                                    {isListening && (
+                                        <span className="absolute -top-1 -right-1 h-3 w-3">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                        </span>
+                                    )}
+                                    {parsingVoice ? (
+                                        <><Loader2 size={16} className="animate-spin" /> AI Parsing...</>
+                                    ) : isListening ? (
+                                        <><MicOff size={16} /> Stop Recording</>
+                                    ) : (
+                                        <><Mic size={16} /> Start Voice Entry</>
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* Instructions */}
+                            {!isListening && !voiceTranscript && !parsingVoice && (
+                                <div className="text-xs font-plex text-muted bg-bg border border-border rounded-xl p-4 space-y-1.5">
+                                    <p className="font-bold text-text mb-2">💡 How to speak your entry:</p>
+                                    <p>🟢 <span className="text-text">"Debit Cash one thousand, Credit Sales Revenue one thousand"</span></p>
+                                    <p>🟢 <span className="text-text">"Debit Rent Expense five hundred, Credit Cash five hundred"</span></p>
+                                    <p>🟢 <span className="text-text">"Debit Accounts Receivable 2500 Credit Service Revenue 2500"</span></p>
+                                </div>
+                            )}
+
+                            {/* Listening Animation */}
+                            {isListening && (
+                                <div className="flex flex-col items-center justify-center py-6 gap-4">
+                                    <div className="flex items-end gap-1 h-12">
+                                        {[1,2,3,4,5,6,7].map(i => (
+                                            <div
+                                                key={i}
+                                                className="w-2 bg-red-500 rounded-full"
+                                                style={{
+                                                    height: `${Math.random() * 60 + 20}%`,
+                                                    animation: `pulse ${0.4 + i * 0.1}s ease-in-out infinite alternate`
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <p className="font-plex text-sm text-red-500 font-bold animate-pulse">🎙 Listening... Speak your journal entry</p>
+                                </div>
+                            )}
+
+                            {/* Transcript */}
+                            {voiceTranscript && !isListening && (
+                                <div className="mt-3 bg-bg border border-border rounded-xl p-4">
+                                    <p className="text-[10px] font-plex text-muted uppercase tracking-widest mb-2 font-bold">You said:</p>
+                                    <p className="font-serif text-text text-base italic">"{voiceTranscript}"</p>
+                                    {!parsingVoice && (
+                                        <p className="text-xs font-plex text-accent mt-2 flex items-center gap-1">
+                                            <CheckCircle size={12} /> Journal table has been filled from your voice input
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         {!feedback && (
                             <button 
                                 onClick={submitAnswer}
                                 disabled={evaluating}
-                                className={`mt-8 w-full font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg ${evaluating ? 'bg-accent/50 cursor-not-allowed animate-pulse text-[#0f0e0d]' : 'bg-surface2 border border-accent text-accent hover:bg-accent hover:text-[#0f0e0d]'}`}
+                                className={`w-full font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg ${evaluating ? 'bg-accent/50 cursor-not-allowed animate-pulse text-[#0f0e0d]' : 'bg-surface2 border border-accent text-accent hover:bg-accent hover:text-[#0f0e0d]'}`}
                             >
                                 {evaluating ? "🤖 AI Evaluating Journal Entry..." : "Submit Answer"}
                             </button>
