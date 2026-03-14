@@ -215,35 +215,40 @@ export default function InterviewMode() {
         setTranscribing(false);
     };
 
-    // ── START INTERVIEW ───────────────────────────────────────────────────────
+    // ── START INTERVIEW (no fixed count — runs until user ends) ─────────────
     const startInterview = async () => {
         if (!apiKey) { setShowSettings(true); return; }
         setStarting(true);
 
-        // Build question pool
+        // Build question pool (all questions, shuffled)
         let pool = [...questions];
         if (category !== 'All') {
             const cat = categories.find(c => c.name === category);
             if (cat) pool = pool.filter(q => q.cat === cat.id);
         }
         if (!pool.length) pool = [...questions];
-        const picked = [...pool].sort(() => Math.random() - 0.5).slice(0, numQ);
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
 
-        // Build greeting message WITHOUT hitting AI first (instant)
+        // Instant fallback greeting (no API wait)
         const name = yourName.trim() || 'there';
-        const greetLocal = `Hi ${name}! 👋 I'm Aria, your AI accounting interviewer. I'll ask you ${picked.length} questions on ${category === 'All' ? 'accounting & bookkeeping' : category}. Answer by voice or text — let's go!`;
+        const greetLocal = `Hi ${name}! 👋 I am Aria. I will ask you USA bookkeeping and payroll questions. Say or type your answer. Press "End Interview" anytime to stop. Let us begin!`;
 
-        // Try to get AI greeting in background but don't block
         let greetMsg = greetLocal;
         const aiGreet = await callGroq(apiKey, [
-            { role: 'system', content: 'You are Aria, a warm professional accounting interviewer. Keep responses to 2 sentences.' },
-            { role: 'user', content: `Greet "${name}", say you will ask ${picked.length} accounting questions. 2 sentences, friendly.` }
-        ], 100);
+            {
+                role: 'system',
+                content: `You are Aria, an AI interviewer for USA bookkeeping and payroll. You work for an Indian KPO firm.
+Rules:
+- Use very simple, short English. No complex words.
+- 2 short sentences only.
+- Be friendly and welcoming.`
+            },
+            { role: 'user', content: `Greet candidate named "${name}". Tell them to answer USA bookkeeping/payroll questions. Say they can press End Interview to stop.` }
+        ], 80);
         if (aiGreet) greetMsg = aiGreet;
 
-        // Now set up screen — always has content from the start
         setMsgs([{ role: 'ai', content: greetMsg }]);
-        setQueue(picked);
+        setQueue(shuffled);
         setQIdx(0);
         setScores([]);
         setSummary(null);
@@ -254,14 +259,20 @@ export default function InterviewMode() {
         setStarting(false);
         setScreen('interview');
 
-        // Ask first question after a short delay
-        setTimeout(() => askQuestion(picked, 0), 800);
+        setTimeout(() => askQuestion(shuffled, 0), 800);
     };
 
-    // ── ASK QUESTION ──────────────────────────────────────────────────────────
+    // ── ASK QUESTION (infinite loop — reshuffle when pool runs out) ──────────
     const askQuestion = async (q_queue, idx) => {
-        const arr = q_queue || queue;
-        if (idx >= arr.length) { endInterview(arr); return; }
+        let arr = q_queue || queue;
+
+        // When all questions done — reshuffle and restart from 0
+        if (idx >= arr.length) {
+            const reshuffled = [...arr].sort(() => Math.random() - 0.5);
+            setQueue(reshuffled);
+            arr = reshuffled;
+            idx = 0;
+        }
 
         const q = arr[idx];
         setBusy(true);
@@ -270,13 +281,21 @@ export default function InterviewMode() {
 
         const tid = addTyping();
 
-        // Try AI rephrase, fallback to raw question
+        // Ask question in simple English style for Indian KPO context
         const aiQ = await callGroq(apiKey, [
-            { role: 'system', content: 'You are Aria, an accounting interviewer. Ask the question naturally. 1 sentence only. Do NOT give the answer.' },
-            { role: 'user', content: `Question ${idx + 1} of ${arr.length}: ${q.q}` }
-        ], 80);
+            {
+                role: 'system',
+                content: `You are Aria, an interviewer for an Indian KPO firm that does USA bookkeeping and payroll work.
+Rules for asking questions:
+- Use very simple, easy English. Short sentences.
+- Ask the question directly. Do not add extra words.
+- Do NOT give the answer or any hint.
+- 1 sentence only.`
+            },
+            { role: 'user', content: `Ask this question simply: ${q.q}` }
+        ], 60);
 
-        const finalQ = aiQ || `Question ${idx + 1}: ${q.q}`;
+        const finalQ = aiQ || q.q;
         resolveTyping(tid, finalQ);
         setBusy(false);
         setShowInput(true);
@@ -300,19 +319,24 @@ export default function InterviewMode() {
         const q = queue[qIdx];
         const tid = addTyping();
 
-        // Evaluate with Groq
+        // Evaluate — simple English feedback, Indian KPO context
         const raw = await callGroq(apiKey, [
             {
                 role: 'system',
-                content: 'You are Aria, an accounting interview evaluator. Return ONLY valid JSON: {"score": <0-100>, "feedback": "<2 sentence evaluation>", "tip": "<1 actionable tip>"}'
+                content: `You are Aria. You check answers for USA bookkeeping and payroll questions.
+Rules for feedback:
+- Use very simple, short English.
+- Tell them if the answer is correct or not.
+- Give one short tip to improve.
+- Return ONLY valid JSON like this: {"score": 75, "feedback": "Good answer. You mentioned the main point.", "tip": "Also mention the tax form number next time."}`
             },
             {
                 role: 'user',
-                content: `Question: ${q.q}\nIdeal Answer: ${(q.a || '').replace(/<[^>]+>/g, ' ')}\nCandidate said: ${ans}`
+                content: `Question: ${q.q}\nCorrect Answer: ${(q.a || '').replace(/<[^>]+>/g, ' ')}\nCandidate said: ${ans}`
             }
-        ], 250);
+        ], 220);
 
-        let score = 50, feedbackContent = 'Good attempt! Keep practicing.';
+        let score = 50, feedbackContent = 'Good try! Keep practicing.';
         try {
             const match = (raw || '').match(/\{[\s\S]*\}/);
             const parsed = JSON.parse(match ? match[0] : raw);
@@ -324,17 +348,15 @@ export default function InterviewMode() {
         setScores(prev => [...prev, score]);
         setBusy(false);
 
-        // Move to next question
+        // Auto next question after 1.5s (infinite — no end condition here)
         const nextIdx = qIdx + 1;
-        if (nextIdx < queue.length) {
-            setTimeout(() => askQuestion(queue, nextIdx), 1500);
-        } else {
-            setTimeout(() => endInterview(queue), 1500);
-        }
+        setTimeout(() => askQuestion(queue, nextIdx), 1500);
     };
 
-    // ── END INTERVIEW ─────────────────────────────────────────────────────────
-    const endInterview = async (q_queue) => {
+    // ── END INTERVIEW (called by user pressing End button) ────────────────────
+    const endInterview = async () => {
+        ttsStop();
+        if (listening) stopListen();
         setShowInput(false);
         setBusy(true);
 
@@ -343,10 +365,17 @@ export default function InterviewMode() {
 
         const tid = addTyping();
         const closing = await callGroq(apiKey, [
-            { role: 'system', content: 'You are Aria. The interview just ended. 2 warm sentences only.' },
-            { role: 'user', content: `Interview done. Average score: ${avg}%. Give a brief closing.` }
+            {
+                role: 'system',
+                content: `You are Aria. The interview is now over.
+Rules:
+- Use very simple, short English.
+- 2 sentences only.
+- Tell them their score and encourage them.`
+            },
+            { role: 'user', content: `Interview ended. Candidate answered ${all_scores.length} questions. Average score: ${avg}%. Give a short closing message.` }
         ], 80);
-        resolveTyping(tid, closing || `Great job! Your average score was ${avg}%. Keep practicing! 🎉`);
+        resolveTyping(tid, closing || `Well done! You answered ${all_scores.length} questions with an average score of ${avg}%. Keep practicing every day! 💪`);
         setBusy(false);
         setScreen('done');
 
@@ -354,18 +383,20 @@ export default function InterviewMode() {
         const sumRaw = await callGroq(apiKey, [
             {
                 role: 'system',
-                content: 'Return ONLY valid JSON: {"overallScore":<0-100>,"strengths":["..."],"improvements":["..."],"advice":"..."}'
+                content: `You check USA bookkeeping and payroll interview performance for Indian KPO firms.
+Return ONLY valid JSON: {"overallScore":<0-100>,"strengths":["short point 1","short point 2"],"improvements":["short point 1","short point 2"],"advice":"one short sentence"}
+Use very simple English. Keep each point under 10 words.`
             },
             {
                 role: 'user',
-                content: `Scores: ${all_scores.join(',')}. Avg: ${avg}%. Topics: ${(q_queue || queue).map(q => q.q?.slice(0, 30)).join('; ')}`
+                content: `Scores for each answer: ${all_scores.join(', ')}. Overall average: ${avg}%. Total questions answered: ${all_scores.length}.`
             }
-        ], 300);
+        ], 250);
         try {
             const m = (sumRaw || '').match(/\{[\s\S]*\}/);
             setSummary(JSON.parse(m ? m[0] : sumRaw));
         } catch {
-            setSummary({ overallScore: avg, strengths: ['Good effort'], improvements: ['Review accounting basics'], advice: 'Practice daily!' });
+            setSummary({ overallScore: avg, strengths: ['Good effort', 'Answered all questions'], improvements: ['Review payroll rules', 'Practice bookkeeping entries'], advice: 'Study US payroll and bookkeeping daily!' });
         }
     };
 
@@ -397,6 +428,14 @@ export default function InterviewMode() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {screen === 'interview' && (
+                        <button
+                            onClick={endInterview}
+                            className="px-3 py-1.5 text-xs font-bold font-plex rounded-lg border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all"
+                        >
+                            ⏹ End Interview
+                        </button>
+                    )}
                     {screen === 'interview' && scores.length > 0 && (
                         <div className={`text-[11px] font-bold px-3 py-1 rounded-full border font-plex ${
                             avgScore >= 70 ? 'bg-green-500/10 border-green-500/30 text-green-500'
@@ -501,19 +540,6 @@ export default function InterviewMode() {
                                     ))}
                                 </div>
                             </div>
-                            {/* Question Count */}
-                            <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1.5 tracking-wider">Questions</label>
-                                <div className="grid grid-cols-5 gap-2">
-                                    {[5,10,20,30,50].map(n => (
-                                        <button key={n} onClick={() => setNumQ(n)}
-                                            className={`py-2 rounded-xl text-xs font-bold font-plex border transition-all ${
-                                                numQ === n ? 'bg-accent text-[#0f0e0d] border-accent' : 'bg-bg border-border text-muted hover:border-accent/40'
-                                            }`}>{n}</button>
-                                    ))}
-                                </div>
-                            </div>
-
                             {!apiKey && (
                                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs font-plex text-red-400">
                                     ⚠ No API key. <button onClick={() => setShowSettings(true)} className="underline font-bold">Add it in Settings ⚙</button><br />
@@ -537,7 +563,7 @@ export default function InterviewMode() {
                             </button>
                         </div>
                         <p className="text-center text-[11px] text-muted mt-3 font-plex">
-                            Free · {numQ} questions · Groq LLaMA 3.3 70B
+                            Free · Unlimited questions · Press "End Interview" to stop · Groq LLaMA 3.3 70B
                         </p>
                     </div>
                 </div>
@@ -550,7 +576,7 @@ export default function InterviewMode() {
                     {/* Progress */}
                     {screen === 'interview' && (
                         <div className="flex items-center gap-2 mb-3 px-1">
-                            <span className="text-[10px] font-plex text-muted shrink-0 font-bold">Q {Math.min(qIdx + 1, queue.length)}/{queue.length}</span>
+                            <span className="text-[10px] font-plex text-muted shrink-0 font-bold">Answered: {scores.length}</span>
                             <div className="flex-1 bg-surface border border-border rounded-full h-1.5 overflow-hidden">
                                 <div className="bg-accent h-full rounded-full transition-all duration-700"
                                     style={{ width: `${queue.length ? (qIdx / queue.length) * 100 : 0}%` }} />
