@@ -26,16 +26,41 @@ async function callGroq(apiKey, messages, maxTokens = 400) {
     }
 }
 
+// ─── Pick best Indian female voice ───────────────────────────────────────────
+// Priority: Priya > Heera > Raveena > any en-IN > en-US female > any English
+function getIndianFemaleVoice() {
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return null;
+    const prefer = ['priya', 'heera', 'raveena', 'aditi', 'veena', 'divya'];
+    for (const name of prefer) {
+        const v = voices.find(v => v.name.toLowerCase().includes(name));
+        if (v) return v;
+    }
+    const enINF = voices.find(v => v.lang === 'en-IN' && v.name.toLowerCase().includes('female'));
+    if (enINF) return enINF;
+    const enIN  = voices.find(v => v.lang === 'en-IN');
+    if (enIN)  return enIN;
+    const enUSF = voices.find(v => v.lang === 'en-US' &&
+        (v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('aria') || v.name.toLowerCase().includes('female')));
+    if (enUSF) return enUSF;
+    return voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
+}
+
 // ─── TTS ─────────────────────────────────────────────────────────────────────
 function ttsSpeak(text) {
     try {
         if (!window.speechSynthesis) return;
         window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text.replace(/<[^>]+>/g, ' ').replace(/\*\*/g, ''));
-        u.rate = 1.0;
-        u.lang = 'en-US';
+        const clean = text.replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+        const u = new SpeechSynthesisUtterance(clean);
+        u.rate  = 0.95;
+        u.pitch = 1.1;
+        u.lang  = 'en-IN';
+        // Voices may load async — try to assign if available
+        const voice = getIndianFemaleVoice();
+        if (voice) u.voice = voice;
         window.speechSynthesis.speak(u);
-    } catch (e) { /* TTS errors are non-critical */ }
+    } catch (e) { /* non-critical */ }
 }
 function ttsStop() {
     try { window.speechSynthesis?.cancel(); } catch (e) { }
@@ -73,10 +98,10 @@ const Bubble = ({ msg }) => {
             window.speechSynthesis.cancel();
 
             const u = new SpeechSynthesisUtterance(cleanForTTS(msg.content));
-            u.rate = 1.0;
-            u.lang = 'en-US';
-            const voices = window.speechSynthesis.getVoices();
-            const voice = voices.find(v => v.lang === 'en-US') || voices[0];
+            u.rate = 0.95;
+            u.pitch = 1.1;
+            u.lang = 'en-IN';
+            const voice = getIndianFemaleVoice();
             if (voice) u.voice = voice;
             u.onstart = () => { setTts('speaking'); _activeTtsSetter = setTts; };
             u.onend   = () => { setTts('idle');     _activeTtsSetter = null; };
@@ -396,36 +421,46 @@ Rules:
         const q = queue[qIdx];
         const tid = addTyping();
 
-        // Evaluate — structured feedback with real-world example
-        const correctAns = (q.a || '').replace(/<[^>]+>/g, ' ').trim();
+        // Evaluate — detailed structured feedback
+        const correctAns = (q.a || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const raw = await callGroq(apiKey, [
             {
                 role: 'system',
-                content: `You are Aria, an expert USA bookkeeping and payroll trainer for an Indian KPO firm.
-Your job: check the candidate's answer and give clear, simple feedback.
+                content: `You are Aria, an expert USA bookkeeping and payroll trainer at an Indian KPO firm.
+You evaluate interview answers and give DETAILED, ACCURATE feedback.
 
-Rules:
-- Use very simple English. Short sentences. Like explaining to a new employee.
-- Be warm and encouraging, even when the answer is wrong.
-- Give a real-world USA work example to explain the correct answer.
-- Return ONLY valid JSON in exactly this format:
+Scoring guide:
+- 90-100: Answer is fully correct with all key points mentioned.
+- 70-89: Answer is mostly correct, minor points missing.
+- 40-69: Answer is partially correct, some key points missing or some mistakes.
+- 10-39: Answer has a few right ideas but mostly incorrect or incomplete.
+- 0-9: Answer is completely wrong or the candidate said they don't know.
+
+Important: Be accurate. If the candidate says the correct key term or concept, give credit. Do not be too strict or too lenient.
+
+Use VERY SIMPLE English. Short sentences. Like explaining to a new employee.
+
+Return ONLY valid JSON:
 {
-  "score": <number 0 to 100>,
-  "verdict": "<one of: Correct / Partially Correct / Incorrect>",
-  "feedback": "<1-2 short sentences: what was right or wrong in their answer>",
-  "correct_answer": "<the correct answer explained simply, as if teaching a beginner>",
-  "example": "<one real USA work example, like: For example, when XYZ company pays employee John...>",
-  "tip": "<one short thing to remember, max 15 words>"
+  "score": <0 to 100>,
+  "verdict": "<Correct / Partially Correct / Incorrect>",
+  "feedback": "<2 sentences: exactly what was right and what was wrong in their answer>",
+  "what_was_right": "<specific things they got correct, or 'Nothing was correct' if fully wrong>",
+  "what_was_wrong": "<specific mistakes they made, or 'No mistakes' if fully correct>",
+  "what_was_missing": "<key points they forgot to mention, or 'Nothing was missing' if fully correct>",
+  "correct_answer": "<full correct answer in simple English, 3-4 sentences, teach it properly>",
+  "example": "<one real USA bookkeeping/payroll example with company name and employee name>",
+  "tip": "<one important thing to remember, max 15 words>"
 }`
             },
             {
                 role: 'user',
-                content: `Question: ${q.q}\nCorrect Answer (reference): ${correctAns}\nCandidate said: ${ans}`
+                content: `Question: ${q.q}\n\nReference Answer: ${correctAns}\n\nCandidate answered: ${ans}`
             }
-        ], 400);
+        ], 700);
 
         let score = 50;
-        let feedbackContent = '❌ Could not check your answer. Please try again.';
+        let feedbackContent = '❌ Could not check. Please try again.';
         try {
             const match = (raw || '').match(/\{[\s\S]*\}/);
             const parsed = JSON.parse(match ? match[0] : raw);
@@ -436,22 +471,49 @@ Rules:
 
             const parts = [];
 
-            // Result line
-            parts.push(`${icon} ${verdict.toUpperCase()} — ${parsed.feedback || ''}`);
+            // Header: verdict + overall feedback
+            parts.push(`${icon} ${verdict.toUpperCase()} (${score}%)
+${parsed.feedback || ''}`);
 
-            // Correct answer explanation
+            // What was right
+            if (parsed.what_was_right) {
+                parts.push(`
+✅ What you got right:
+${parsed.what_was_right}`);
+            }
+
+            // What was wrong
+            if (parsed.what_was_wrong && parsed.what_was_wrong !== 'No mistakes') {
+                parts.push(`
+❌ What was wrong:
+${parsed.what_was_wrong}`);
+            }
+
+            // What was missing
+            if (parsed.what_was_missing && parsed.what_was_missing !== 'Nothing was missing') {
+                parts.push(`
+📌 What you missed:
+${parsed.what_was_missing}`);
+            }
+
+            // Full correct answer
             if (parsed.correct_answer) {
-                parts.push(`\n📖 Correct Answer:\n${parsed.correct_answer}`);
+                parts.push(`
+📖 Full Correct Answer:
+${parsed.correct_answer}`);
             }
 
-            // Real-world example
+            // Real example
             if (parsed.example) {
-                parts.push(`\n🏢 Example:\n${parsed.example}`);
+                parts.push(`
+🏢 Real Example:
+${parsed.example}`);
             }
 
-            // Quick tip
+            // Tip
             if (parsed.tip) {
-                parts.push(`\n💡 Remember: ${parsed.tip}`);
+                parts.push(`
+💡 Remember: ${parsed.tip}`);
             }
 
             feedbackContent = parts.join('\n');
@@ -463,11 +525,10 @@ Rules:
         setScores(prev => [...prev, score]);
         setBusy(false);
 
-        // Auto-speak the feedback so candidate can hear it
+        // Auto-speak feedback then move to next question
         const nextIdx = qIdx + 1;
         ttsSpeak(cleanForTTS(feedbackContent));
-        // Next question: 6s to hear feedback, or adjust as needed
-        setTimeout(() => askQuestion(queue, nextIdx), 6000);
+        setTimeout(() => askQuestion(queue, nextIdx), 7000); // 7s — enough to hear detailed feedback
     };
 
     // ── END INTERVIEW (called by user pressing End button) ────────────────────
