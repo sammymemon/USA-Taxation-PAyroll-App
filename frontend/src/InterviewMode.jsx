@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import {
-    Mic, MicOff, ArrowLeft, Play, Bot, User,
+    Mic, MicOff, ArrowLeft, Play, Pause, Bot, User,
     Loader2, RefreshCcw, Settings, X, Check, Volume2, Square
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -41,9 +41,52 @@ function ttsStop() {
     try { window.speechSynthesis?.cancel(); } catch (e) { }
 }
 
-// ─── Chat Bubble ──────────────────────────────────────────────────────────────
+// Module-level tracker so only 1 bubble speaks at a time
+let _activeTtsSetter = null;
+
+// Strip emoji and markdown symbols for clean TTS audio
+function cleanForTTS(text) {
+    return (text || '')
+        .replace(/[✅❌⚠️📖🏢💡👋]/g, '')
+        .replace(/\*\*/g, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// ─── Chat Bubble with TTS play/pause button ───────────────────────────────────
 const Bubble = ({ msg }) => {
     const ai = msg.role === 'ai';
+    const [tts, setTts] = useState('idle'); // idle | speaking | paused
+
+    const handleTTS = () => {
+        if (!('speechSynthesis' in window)) return;
+        if (tts === 'speaking') {
+            window.speechSynthesis.pause();
+            setTts('paused');
+        } else if (tts === 'paused') {
+            window.speechSynthesis.resume();
+            setTts('speaking');
+        } else {
+            // Stop whatever is currently playing
+            if (_activeTtsSetter) { _activeTtsSetter('idle'); _activeTtsSetter = null; }
+            window.speechSynthesis.cancel();
+
+            const u = new SpeechSynthesisUtterance(cleanForTTS(msg.content));
+            u.rate = 1.0;
+            u.lang = 'en-US';
+            const voices = window.speechSynthesis.getVoices();
+            const voice = voices.find(v => v.lang === 'en-US') || voices[0];
+            if (voice) u.voice = voice;
+            u.onstart = () => { setTts('speaking'); _activeTtsSetter = setTts; };
+            u.onend   = () => { setTts('idle');     _activeTtsSetter = null; };
+            u.onerror = () => { setTts('idle');     _activeTtsSetter = null; };
+            setTts('speaking');
+            _activeTtsSetter = setTts;
+            window.speechSynthesis.speak(u);
+        }
+    };
+
     return (
         <div className={`flex gap-3 mb-4 ${ai ? '' : 'flex-row-reverse'}`}>
             <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
@@ -62,11 +105,30 @@ const Bubble = ({ msg }) => {
                             <span key={d} className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{animationDelay:`${d}ms`}} />
                         ))}
                     </span>
-                ) : msg.content}
+                ) : (
+                    <span className="whitespace-pre-wrap">{msg.content}</span>
+                )}
                 {msg.score != null && (
                     <div className={`mt-2 pt-2 border-t border-border/40 font-bold text-base ${
                         msg.score >= 70 ? 'text-green-500' : msg.score >= 40 ? 'text-yellow-500' : 'text-red-500'
                     }`}>Score: {msg.score}%</div>
+                )}
+                {/* TTS button — only on non-typing AI bubbles */}
+                {ai && !msg.typing && msg.content && (
+                    <button
+                        onClick={handleTTS}
+                        title={tts === 'speaking' ? 'Pause' : tts === 'paused' ? 'Resume' : 'Listen'}
+                        className={`mt-2 pt-2 border-t border-border/30 w-full flex items-center gap-1.5 text-[10px] font-plex font-bold transition-all ${
+                            tts !== 'idle' ? 'text-accent' : 'text-muted hover:text-accent'
+                        }`}
+                    >
+                        {tts === 'speaking'
+                            ? <><Pause size={11} fill="currentColor" /> Pause</>
+                            : tts === 'paused'
+                            ? <><Play  size={11} fill="currentColor" /> Resume</>
+                            : <><Volume2 size={11} /> Listen</>
+                        }
+                    </button>
                 )}
             </div>
         </div>
@@ -401,9 +463,11 @@ Rules:
         setScores(prev => [...prev, score]);
         setBusy(false);
 
-        // Next question after 3.5s so candidate can read full feedback
+        // Auto-speak the feedback so candidate can hear it
         const nextIdx = qIdx + 1;
-        setTimeout(() => askQuestion(queue, nextIdx), 3500);
+        ttsSpeak(cleanForTTS(feedbackContent));
+        // Next question: 6s to hear feedback, or adjust as needed
+        setTimeout(() => askQuestion(queue, nextIdx), 6000);
     };
 
     // ── END INTERVIEW (called by user pressing End button) ────────────────────
