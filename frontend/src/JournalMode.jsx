@@ -212,45 +212,72 @@ function JournalMode() {
         setJournalRows(newRows);
     };
 
-    // --- Voice Mode ---
-    const startVoiceEntry = () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            alert('Voice recognition is not supported in this browser. Please use Chrome.');
-            return;
-        }
+    // --- Voice Mode (Groq Whisper) ---
+    const startVoiceEntry = async () => {
         if (isListening) {
-            recognitionRef.current?.stop();
-            setIsListening(false);
+            recognitionRef.current?.stream?.getTracks().forEach(t => t.stop());
+            recognitionRef.current?.recorder?.stop();
             return;
         }
 
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'en-US';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognitionRef.current = recognition;
+        if (!groqApiKey) return alert('Please enter your Groq API Key first.');
 
-        recognition.onstart = () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            const chunks = [];
+
+            recognitionRef.current = { stream, recorder };
             setIsListening(true);
             setVoiceTranscript('');
-        };
 
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            setVoiceTranscript(transcript);
-            parseVoiceToJournal(transcript);
-        };
+            recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
-        recognition.onerror = (e) => {
-            console.error('Speech recognition error:', e.error);
+            recorder.onstop = async () => {
+                stream.getTracks().forEach(t => t.stop());
+                setIsListening(false);
+                setParsingVoice(true);
+
+                const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+                const formData = new FormData();
+                formData.append('file', audioBlob, 'voice.webm');
+                formData.append('model', 'whisper-large-v3-turbo');
+                formData.append('language', 'en');
+
+                try {
+                    const whisperRes = await axios.post(
+                        'https://api.groq.com/openai/v1/audio/transcriptions',
+                        formData,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${groqApiKey}`,
+                                'Content-Type': 'multipart/form-data'
+                            }
+                        }
+                    );
+                    const transcript = whisperRes.data.text || '';
+                    setVoiceTranscript(transcript);
+                    if (transcript) parseVoiceToJournal(transcript);
+                    else alert('No speech detected. Please try again.');
+                } catch (err) {
+                    console.error('Groq Whisper error:', err);
+                    alert('Groq Whisper transcription failed. Check your API key.');
+                    setParsingVoice(false);
+                }
+            };
+
+            recorder.start();
+
+            // Auto-stop after 15 seconds
+            setTimeout(() => {
+                if (recorder.state === 'recording') recorder.stop();
+            }, 15000);
+
+        } catch (err) {
+            console.error('Microphone error:', err);
+            alert('Could not access microphone. Please allow microphone permission.');
             setIsListening(false);
-            if (e.error !== 'aborted') alert('Voice recognition error: ' + e.error);
-        };
-
-        recognition.onend = () => setIsListening(false);
-
-        recognition.start();
+        }
     };
 
     const parseVoiceToJournal = async (transcript) => {
@@ -653,9 +680,10 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                     <h4 className="font-plex font-bold text-text text-sm flex items-center gap-2">
                                         <Mic size={16} className={isListening ? 'text-red-500' : 'text-accent'} />
                                         Voice Entry
+                                        <span className="text-[10px] font-plex text-muted bg-surface2 border border-border px-2 py-0.5 rounded-full">Groq Whisper</span>
                                     </h4>
                                     <p className="font-plex text-xs text-muted mt-0.5">
-                                        Speak your journal entry and AI will fill the table
+                                        Record your voice — Groq AI will transcribe &amp; fill the table
                                     </p>
                                 </div>
                                 <button
@@ -698,26 +726,23 @@ Provide your evaluation and standard solution in JSON format ONLY:
                             {/* Listening Animation */}
                             {isListening && (
                                 <div className="flex flex-col items-center justify-center py-6 gap-4">
-                                    <div className="flex items-end gap-1 h-12">
-                                        {[1,2,3,4,5,6,7].map(i => (
-                                            <div
-                                                key={i}
-                                                className="w-2 bg-red-500 rounded-full"
-                                                style={{
-                                                    height: `${Math.random() * 60 + 20}%`,
-                                                    animation: `pulse ${0.4 + i * 0.1}s ease-in-out infinite alternate`
-                                                }}
-                                            />
-                                        ))}
+                                    <div className="relative flex items-center justify-center">
+                                        <span className="absolute inline-flex h-20 w-20 rounded-full bg-red-500/20 animate-ping"></span>
+                                        <span className="relative flex h-16 w-16 rounded-full bg-red-500/10 border-2 border-red-500/50 items-center justify-center">
+                                            <Mic size={28} className="text-red-500 animate-pulse" />
+                                        </span>
                                     </div>
-                                    <p className="font-plex text-sm text-red-500 font-bold animate-pulse">🎙 Listening... Speak your journal entry</p>
+                                    <p className="font-plex text-sm text-red-500 font-bold animate-pulse">🎙 Recording... Speak your journal entry</p>
+                                    <p className="font-plex text-xs text-muted">Click <strong>Stop Recording</strong> when done (auto-stops at 15s)</p>
                                 </div>
                             )}
 
                             {/* Transcript */}
                             {voiceTranscript && !isListening && (
                                 <div className="mt-3 bg-bg border border-border rounded-xl p-4">
-                                    <p className="text-[10px] font-plex text-muted uppercase tracking-widest mb-2 font-bold">You said:</p>
+                                    <p className="text-[10px] font-plex text-muted uppercase tracking-widest mb-2 font-bold flex items-center gap-1">
+                                        <CheckCircle size={11} className="text-accent" /> Groq Whisper Transcript:
+                                    </p>
                                     <p className="font-serif text-text text-base italic">"{voiceTranscript}"</p>
                                     {!parsingVoice && (
                                         <p className="text-xs font-plex text-accent mt-2 flex items-center gap-1">
