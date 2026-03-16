@@ -27,14 +27,15 @@ const extractJSONFromVariable = (htmlContent, varName) => {
     }
 };
 
-let appData = { categories: [], questions: [] };
+let appData = { categories: [], questions: [], reels: [] };
 
 // Initialize data
 const initData = () => {
     if (fs.existsSync(DATA_FILE_PATH)) {
         try {
             const rawData = fs.readFileSync(DATA_FILE_PATH, 'utf-8');
-            appData = JSON.parse(rawData);
+            appData = { ...appData, ...JSON.parse(rawData) };
+            if (!appData.reels) appData.reels = [];
             console.log("Data loaded from data.json");
             return;
         } catch (e) { console.error("Error reading data.json", e); }
@@ -46,6 +47,7 @@ const initData = () => {
         const htmlContent = fs.readFileSync(HTML_FILE_PATH, 'utf-8');
         appData.categories = extractJSONFromVariable(htmlContent, 'CATEGORIES');
         appData.questions = extractJSONFromVariable(htmlContent, 'ALL_QA');
+        appData.reels = [];
         saveData();
     }
 };
@@ -64,6 +66,33 @@ app.get('/', (req, res) => {
 // GET all data
 app.get('/api/data', (req, res) => {
     res.json(appData);
+});
+
+// GET reels
+app.get('/api/reels', (req, res) => {
+    res.json(appData.reels || []);
+});
+
+// ADD reels in bulk
+app.post('/api/reels/bulk', (req, res) => {
+    const newReels = req.body;
+    if (!Array.isArray(newReels)) {
+        return res.status(400).json({ error: 'Body must be an array of reels' });
+    }
+    
+    // Merge and avoid duplicates by id
+    const existingIds = new Set(appData.reels.map(r => r.id));
+    const added = [];
+    
+    newReels.forEach(reel => {
+        if (reel.id && !existingIds.has(reel.id)) {
+            appData.reels.push(reel);
+            added.push(reel);
+        }
+    });
+
+    saveData();
+    res.status(201).json({ message: `Added ${added.length} new reels`, added });
 });
 
 // ADD a new question
@@ -100,3 +129,4 @@ app.delete('/api/questions/:id', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+
