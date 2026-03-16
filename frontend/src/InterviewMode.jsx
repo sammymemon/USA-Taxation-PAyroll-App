@@ -205,42 +205,6 @@ const Bubble = ({ msg }) => {
     );
 };
 
-// ─── Custom Data Parser ──────────────────────────────────────────────────────
-const parseCustomQA = (text) => {
-    try {
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed) && parsed[0] && (parsed[0].q || parsed[0].question) && (parsed[0].a || parsed[0].answer)) {
-            return parsed.map(item => ({ q: item.q || item.question, a: item.a || item.answer }));
-        }
-    } catch(e) {}
-    
-    const lines = text.split('\n');
-    const result = [];
-    let currentQ = '';
-    let currentA = '';
-    let state = 'none';
-
-    for (let line of lines) {
-        const qMatch = line.match(/^(?:Q|Question|Q\d+)\s*:\s*(.*)/i) || (line.match(/^\d+\.\s*(?:Q|Question)?\s*[:-]?\s*(.*)/i) && !line.match(/^(?:A|Answer|A\d+)\s*:/i));
-        const aMatch = line.match(/^(?:A|Answer|A\d+)\s*:\s*(.*)/i);
-        
-        if (qMatch) {
-            if (currentQ && currentA) result.push({ q: currentQ.trim(), a: currentA.trim() });
-            currentQ = qMatch[1] || line.replace(/^\d+\.\s*(?:Q|Question)?\s*[:-]?\s*/i, '').trim();
-            currentA = '';
-            state = 'q';
-        } else if (aMatch) {
-            currentA = aMatch[1];
-            state = 'a';
-        } else if (line.trim()) {
-            if (state === 'q') currentQ += '\n' + line;
-            else if (state === 'a') currentA += '\n' + line;
-        }
-    }
-    if (currentQ && currentA) result.push({ q: currentQ.trim(), a: currentA.trim() });
-    return result;
-};
-
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function InterviewMode() {
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
@@ -375,12 +339,20 @@ export default function InterviewMode() {
     // 1. Kickoff
     const startInterview = async () => {
         if (!apiKey) return setShowSettings(true);
+        setBusy(true);
 
         let finalQueue = [];
         if (pastedQA.trim()) {
-            finalQueue = parseCustomQA(pastedQA);
-            if (!finalQueue.length) {
-                return alert("Could not parse Q&A. Please format as:\nQ: question here\nA: answer here");
+            try {
+                const parseReq = await callGroq(apiKey, [
+                    { role: 'system', content: 'Extract questions and expected answers from the attached text. You must return ONLY a valid JSON array of objects with strictly two keys: "q" (the question) and "a" (the expected answer). Fix any obvious typos or formatting issues in the text so it is clean.' },
+                    { role: 'user', content: pastedQA }
+                ], 3000);
+                finalQueue = JSON.parse(parseReq.match(/\[[\s\S]*\]/)[0]);
+                if (!finalQueue || finalQueue.length === 0) throw new Error("Empty array");
+            } catch(e) {
+                setBusy(false);
+                return alert("AI could not extract Q&A from your text. Please provide it in a clearer format, e.g., Q: ... A: ...");
             }
         } else {
             let pool = category !== 'All' ? questions.filter(q => q.cat === categories.find(c=>c.name===category)?.id) : [...questions];
@@ -389,7 +361,7 @@ export default function InterviewMode() {
         }
 
         fxStart();
-        setScreen('interview'); setStage('Intro'); setBusy(true); setTimerActive(false);
+        setScreen('interview'); setStage('Intro'); setTimerActive(false);
         setScores([]); setTimeElapsed(0); setConfidence(0);
 
         setQueue(finalQueue); setQIdx(0); setMsgs([]);
@@ -457,7 +429,7 @@ Return ONLY valid JSON:
   "key_strengths": ["point 1"],
   "critical_misses": ["point 1"],
   "correct_answer": "<Clear explanation based on the Expected answer, 2 sentences>",
-  "follow_up_thought": "<1 short rhetorical follow-up question to test deeper understanding>"
+  "study_focus": "<Specify exactly which topic or concept the candidate needs to study more based on their mistake>"
 }` },
             { role: 'user', content: `Q: ${qData.q}\nExpected: ${qData.a}\nCandidate Ans: ${ans}` }
         ], 800);
@@ -477,7 +449,7 @@ ${data.feedback}
 📖 Full Correct Answer:
 ${data.correct_answer}
 
-🤔 Think About This: ${data.follow_up_thought || 'Keep practicing.'}`;
+📚 Study Focus: ${data.study_focus || 'Review the core concepts.'}`;
 
         resolveTyping(tid, feedbackText, { autoSpeak: true, score: finalScore, confidence });
         setBusy(false); setScreen('feedback');
@@ -544,9 +516,9 @@ ${data.correct_answer}
     if (loading) return <div className="h-screen flex items-center justify-center bg-bg"><Loader2 className="animate-spin text-accent" size={32}/></div>;
 
     return (
-        <div className="min-h-screen bg-bg text-text flex flex-col font-inter selection:bg-accent/30 selection:text-accent">
+        <div className="h-[100dvh] bg-bg text-text flex flex-col font-inter selection:bg-accent/30 selection:text-accent overflow-hidden">
             {/* Nav */}
-            <div className="bg-surface/90 backdrop-blur-md border-b border-border p-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+            <div className="bg-surface border-b border-border p-3 flex justify-between items-center shrink-0 z-50 shadow-sm">
                 <Link to="/" className="p-2 border border-border rounded-xl text-muted hover:text-accent hover:border-accent/50 transition-colors"><ArrowLeft size={18}/></Link>
                 <div className="flex flex-col items-center">
                     <h1 className="font-bold tracking-wide flex items-center gap-2 text-sm"><Briefcase size={16} className="text-accent"/> Live Interview</h1>
@@ -558,7 +530,7 @@ ${data.correct_answer}
             </div>
 
             {/* Content area */}
-            <div className="flex-1 max-w-2xl w-full mx-auto p-4 flex flex-col h-full">
+            <div className="flex-1 max-w-2xl w-full mx-auto p-3 flex flex-col overflow-hidden relative">
 
                 {/* Settings Panel */}
                 {showSettings && (
@@ -588,7 +560,7 @@ ${data.correct_answer}
                         <h2 className="text-3xl font-bold mb-2 font-display text-center">Ready for your Interview?</h2>
                         <p className="text-sm text-muted text-center mb-8">Set your parameters. Aria will conduct a full technical evaluation.</p>
                         
-                        <div className="w-full space-y-4 bg-surface p-6 rounded-3xl border border-border shadow-md">
+                        <div className="w-full space-y-4 bg-surface p-6 rounded-3xl border border-border shadow-md overflow-y-auto max-h-[70vh] custom-scrollbar">
                             <div>
                                 <label className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-1.5">Candidate Name</label>
                                 <input placeholder="Enter name..." value={yourName} onChange={e=>setYourName(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 text-sm focus:border-accent outline-none" />
@@ -647,13 +619,13 @@ ${data.correct_answer}
                         </div>
 
                         {/* Chat History */}
-                        <div className="flex-1 overflow-y-auto pr-2 pb-32 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                             {msgs.map((m, i) => <Bubble key={i} msg={m} />)}
-                            <div ref={bottomRef}/>
+                            <div ref={bottomRef} className="h-4"/>
                         </div>
 
-                        {/* Input Area Overlay */}
-                        <div className="absolute bottom-4 left-4 right-4 max-w-2xl mx-auto">
+                        {/* Input Area */}
+                        <div className="shrink-0 pt-2 pb-1">
                             {screen === 'interview' && !busy && (
                                 <div className="bg-surface border border-border shadow-2xl rounded-3xl p-4 animate-in slide-in-from-bottom duration-300">
                                     <div className="flex justify-between items-center mb-3">
