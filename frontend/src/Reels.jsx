@@ -77,11 +77,56 @@ export default function Reels() {
     const refreshReels = useCallback(async () => {
         setFetchStatus('loading');
         const queries = [
+            // Core Bookkeeping
             'bookkeeping tips shorts',
+            'bookkeeping for beginners shorts',
+            'bookkeeping basics explained shorts',
+            'small business bookkeeping shorts',
+            'virtual bookkeeping shorts',
+            // Accounting
             'accounting basics shorts',
+            'accounting concepts shorts',
+            'accounting for beginners shorts',
+            'accounting equation shorts',
+            'double entry bookkeeping shorts',
+            'journal entries accounting shorts',
+            'general ledger accounting shorts',
+            // US Taxes & Compliance
             'US payroll tax shorts',
+            'payroll processing shorts',
+            '1099 vs W2 shorts',
+            '1099 NEC filing shorts',
+            'sales tax nexus shorts',
+            'SOX compliance shorts',
+            'IRS tax tips shorts',
+            'W9 form explained shorts',
+            'GAAP accounting shorts',
+            // AP / AR
             'accounts payable shorts',
+            'accounts receivable shorts',
+            'invoice processing shorts',
+            'three way matching accounts payable shorts',
+            'vendor payment shorts',
+            'collections AR shorts',
+            // Tools
             'QuickBooks tutorial shorts',
+            'QuickBooks online tips shorts',
+            'QuickBooks payroll shorts',
+            'Excel accounting shorts',
+            'NetSuite ERP shorts',
+            'SAP accounting shorts',
+            'Xero accounting shorts',
+            // Fixed Assets & GL
+            'fixed assets depreciation shorts',
+            'bank reconciliation shorts',
+            'month end close accounting shorts',
+            'accruals prepaid accounting shorts',
+            // Career
+            'accounting career tips shorts',
+            'KPO accounting work shorts',
+            'remote bookkeeping job shorts',
+            'accounting interview tips shorts',
+            'CPA exam tips shorts',
         ];
         const q = queries[Math.floor(Math.random() * queries.length)];
         const ids = await fetchYTShortIds(q);
