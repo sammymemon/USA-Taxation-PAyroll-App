@@ -87,87 +87,85 @@ export default function Reels() {
     const touchStartY = useRef(null);
     const touchStartX = useRef(null);
 
-    // ── Auto-fetch fresh IDs on mount (Infinite expansion logic) ────────────────
+    // ── Auto-fetch fresh IDs on mount (Infinite expansion logic with AI) ──────
     const refreshReels = useCallback(async (append = true) => {
         if (fetchStatus === 'loading') return;
         setFetchStatus('loading');
         
-        const queries = [
-            // Core Bookkeeping
-            'bookkeeping tips shorts', 'bookkeeping for beginners shorts', 'bookkeeping basics explained shorts',
-            'small business bookkeeping shorts', 'virtual bookkeeping shorts',
-            // Accounting
-            'accounting basics shorts', 'accounting concepts shorts', 'accounting for beginners shorts',
-            'accounting equation shorts', 'double entry bookkeeping shorts', 'journal entries accounting shorts',
-            'general ledger accounting shorts',
-            // US Taxes & Compliance
-            'US payroll tax shorts', 'payroll processing shorts', '1099 vs W2 shorts', '1099 NEC filing shorts',
-            'sales tax nexus shorts', 'SOX compliance shorts', 'IRS tax tips shorts', 'W9 form explained shorts',
-            'GAAP accounting shorts',
-            // AP / AR
-            'accounts payable shorts', 'accounts receivable shorts', 'invoice processing shorts',
-            'three way matching accounts payable shorts', 'vendor payment shorts', 'collections AR shorts',
-            // Tools
-            'QuickBooks tutorial shorts', 'QuickBooks online tips shorts', 'QuickBooks payroll shorts',
-            'Excel accounting shorts', 'NetSuite ERP shorts', 'SAP accounting shorts', 'Xero accounting shorts',
-            // Fixed Assets & GL
-            'fixed assets depreciation shorts', 'bank reconciliation shorts', 'month end close accounting shorts',
-            'accruals prepaid accounting shorts',
-            // Career
-            'accounting career tips shorts', 'KPO accounting work shorts', 'remote bookkeeping job shorts',
-            'accounting interview tips shorts', 'CPA exam tips shorts',
-            // USA Payroll
-            'USA payroll processing shorts', 'USA payroll basics shorts', 'payroll taxes USA shorts',
-            'federal payroll tax shorts', 'FICA tax explained shorts', 'FUTA SUTA payroll shorts',
-            'Form 941 payroll shorts', 'Form 940 annual payroll shorts', 'W2 form explained shorts',
-            'employee payroll deductions shorts', 'payroll garnishment explained shorts', 'multi state payroll shorts',
-            'ADP payroll tutorial shorts', 'Paychex payroll shorts', 'payroll reconciliation shorts',
-            // USA Taxation
-            'USA taxation basics shorts', 'US federal income tax shorts', 'US business tax shorts',
-            'corporate income tax USA shorts', 'MACRS depreciation tax shorts', 'deferred tax accounting shorts',
-            'tax return filing USA shorts', 'IRS form 1040 shorts', 'pass through taxation shorts',
-            'S corp vs LLC tax shorts', 'sales use tax USA shorts', 'state income tax USA shorts',
-            'transfer pricing tax shorts', 'tax planning strategies shorts', 'USA tax season tips shorts',
-            // USA Bookkeeping
-            'USA bookkeeping standards shorts', 'US GAAP bookkeeping shorts', 'bookkeeping for US small business shorts',
-            'petty cash management shorts', 'cash flow management shorts', 'profit and loss statement shorts',
-            'balance sheet explained shorts', 'income statement basics shorts', 'retained earnings explained shorts',
-            'working capital explained shorts', 'chart of accounts setup shorts', 'financial statements USA shorts',
-            'bookkeeping errors to avoid shorts', 'bookkeeping software comparison shorts',
-            // KPO Interview Q&A
-            'KPO interview questions accounting shorts', 'KPO accounting interview tips shorts',
-            'KPO bookkeeping interview shorts', 'KPO finance job interview shorts',
-            'accounting interview questions and answers shorts', 'bookkeeping interview questions shorts',
-            'payroll interview questions shorts', 'accounts payable interview questions shorts',
-            'accounts receivable interview questions shorts', 'general ledger interview questions shorts',
-            'US accounting job interview tips shorts', 'KPO BPO finance work tips shorts',
-            'night shift accounting job tips shorts', 'India to USA accounting career shorts',
-            'offshore accounting KPO career shorts',
+        // 1. Get Groq API Key if user has entered it in Interview Mode
+        const groqKey = localStorage.getItem('groqApiKey');
+        let selectedQuery = "";
+
+        if (groqKey && (Math.random() > 0.3 || !append)) { 
+            // 70% chance to use AI if key exists, OR always use AI on manual refresh
+            try {
+                const aiPrompt = [
+                    { role: 'system', content: 'You are a USA Bookkeeping expert. Suggest 5 extremely specific search terms for YouTube Shorts that would help someone learning USA Payroll, Taxation, or Bookkeeping. Each term must be under 6 words and end with "shorts". Return only a comma separated list.' },
+                    { role: 'user', content: 'Generate fresh search terms.' }
+                ];
+                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: aiPrompt, temperature: 0.9 })
+                });
+                const aiData = await res.json();
+                const aiTerms = aiData.choices[0].message.content.split(',').map(t => t.trim());
+                selectedQuery = aiTerms[Math.floor(Math.random() * aiTerms.length)];
+                console.log("AI suggested search:", selectedQuery);
+            } catch (e) {
+                console.warn("AI Query Generation failed, falling back to static list", e);
+            }
+        }
+
+        if (!selectedQuery) {
+            const queries = [
+                'USA payroll processing shorts', 'Form 941 payroll shorts', 'QuickBooks online tips shorts',
+                'KPO accounting interview questions shorts', 'US bookkeeping basics shorts',
+                '1099 vs W2 explained shorts', 'IRS tax season tips shorts', 'accounts payable process shorts'
+            ];
+            selectedQuery = queries[Math.floor(Math.random() * queries.length)];
+        }
+
+        // 2. Try Fetching with Proxy Fallbacks
+        const proxies = [
+            (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+            (u) => `https://thingproxy.freeboard.io/fetch/${u}` // Backup proxy
         ];
 
-        // Pick a random keyword from our massive list
-        const q = queries[Math.floor(Math.random() * queries.length)];
-        console.log("AI searching for fresh shorts:", q);
-
-        const ids = await fetchYTShortIds(q);
+        let ids = null;
+        for (const proxyFn of proxies) {
+            try {
+                const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(selectedQuery)}`;
+                const res = await fetch(proxyFn(ytUrl));
+                const data = await res.json();
+                const html = data.contents || data; // Handle different proxy responses
+                
+                const vidRegex = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
+                const matches = [...html.matchAll(vidRegex)];
+                if (matches.length > 0) {
+                    ids = [...new Set(matches.map(m => m[1]))].slice(0, 10);
+                    break; // Success!
+                }
+            } catch (e) { console.warn("Proxy failed, trying next..."); }
+        }
         
         if (ids && ids.length > 0) {
             setReelIds(prev => {
                 const combined = append ? [...prev, ...ids] : [...ids, ...SEED_IDS];
-                const uniqueContent = [...new Set(combined)]; // Remove duplicates
+                const uniqueContent = [...new Set(combined)];
                 localStorage.setItem('reelIds', JSON.stringify(uniqueContent));
                 return uniqueContent;
             });
             setFetchStatus('done');
             setTimeout(() => setFetchStatus('idle'), 3000);
         } else {
+            console.error("Failed to fetch shorts from any source/proxy.");
             setFetchStatus('error');
             setTimeout(() => setFetchStatus('idle'), 3000);
         }
     }, [fetchStatus]);
 
     useEffect(() => { 
-        // Initial fetch if we have few IDs
         if (reelIds.length <= SEED_IDS.length) {
             refreshReels(true); 
         }
