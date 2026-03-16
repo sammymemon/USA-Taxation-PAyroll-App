@@ -631,8 +631,15 @@ ${data.correct_answer}
                                     </div>
                                     
                                     {currentHint && (
-                                        <div className="mb-3 px-4 py-3 bg-accent/5 border border-accent/20 rounded-xl text-sm font-plex text-text/90 animate-in fade-in zoom-in">
-                                            <div className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">💡 Suggested Approach</div>
+                                        <div className="mb-3 px-4 py-3 bg-accent/5 border border-accent/20 rounded-xl text-sm font-plex text-text/90 animate-in fade-in zoom-in relative">
+                                            <button 
+                                                onClick={() => setCurrentHint('')} 
+                                                className="absolute top-2 right-2 p-1 text-accent/60 hover:text-accent hover:bg-accent/10 rounded-md transition-all"
+                                                title="Close hint"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                            <div className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1 pr-6">💡 Suggested Approach</div>
                                             <div className="whitespace-pre-wrap">{currentHint}</div>
                                         </div>
                                     )}
