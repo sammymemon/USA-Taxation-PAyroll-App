@@ -205,6 +205,42 @@ const Bubble = ({ msg }) => {
     );
 };
 
+// ─── Custom Data Parser ──────────────────────────────────────────────────────
+const parseCustomQA = (text) => {
+    try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed) && parsed[0] && (parsed[0].q || parsed[0].question) && (parsed[0].a || parsed[0].answer)) {
+            return parsed.map(item => ({ q: item.q || item.question, a: item.a || item.answer }));
+        }
+    } catch(e) {}
+    
+    const lines = text.split('\n');
+    const result = [];
+    let currentQ = '';
+    let currentA = '';
+    let state = 'none';
+
+    for (let line of lines) {
+        const qMatch = line.match(/^(?:Q|Question|Q\d+)\s*:\s*(.*)/i) || (line.match(/^\d+\.\s*(?:Q|Question)?\s*[:-]?\s*(.*)/i) && !line.match(/^(?:A|Answer|A\d+)\s*:/i));
+        const aMatch = line.match(/^(?:A|Answer|A\d+)\s*:\s*(.*)/i);
+        
+        if (qMatch) {
+            if (currentQ && currentA) result.push({ q: currentQ.trim(), a: currentA.trim() });
+            currentQ = qMatch[1] || line.replace(/^\d+\.\s*(?:Q|Question)?\s*[:-]?\s*/i, '').trim();
+            currentA = '';
+            state = 'q';
+        } else if (aMatch) {
+            currentA = aMatch[1];
+            state = 'a';
+        } else if (line.trim()) {
+            if (state === 'q') currentQ += '\n' + line;
+            else if (state === 'a') currentA += '\n' + line;
+        }
+    }
+    if (currentQ && currentA) result.push({ q: currentQ.trim(), a: currentA.trim() });
+    return result;
+};
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function InterviewMode() {
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
@@ -221,6 +257,7 @@ export default function InterviewMode() {
     const [category, setCategory] = useState('All');
     const [difficulty, setDifficulty] = useState('Mixed');
     const [numQ, setNumQ] = useState(5);
+    const [pastedQA, setPastedQA] = useState('');
 
     // State Machine: setup -> intro -> question -> evaluating -> feedback -> wrapup -> done
     const [screen, setScreen] = useState('setup');
@@ -338,27 +375,37 @@ export default function InterviewMode() {
     // 1. Kickoff
     const startInterview = async () => {
         if (!apiKey) return setShowSettings(true);
+
+        let finalQueue = [];
+        if (pastedQA.trim()) {
+            finalQueue = parseCustomQA(pastedQA);
+            if (!finalQueue.length) {
+                return alert("Could not parse Q&A. Please format as:\nQ: question here\nA: answer here");
+            }
+        } else {
+            let pool = category !== 'All' ? questions.filter(q => q.cat === categories.find(c=>c.name===category)?.id) : [...questions];
+            if(!pool.length) pool = [...questions];
+            finalQueue = [...pool].sort(() => Math.random() - 0.5).slice(0, numQ);
+        }
+
         fxStart();
         setScreen('interview'); setStage('Intro'); setBusy(true); setTimerActive(false);
         setScores([]); setTimeElapsed(0); setConfidence(0);
 
-        let pool = category !== 'All' ? questions.filter(q => q.cat === categories.find(c=>c.name===category)?.id) : [...questions];
-        if(!pool.length) pool = [...questions];
-        const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, numQ);
-        setQueue(shuffled); setQIdx(0); setMsgs([]);
+        setQueue(finalQueue); setQIdx(0); setMsgs([]);
 
         addSystemMsg('Interview Initiated');
         const tid = addTyping();
         const intro = await callGroq(apiKey, [
-            { role: 'system', content: `You are Aria, lead recruiter at a top US Bookkeeping/Payroll firm. Keep it strictly professional, welcoming but serious. 2 sentences.` },
-            { role: 'user', content: `Welcome candidate ${yourName || 'there'} to the technical interview. Inform them there will be ${numQ} questions.` }
+            { role: 'system', content: `You are Aria, lead recruiter. Keep it strictly professional, welcoming but serious. 2 sentences.` },
+            { role: 'user', content: `Welcome candidate ${yourName || 'there'} to the technical interview. Inform them we are ready to begin.` }
         ], 100);
         
-        resolveTyping(tid, intro || `Welcome ${yourName || ''}. I'm Aria, your interviewer today. We will go through ${numQ} questions on US Bookkeeping and Payroll.`, { autoSpeak: true });
+        resolveTyping(tid, intro || `Welcome ${yourName || ''}. I'm Aria, your interviewer today. We will now begin the technical evaluation.`, { autoSpeak: true });
         
         setBusy(false);
         // Auto proceed to first question after 5s
-        autoProceedRef.current = setTimeout(() => askQuestion(shuffled, 0, 'Warm-up'), 5000);
+        autoProceedRef.current = setTimeout(() => askQuestion(finalQueue, 0, 'Warm-up'), 5000);
     };
 
     // 2. Ask Question
@@ -368,7 +415,7 @@ export default function InterviewMode() {
         setStage(currentStage);
         setQIdx(idx); setBusy(true); setTimerActive(false); setTimeElapsed(0); setConfidence(0);
         setCurrentHint('');
-        addSystemMsg(`Stage: ${currentStage} - Q${idx + 1}/${qList.length}`);
+        addSystemMsg(`Stage: ${currentStage}`);
 
         const tid = addTyping();
         const qData = qList[idx];
@@ -400,15 +447,16 @@ export default function InterviewMode() {
         const tid = addTyping();
 
         const evalReq = await callGroq(apiKey, [
-            { role: 'system', content: `You are a strict, expert US Payroll & Accounting Examiner. Evaluate the answer thoroughly. The candidate stated their confidence as ${confidence}/5. Time taken: ${timeElapsed}s.
+            { role: 'system', content: `You are an expert technical interviewer. Evaluate the candidate's answer thoroughly based ONLY on the "Expected" answer provided. The candidate stated their confidence as ${confidence}/5. Time taken: ${timeElapsed}s.
+If the candidate's answer aligns well with the Expected answer, score them highly. If it is wrong or misses key points from the Expected answer, deduct points and explain what they missed based on the Expected answer.
 Return ONLY valid JSON:
 {
   "score": <0-100>,
   "verdict": "<Correct / Flawed / Incorrect>",
-  "feedback": "<1 rigorous paragraph evaluating their technical accuracy>",
+  "feedback": "<1 rigorous paragraph evaluating their technical accuracy based ONLY on the Expected answer>",
   "key_strengths": ["point 1"],
   "critical_misses": ["point 1"],
-  "correct_answer": "<Expert explanation, 2 sentences>",
+  "correct_answer": "<Clear explanation based on the Expected answer, 2 sentences>",
   "follow_up_thought": "<1 short rhetorical follow-up question to test deeper understanding>"
 }` },
             { role: 'user', content: `Q: ${qData.q}\nExpected: ${qData.a}\nCandidate Ans: ${ans}` }
@@ -546,19 +594,26 @@ ${data.correct_answer}
                                 <input placeholder="Enter name..." value={yourName} onChange={e=>setYourName(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 text-sm focus:border-accent outline-none" />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
-                                <div>
+                                <div className={pastedQA.trim() ? 'opacity-50 pointer-events-none' : ''}>
                                     <label className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-1.5">Topic</label>
                                     <select value={category} onChange={e=>setCategory(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 text-sm focus:border-accent outline-none appearance-none">
                                         <option value="All">Mixed Topics</option>
                                         {categories.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}
                                     </select>
                                 </div>
-                                <div>
+                                <div className={pastedQA.trim() ? 'opacity-50 pointer-events-none' : ''}>
                                     <label className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-1.5">Questions</label>
                                     <select value={numQ} onChange={e=>setNumQ(Number(e.target.value))} className="w-full bg-bg border border-border rounded-xl p-3 text-sm focus:border-accent outline-none appearance-none">
                                         {[3,5,10,15].map(n=><option key={n} value={n}>{n} Questions</option>)}
                                     </select>
                                 </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-accent uppercase tracking-widest block mb-1.5 flex justify-between">
+                                    <span>Custom Q&A (Paste Here)</span>
+                                    {pastedQA.trim() ? <span className="text-green-500 lowercase text-[9px]">(overrides settings)</span> : <span className="text-muted lowercase text-[9px]">(optional)</span>}
+                                </label>
+                                <textarea placeholder={"Q: What is React?\nA: A UI library.\n\nQ: What is JSX?\nA: A syntax extension for JS."} value={pastedQA} onChange={e=>setPastedQA(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 text-xs focus:border-accent outline-none h-24 resize-y font-plex placeholder:text-muted/50" />
                             </div>
                             <button onClick={startInterview} disabled={!apiKey} className="w-full mt-2 py-3.5 bg-accent text-[#0f0e0d] font-bold rounded-xl text-base hover:scale-[1.02] shadow-xl shadow-accent/20 transition-all flex justify-center items-center gap-2">
                                 <Play size={18} fill="currentColor"/> Start Session
@@ -588,20 +643,7 @@ ${data.correct_answer}
                                 </div>
                             </div>
                             
-                            {/* Live Timer & Stats */}
-                            <div className="flex items-center gap-4">
-                                <div className="flex flex-col items-end">
-                                    <span className="text-[10px] uppercase font-bold text-muted">Time Elapsed</span>
-                                    <span className={`text-lg font-plex font-bold ${timeElapsed > 60 ? 'text-red-400' : 'text-text'}`}>
-                                        {Math.floor(timeElapsed/60).toString().padStart(2,'0')}:{(timeElapsed%60).toString().padStart(2,'0')}
-                                    </span>
-                                </div>
-                                <div className="w-px h-8 bg-border"></div>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-[10px] uppercase font-bold text-muted">Progress</span>
-                                    <span className="text-sm font-bold">{qIdx+1}/{queue.length}</span>
-                                </div>
-                            </div>
+                            {/* Stats removed */}
                         </div>
 
                         {/* Chat History */}
