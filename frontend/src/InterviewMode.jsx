@@ -159,14 +159,14 @@ const Bubble = ({ msg }) => {
     }
 
     return (
-        <div className={`flex gap-3 mb-5 ${ai ? '' : 'flex-row-reverse'}`}>
-            <div className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shadow-md ${
+        <div className={`flex gap-2 mb-4 ${ai ? '' : 'flex-row-reverse'}`}>
+            <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm ${
                 ai ? 'bg-gradient-to-br from-yellow-500/30 to-accent text-yellow-50 border border-yellow-500/50'
                    : 'bg-gradient-to-br from-blue-500/30 to-blue-600/50 text-blue-50 border border-blue-500/50'
             }`}>
-                {ai ? <Bot size={18}/> : <User size={18}/>}
+                {ai ? <Bot size={16}/> : <User size={16}/>}
             </div>
-            <div className={`max-w-[85%] px-5 py-4 rounded-3xl text-[15px] leading-relaxed relative shadow-lg ${
+            <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-[14px] leading-relaxed relative shadow-sm ${
                 ai ? 'bg-surface border border-border text-text rounded-tl-sm'
                    : 'bg-accent/10 border border-accent/40 text-text rounded-tr-sm'
             }`}>
@@ -516,7 +516,7 @@ ${data.correct_answer}
     if (loading) return <div className="h-screen flex items-center justify-center bg-bg"><Loader2 className="animate-spin text-accent" size={32}/></div>;
 
     return (
-        <div className="h-[100dvh] bg-bg text-text flex flex-col font-inter selection:bg-accent/30 selection:text-accent overflow-hidden">
+        <div className="fixed inset-0 bg-bg text-text flex flex-col font-inter selection:bg-accent/30 selection:text-accent overflow-hidden w-full max-w-full">
             {/* Nav */}
             <div className="bg-surface border-b border-border p-3 flex justify-between items-center shrink-0 z-50 shadow-sm">
                 <Link to="/" className="p-2 border border-border rounded-xl text-muted hover:text-accent hover:border-accent/50 transition-colors"><ArrowLeft size={18}/></Link>
@@ -552,15 +552,15 @@ ${data.correct_answer}
 
                 {/* Setup */}
                 {screen === 'setup' && (
-                    <div className="m-auto w-full max-w-sm flex flex-col items-center animate-in fade-in zoom-in duration-500">
-                        <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-surface to-bg border-4 border-surface shadow-2xl flex items-center justify-center mb-6">
+                    <div className="w-full h-full overflow-y-auto custom-scrollbar flex flex-col items-center py-6 px-2 animate-in fade-in zoom-in duration-500">
+                        <div className="relative w-20 h-20 rounded-full shrink-0 bg-gradient-to-br from-surface to-bg border-4 border-surface shadow-xl flex items-center justify-center mb-4">
                             <div className="absolute inset-0 rounded-full border border-accent/30 animate-ping opacity-20" style={{ animationDuration: '3s' }}></div>
-                            <Bot size={40} className="text-accent" />
+                            <Bot size={32} className="text-accent" />
                         </div>
-                        <h2 className="text-3xl font-bold mb-2 font-display text-center">Ready for your Interview?</h2>
-                        <p className="text-sm text-muted text-center mb-8">Set your parameters. Aria will conduct a full technical evaluation.</p>
+                        <h2 className="text-2xl font-bold mb-1 font-display text-center shrink-0">Ready for your Interview?</h2>
+                        <p className="text-xs text-muted text-center mb-6 shrink-0">Set your parameters. Aria will conduct a full technical evaluation.</p>
                         
-                        <div className="w-full space-y-4 bg-surface p-6 rounded-3xl border border-border shadow-md overflow-y-auto max-h-[70vh] custom-scrollbar">
+                        <div className="w-full max-w-sm space-y-4 bg-surface p-5 rounded-3xl border border-border shadow-md shrink-0 mb-8">
                             <div>
                                 <label className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-1.5">Candidate Name</label>
                                 <input placeholder="Enter name..." value={yourName} onChange={e=>setYourName(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 text-sm focus:border-accent outline-none" />
@@ -597,9 +597,9 @@ ${data.correct_answer}
 
                 {/* Interview Interface */}
                 {(screen === 'interview' || screen === 'evaluating' || screen === 'feedback') && (
-                    <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-500">
+                    <div className="flex flex-col h-full w-full overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-500">
                         {/* Status Header */}
-                        <div className="flex items-center justify-between mb-4 bg-surface/50 border border-border rounded-2xl p-3 shadow-inner">
+                        <div className="shrink-0 flex items-center justify-between mb-3 bg-surface/50 border border-border rounded-2xl p-3 shadow-inner">
                             <div className="flex items-center gap-3">
                                 <div className="relative">
                                     <div className={`w-10 h-10 rounded-full bg-gradient-to-tr from-accent to-yellow-400 flex items-center justify-center text-[#0f0e0d] shadow-lg ${aiSpeaking ? 'animate-pulse' : ''}`}>
@@ -637,9 +637,9 @@ ${data.correct_answer}
                         </div>
 
                         {/* Input Area */}
-                        <div className="shrink-0 pt-2 pb-1">
+                        <div className="shrink-0 pt-2 pb-1 relative z-10 w-full">
                             {screen === 'interview' && !busy && (
-                                <div className="bg-surface border border-border shadow-2xl rounded-3xl p-4 animate-in slide-in-from-bottom duration-300">
+                                <div className="bg-surface border border-border shadow-md rounded-t-2xl sm:rounded-2xl p-3 animate-in slide-in-from-bottom duration-300">
                                     <div className="flex justify-between items-center mb-3">
                                         <div className="flex gap-2 bg-bg rounded-lg p-1 border border-border">
                                             {[['voice', <Mic size={14} key="mic"/>, 'Voice'], ['text', <Zap size={14} key="zap"/>, 'Type']].map(([v, i, l]) => (
@@ -704,9 +704,9 @@ ${data.correct_answer}
                             )}
 
                             {screen === 'feedback' && (
-                                <div className="bg-surface/80 backdrop-blur-md border border-border shadow-2xl rounded-3xl p-4 flex justify-between items-center animate-in slide-in-from-bottom">
-                                    <div className="text-xs text-muted font-bold flex items-center gap-2"><Loader2 size={14} className="animate-spin"/> AI is waiting for you to review feedback...</div>
-                                    <button onClick={skipWait} className="px-4 py-2 bg-white/5 border border-border text-text font-bold text-sm rounded-xl hover:bg-white/10 flex items-center gap-2 transition-all">
+                                <div className="bg-surface/90 border border-border shadow-md rounded-2xl p-4 flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center animate-in slide-in-from-bottom w-full max-w-full">
+                                    <div className="text-xs text-muted font-bold flex items-center justify-center gap-2 text-center"><Loader2 size={14} className="animate-spin"/> AI is waiting for you...</div>
+                                    <button onClick={skipWait} className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-accent/10 border border-accent/20 text-accent font-bold text-sm rounded-xl hover:bg-accent/20 flex items-center justify-center gap-2 transition-all">
                                         Continue <ArrowLeft size={16} className="rotate-180"/>
                                     </button>
                                 </div>
@@ -717,8 +717,9 @@ ${data.correct_answer}
 
                 {/* Dashboard / Done */}
                 {screen === 'done' && summary && (
-                    <div className="m-auto w-full max-w-lg bg-surface border border-border p-6 rounded-3xl shadow-2xl animate-in zoom-in duration-500">
-                        <div className="text-center mb-6">
+                    <div className="w-full h-full overflow-y-auto custom-scrollbar flex flex-col items-center py-6 px-2 animate-in fade-in zoom-in duration-500">
+                        <div className="w-full max-w-lg bg-surface border border-border p-5 sm:p-6 rounded-3xl shadow-xl shrink-0">
+                            <div className="text-center mb-6">
                             <h2 className="text-2xl font-bold font-display text-text">Interview Complete</h2>
                             <p className="text-sm text-muted">Here's your technical assessment report.</p>
                         </div>
@@ -753,6 +754,7 @@ ${data.correct_answer}
                         <button onClick={()=>{setScreen('setup'); setMsgs([]); setScores([]);}} className="w-full py-3.5 bg-accent text-[#0f0e0d] font-bold rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-all">
                             <RefreshCcw size={16}/> Start New Session
                         </button>
+                        </div>
                     </div>
                 )}
             </div>
