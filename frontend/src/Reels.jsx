@@ -167,29 +167,38 @@ export default function Reels() {
             let processed = [];
             
             if (groqKey) {
-                // Prepare AI Prompt for Categorization
-                // We ask AI to guess categories based on the fact that this is a USA Bookkeeping/Payroll app
+                // Prepare AI Prompt for Categorization (Asking for Object root)
                 const aiPrompt = [
-                    { role: 'system', content: 'You are a Categorization AI for a USA Accounting/Payroll app. I will give you a list of YouTube Video IDs. Assuming they are about USA Accounting/Payroll/Tax, suggest 2 relevant hashtags for each. Format your response exactly as JSON array: [{"id": "...", "tags": ["#Tag1", "#Tag2"]}, ...]. Only return the JSON.' },
+                    { role: 'system', content: 'You are a Categorization AI for a USA Accounting/Payroll app. I will give you a list of YouTube Video IDs. Assuming they are about USA Accounting/Payroll/Tax, suggest 2 relevant hashtags for each. Format your response exactly as a JSON object with a "reels" key containing the array: {"reels": [{"id": "...", "tags": ["#Tag1", "#Tag2"]}, ...]}. Only return valid JSON.' },
                     { role: 'user', content: `Categorize these IDs: ${ids.join(', ')}` }
                 ];
 
                 const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: aiPrompt, temperature: 0.5, response_format: { type: "json_object" } })
+                    body: JSON.stringify({ 
+                        model: 'llama-3.1-8b-instant', 
+                        messages: aiPrompt, 
+                        temperature: 0.1, 
+                        response_format: { type: "json_object" } 
+                    })
                 });
                 
+                if (!res.ok) throw new Error(`Groq API returned ${res.status}`);
+                
                 const aiData = await res.json();
-                // Llama 3 on Groq sometimes returns the JSON inside a block or as the content string
-                const content = aiData.choices[0].message.content;
+                let content = aiData.choices[0].message.content;
+                
+                // Extra safety: Remove markdown code blocks if AI added them
+                content = content.replace(/```json\n?|```/g, '').trim();
+                
                 const parsed = JSON.parse(content);
-                processed = Array.isArray(parsed) ? parsed : (parsed.reels || parsed.data || []);
+                processed = parsed.reels || parsed.data || (Array.isArray(parsed) ? parsed : []);
             }
 
-            // Combine with defaults for missing ones or if AI failed
+            // Combine with defaults
             const finalReels = ids.map(id => {
-                const found = processed.find(p => p.id === id);
+                const found = Array.isArray(processed) ? processed.find(p => p.id === id) : null;
                 return {
                     id,
                     tags: found ? found.tags : ["#USA_ACCOUNTING", "#PRO_TIPS"]
@@ -204,7 +213,7 @@ export default function Reels() {
             });
             
             if (saveRes.ok) {
-                const { added } = await saveRes.json();
+                const result = await saveRes.json();
                 setReels(prev => {
                     const combined = [...prev, ...finalReels];
                     const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
@@ -213,14 +222,18 @@ export default function Reels() {
                 });
                 setIsUploadOpen(false);
                 alert(`Successfully imported ${finalReels.length} reels!`);
+            } else {
+                const errData = await saveRes.json().catch(() => ({}));
+                throw new Error(errData.error || `Backend returned ${saveRes.status}`);
             }
         } catch (e) {
             console.error("Bulk upload failed:", e);
-            alert("Error processing links. Check console.");
+            alert(`Error: ${e.message}. Please check if your API key is correct and backend is running.`);
         } finally {
             setIsBulkProcessing(false);
         }
     };
+
 
     // ── Ultra-Robust Fetch Logic (for auto-discovery) ──────────────────────
     const fetchShortsBatch = useCallback(async (append = true) => {
