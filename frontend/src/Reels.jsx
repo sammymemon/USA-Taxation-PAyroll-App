@@ -123,6 +123,15 @@ export default function Reels() {
 
     // Load reels from backend + fallback
     useEffect(() => {
+        const shuffle = (array) => {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        };
+
         const loadInitial = async () => {
             const formatData = (data) => {
                 if (!Array.isArray(data)) return SEED_REELS;
@@ -134,19 +143,20 @@ export default function Reels() {
                 const res = await fetch(`${API_BASE}/reels`);
                 const data = await res.json();
                 if (data && data.length > 0) {
-                    setReels(formatData(data));
+                    setReels(shuffle(formatData(data)));
                 } else {
                     const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
-                    setReels(local ? formatData(JSON.parse(local)) : SEED_REELS);
+                    setReels(local ? shuffle(formatData(JSON.parse(local))) : shuffle(SEED_REELS));
                 }
             } catch (e) {
                 console.error("Failed to load reels from backend:", e);
                 const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
-                setReels(local ? formatData(JSON.parse(local)) : SEED_REELS);
+                setReels(local ? shuffle(formatData(JSON.parse(local))) : shuffle(SEED_REELS));
             }
         };
         loadInitial();
     }, [API_BASE]);
+
 
 
 
