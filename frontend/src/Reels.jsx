@@ -119,7 +119,7 @@ export default function Reels() {
     const touchStartY = useRef(null);
     const touchStartX = useRef(null);
 
-    const API_BASE = "/api";
+    const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://usa-payroll-backend.onrender.com/api');
 
     // Load reels from backend + fallback
     useEffect(() => {
@@ -130,6 +130,7 @@ export default function Reels() {
             };
 
             try {
+                // Using fetch here, need full URL
                 const res = await fetch(`${API_BASE}/reels`);
                 const data = await res.json();
                 if (data && data.length > 0) {
@@ -145,7 +146,8 @@ export default function Reels() {
             }
         };
         loadInitial();
-    }, []);
+    }, [API_BASE]);
+
 
 
     // Extract Video IDs from text
