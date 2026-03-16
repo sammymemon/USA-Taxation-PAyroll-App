@@ -14,13 +14,27 @@ const SEED_IDS = [
 // ── Fetch fresh IDs from YouTube search (no API key needed) ─────────────────
 async function fetchYTShortIds(query) {
     try {
-        const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=EgIQAQ%253D%253D`;
+        const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
         const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
         const data = await res.json();
-        const matches = [...data.contents.matchAll(/"videoId":"([a-zA-Z0-9_-]{11})"/g)];
-        const ids = [...new Set(matches.map(m => m[1]))].slice(0, 20);
-        return ids.length >= 5 ? ids : null;
-    } catch {
+        const html = data.contents;
+        
+        // Match videoId pattern in YouTube's initial data blobs
+        const videoIdRegex = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
+        const matches = [...html.matchAll(videoIdRegex)];
+        let ids = [...new Set(matches.map(m => m[1]))];
+
+        // Backup pattern if first one yields little
+        if (ids.length < 5) {
+            const watchRegex = /\/watch\?v=([a-zA-Z0-9_-]{11})/g;
+            const watchMatches = [...html.matchAll(watchRegex)];
+            ids = [...new Set([...ids, ...watchMatches.map(m => m[1])])];
+        }
+
+        console.log(`AI found ${ids.length} videos for: ${query}`);
+        return ids.length > 0 ? ids.slice(0, 15) : null;
+    } catch (err) {
+        console.error("Fetch error for YT IDs:", err);
         return null;
     }
 }
