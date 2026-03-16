@@ -345,7 +345,7 @@ export default function InterviewMode() {
         if (pastedQA.trim()) {
             try {
                 const parseReq = await callGroq(apiKey, [
-                    { role: 'system', content: 'Extract questions and expected answers from the attached text. You must return ONLY a valid JSON array of objects with strictly two keys: "q" (the question) and "a" (the expected answer). Fix any obvious typos or formatting issues in the text so it is clean.' },
+                    { role: 'system', content: 'You are an advanced text parser. The user will provide a long, unstructured block of text containing questions and answers (or concepts and definitions). Your task is to aggressively extract them all and format them properly.\n\nRULES:\n1. Find matching Questions ("q") and Expected Answers ("a").\n2. Fix obvious typos, combine multi-line answers into a single string, and remove unnecessary bullet points or numbering.\n3. Return ONLY a valid JSON array of objects with exactly two keys: "q" and "a".\n4. Do not include any other markdown, explanations, or text outside the JSON array.\nExample output: [{"q": "What is AP?", "a": "Accounts Payable represents..."}]' },
                     { role: 'user', content: pastedQA }
                 ], 3000);
                 finalQueue = JSON.parse(parseReq.match(/\[[\s\S]*\]/)[0]);
