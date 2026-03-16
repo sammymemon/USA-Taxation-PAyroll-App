@@ -73,139 +73,91 @@ export default function Reels() {
     const touchStartY = useRef(null);
     const touchStartX = useRef(null);
 
-    // ── Auto-fetch fresh IDs on mount ────────────────────────────────────────
-    const refreshReels = useCallback(async () => {
+    // ── Auto-fetch fresh IDs on mount (Infinite expansion logic) ────────────────
+    const refreshReels = useCallback(async (append = true) => {
+        if (fetchStatus === 'loading') return;
         setFetchStatus('loading');
+        
         const queries = [
             // Core Bookkeeping
-            'bookkeeping tips shorts',
-            'bookkeeping for beginners shorts',
-            'bookkeeping basics explained shorts',
-            'small business bookkeeping shorts',
-            'virtual bookkeeping shorts',
+            'bookkeeping tips shorts', 'bookkeeping for beginners shorts', 'bookkeeping basics explained shorts',
+            'small business bookkeeping shorts', 'virtual bookkeeping shorts',
             // Accounting
-            'accounting basics shorts',
-            'accounting concepts shorts',
-            'accounting for beginners shorts',
-            'accounting equation shorts',
-            'double entry bookkeeping shorts',
-            'journal entries accounting shorts',
+            'accounting basics shorts', 'accounting concepts shorts', 'accounting for beginners shorts',
+            'accounting equation shorts', 'double entry bookkeeping shorts', 'journal entries accounting shorts',
             'general ledger accounting shorts',
             // US Taxes & Compliance
-            'US payroll tax shorts',
-            'payroll processing shorts',
-            '1099 vs W2 shorts',
-            '1099 NEC filing shorts',
-            'sales tax nexus shorts',
-            'SOX compliance shorts',
-            'IRS tax tips shorts',
-            'W9 form explained shorts',
+            'US payroll tax shorts', 'payroll processing shorts', '1099 vs W2 shorts', '1099 NEC filing shorts',
+            'sales tax nexus shorts', 'SOX compliance shorts', 'IRS tax tips shorts', 'W9 form explained shorts',
             'GAAP accounting shorts',
             // AP / AR
-            'accounts payable shorts',
-            'accounts receivable shorts',
-            'invoice processing shorts',
-            'three way matching accounts payable shorts',
-            'vendor payment shorts',
-            'collections AR shorts',
+            'accounts payable shorts', 'accounts receivable shorts', 'invoice processing shorts',
+            'three way matching accounts payable shorts', 'vendor payment shorts', 'collections AR shorts',
             // Tools
-            'QuickBooks tutorial shorts',
-            'QuickBooks online tips shorts',
-            'QuickBooks payroll shorts',
-            'Excel accounting shorts',
-            'NetSuite ERP shorts',
-            'SAP accounting shorts',
-            'Xero accounting shorts',
+            'QuickBooks tutorial shorts', 'QuickBooks online tips shorts', 'QuickBooks payroll shorts',
+            'Excel accounting shorts', 'NetSuite ERP shorts', 'SAP accounting shorts', 'Xero accounting shorts',
             // Fixed Assets & GL
-            'fixed assets depreciation shorts',
-            'bank reconciliation shorts',
-            'month end close accounting shorts',
+            'fixed assets depreciation shorts', 'bank reconciliation shorts', 'month end close accounting shorts',
             'accruals prepaid accounting shorts',
             // Career
-            'accounting career tips shorts',
-            'KPO accounting work shorts',
-            'remote bookkeeping job shorts',
-            'accounting interview tips shorts',
-            'CPA exam tips shorts',
-            // ── NEW: USA Payroll ──
-            'USA payroll processing shorts',
-            'USA payroll basics shorts',
-            'payroll taxes USA shorts',
-            'federal payroll tax shorts',
-            'FICA tax explained shorts',
-            'FUTA SUTA payroll shorts',
-            'Form 941 payroll shorts',
-            'Form 940 annual payroll shorts',
-            'W2 form explained shorts',
-            'employee payroll deductions shorts',
-            'payroll garnishment explained shorts',
-            'multi state payroll shorts',
-            'ADP payroll tutorial shorts',
-            'Paychex payroll shorts',
-            'payroll reconciliation shorts',
-            // ── NEW: USA Taxation ──
-            'USA taxation basics shorts',
-            'US federal income tax shorts',
-            'US business tax shorts',
-            'corporate income tax USA shorts',
-            'MACRS depreciation tax shorts',
-            'deferred tax accounting shorts',
-            'tax return filing USA shorts',
-            'IRS form 1040 shorts',
-            'pass through taxation shorts',
-            'S corp vs LLC tax shorts',
-            'sales use tax USA shorts',
-            'state income tax USA shorts',
-            'transfer pricing tax shorts',
-            'tax planning strategies shorts',
-            'USA tax season tips shorts',
-            // ── NEW: USA Bookkeeping ──
-            'USA bookkeeping standards shorts',
-            'US GAAP bookkeeping shorts',
-            'bookkeeping for US small business shorts',
-            'petty cash management shorts',
-            'cash flow management shorts',
-            'profit and loss statement shorts',
-            'balance sheet explained shorts',
-            'income statement basics shorts',
-            'retained earnings explained shorts',
-            'working capital explained shorts',
-            'chart of accounts setup shorts',
-            'financial statements USA shorts',
-            'bookkeeping errors to avoid shorts',
-            'bookkeeping software comparison shorts',
-            // ── NEW: KPO Interview Q&A ──
-            'KPO interview questions accounting shorts',
-            'KPO accounting interview tips shorts',
-            'KPO bookkeeping interview shorts',
-            'KPO finance job interview shorts',
-            'accounting interview questions and answers shorts',
-            'bookkeeping interview questions shorts',
-            'payroll interview questions shorts',
-            'accounts payable interview questions shorts',
-            'accounts receivable interview questions shorts',
-            'general ledger interview questions shorts',
-            'US accounting job interview tips shorts',
-            'KPO BPO finance work tips shorts',
-            'night shift accounting job tips shorts',
-            'India to USA accounting career shorts',
+            'accounting career tips shorts', 'KPO accounting work shorts', 'remote bookkeeping job shorts',
+            'accounting interview tips shorts', 'CPA exam tips shorts',
+            // USA Payroll
+            'USA payroll processing shorts', 'USA payroll basics shorts', 'payroll taxes USA shorts',
+            'federal payroll tax shorts', 'FICA tax explained shorts', 'FUTA SUTA payroll shorts',
+            'Form 941 payroll shorts', 'Form 940 annual payroll shorts', 'W2 form explained shorts',
+            'employee payroll deductions shorts', 'payroll garnishment explained shorts', 'multi state payroll shorts',
+            'ADP payroll tutorial shorts', 'Paychex payroll shorts', 'payroll reconciliation shorts',
+            // USA Taxation
+            'USA taxation basics shorts', 'US federal income tax shorts', 'US business tax shorts',
+            'corporate income tax USA shorts', 'MACRS depreciation tax shorts', 'deferred tax accounting shorts',
+            'tax return filing USA shorts', 'IRS form 1040 shorts', 'pass through taxation shorts',
+            'S corp vs LLC tax shorts', 'sales use tax USA shorts', 'state income tax USA shorts',
+            'transfer pricing tax shorts', 'tax planning strategies shorts', 'USA tax season tips shorts',
+            // USA Bookkeeping
+            'USA bookkeeping standards shorts', 'US GAAP bookkeeping shorts', 'bookkeeping for US small business shorts',
+            'petty cash management shorts', 'cash flow management shorts', 'profit and loss statement shorts',
+            'balance sheet explained shorts', 'income statement basics shorts', 'retained earnings explained shorts',
+            'working capital explained shorts', 'chart of accounts setup shorts', 'financial statements USA shorts',
+            'bookkeeping errors to avoid shorts', 'bookkeeping software comparison shorts',
+            // KPO Interview Q&A
+            'KPO interview questions accounting shorts', 'KPO accounting interview tips shorts',
+            'KPO bookkeeping interview shorts', 'KPO finance job interview shorts',
+            'accounting interview questions and answers shorts', 'bookkeeping interview questions shorts',
+            'payroll interview questions shorts', 'accounts payable interview questions shorts',
+            'accounts receivable interview questions shorts', 'general ledger interview questions shorts',
+            'US accounting job interview tips shorts', 'KPO BPO finance work tips shorts',
+            'night shift accounting job tips shorts', 'India to USA accounting career shorts',
             'offshore accounting KPO career shorts',
-
         ];
+
+        // Pick a random keyword from our massive list
         const q = queries[Math.floor(Math.random() * queries.length)];
+        console.log("AI searching for fresh shorts:", q);
+
         const ids = await fetchYTShortIds(q);
-        if (ids && ids.length >= 5) {
-            // Merge with seeds so we always have content
-            const merged = [...new Set([...ids, ...SEED_IDS])];
-            setReelIds(merged);
-            localStorage.setItem('reelIds', JSON.stringify(merged));
+        
+        if (ids && ids.length > 0) {
+            setReelIds(prev => {
+                const combined = append ? [...prev, ...ids] : [...ids, ...SEED_IDS];
+                const uniqueContent = [...new Set(combined)]; // Remove duplicates
+                localStorage.setItem('reelIds', JSON.stringify(uniqueContent));
+                return uniqueContent;
+            });
             setFetchStatus('done');
+            setTimeout(() => setFetchStatus('idle'), 3000);
         } else {
             setFetchStatus('error');
+            setTimeout(() => setFetchStatus('idle'), 3000);
+        }
+    }, [fetchStatus]);
+
+    useEffect(() => { 
+        // Initial fetch if we have few IDs
+        if (reelIds.length <= SEED_IDS.length) {
+            refreshReels(true); 
         }
     }, []);
-
-    useEffect(() => { refreshReels(); }, []);
 
     // ── Scroll to index ──────────────────────────────────────────────────────
     const goTo = useCallback((idx) => {
