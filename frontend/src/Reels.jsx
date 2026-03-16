@@ -157,9 +157,6 @@ export default function Reels() {
         loadInitial();
     }, [API_BASE]);
 
-
-
-
     // Extract Video IDs from text
     const extractIds = (text) => {
         const regex = /(?:v=|shorts\/|embed\/|youtu.be\/)([a-zA-Z0-9_-]{11})/g;
@@ -169,10 +166,21 @@ export default function Reels() {
 
     // AI Categorization for bulk links
     const handleBulkUpload = async (text) => {
-        const ids = extractIds(text);
+        let ids = extractIds(text);
         if (ids.length === 0) return alert("No valid YouTube IDs found!");
         
+        // Filter out duplicates that already exist in the current reels state
+        const existingIds = new Set(reels.map(r => r.id));
+        ids = ids.filter(id => !existingIds.has(id));
+
+        if (ids.length === 0) {
+            alert("All provided links are already in your list!");
+            setIsUploadOpen(false);
+            return;
+        }
+        
         setIsBulkProcessing(true);
+
         const groqKey = localStorage.getItem('groqApiKey');
         
         try {
