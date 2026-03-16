@@ -1,101 +1,235 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Video, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Video, ChevronUp, ChevronDown, RefreshCcw, Loader2 } from 'lucide-react';
 
-const REELS = [
-    'Y0W3fsuyuqM', 'iEhhB30Dwcg', 'OYbA90nf4ZE', 'PNe1BW75C9k', 
-    'Qm-78U3yEn0', 'MafYa5E0-dg', 'Nl41Zb5X6DQ', 'np2SxxYJsdk', 
-    'x6WW3RA0C0s', 'JWPXtBIWe8U', '9qbOFsgql_A', 'WerJYgHhRX0', 
-    'ChpQnQEHNvM'
+// ── Fallback static list (used on first load & as seed) ─────────────────────
+const SEED_IDS = [
+    'Y0W3fsuyuqM', 'iEhhB30Dwcg', 'OYbA90nf4ZE', 'PNe1BW75C9k',
+    'Qm-78U3yEn0', 'MafYa5E0-dg', 'Nl41Zb5X6DQ', 'np2SxxYJsdk',
+    'x6WW3RA0C0s', 'JWPXtBIWe8U', '9qbOFsgql_A', 'WerJYgHhRX0',
+    'ChpQnQEHNvM', 'ZIguubd1p9E', 'ozv3wQSlYLE', '5QuesNWCfFg',
+    'rpKIqpqsYWA', 'WtbXTq28nVE', 'QSKrpVOxo_Q', 'zTebAYzXo8Q',
 ];
 
-export default function Reels() {
-    const [activeIndex, setActiveIndex] = useState(0);
-    const containerRef = useRef(null);
+// ── Fetch fresh IDs from YouTube search (no API key needed) ─────────────────
+async function fetchYTShortIds(query) {
+    try {
+        const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=EgIQAQ%253D%253D`;
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        const matches = [...data.contents.matchAll(/"videoId":"([a-zA-Z0-9_-]{11})"/g)];
+        const ids = [...new Set(matches.map(m => m[1]))].slice(0, 20);
+        return ids.length >= 5 ? ids : null;
+    } catch {
+        return null;
+    }
+}
 
-    const handleScroll = (e) => {
-        const height = e.target.clientHeight;
-        const scrollAmount = e.target.scrollTop;
-        const index = Math.round(scrollAmount / height);
-        if (index !== activeIndex) {
-            setActiveIndex(index);
-        }
-    };
-
-    const scrollToIndex = (index) => {
-        if (containerRef.current && index >= 0 && index < REELS.length) {
-            containerRef.current.scrollTo({
-                top: index * containerRef.current.clientHeight,
-                behavior: 'smooth'
-            });
-        }
-    };
+// ── Single Reel slide ────────────────────────────────────────────────────────
+const ReelSlide = React.memo(({ id, idx, activeIndex, total }) => {
+    const isActive = activeIndex === idx;
+    const isNear = Math.abs(activeIndex - idx) <= 1;
 
     return (
-        <div className="fixed inset-0 bg-black text-white flex flex-col font-inter overflow-hidden w-full max-w-full">
-            {/* Nav Header */}
-            <div className="absolute top-0 w-full z-50 p-4 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
-                <Link to="/" className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors pointer-events-auto">
-                    <ArrowLeft size={20}/>
-                </Link>
-                <div className="font-bold text-shadow flex items-center gap-2 drop-shadow-md tracking-wide">
-                    <Video size={18} className="text-accent" fill="currentColor"/> Bookkeeping Shorts
+        <div className="relative flex-shrink-0 w-full bg-black" style={{ height: '100%' }}>
+            {isNear ? (
+                <iframe
+                    className="w-full h-full border-none"
+                    src={`https://www.youtube.com/embed/${id}?autoplay=${isActive ? 1 : 0}&loop=1&playlist=${id}&controls=1&rel=0&modestbranding=1&playsinline=1&mute=0`}
+                    title={`Bookkeeping Short ${idx + 1}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                />
+            ) : (
+                <div className="w-full h-full bg-zinc-950 flex items-center justify-center">
+                    <Loader2 className="text-zinc-700 animate-spin" size={32} />
                 </div>
-                <div className="w-10"></div>
+            )}
+
+            {/* Bottom overlay */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none px-4 py-5 bg-gradient-to-t from-black/70 to-transparent">
+                <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-pink-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        #Bookkeeping
+                    </span>
+                    <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        #USAccounting
+                    </span>
+                </div>
+                <p className="text-white/60 text-xs font-plex">{idx + 1} / {total}</p>
+            </div>
+        </div>
+    );
+});
+
+// ── Main Component ────────────────────────────────────────────────────────────
+export default function Reels() {
+    const [reelIds, setReelIds] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('reelIds')) || SEED_IDS; } catch { return SEED_IDS; }
+    });
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [fetchStatus, setFetchStatus] = useState('idle'); // idle | loading | done | error
+    const containerRef = useRef(null);
+    const touchStartY = useRef(null);
+    const touchStartX = useRef(null);
+
+    // ── Auto-fetch fresh IDs on mount ────────────────────────────────────────
+    const refreshReels = useCallback(async () => {
+        setFetchStatus('loading');
+        const queries = [
+            'bookkeeping tips shorts',
+            'accounting basics shorts',
+            'US payroll tax shorts',
+            'accounts payable shorts',
+            'QuickBooks tutorial shorts',
+        ];
+        const q = queries[Math.floor(Math.random() * queries.length)];
+        const ids = await fetchYTShortIds(q);
+        if (ids && ids.length >= 5) {
+            // Merge with seeds so we always have content
+            const merged = [...new Set([...ids, ...SEED_IDS])];
+            setReelIds(merged);
+            localStorage.setItem('reelIds', JSON.stringify(merged));
+            setFetchStatus('done');
+        } else {
+            setFetchStatus('error');
+        }
+    }, []);
+
+    useEffect(() => { refreshReels(); }, []);
+
+    // ── Scroll to index ──────────────────────────────────────────────────────
+    const goTo = useCallback((idx) => {
+        if (!containerRef.current) return;
+        const clamped = Math.max(0, Math.min(idx, reelIds.length - 1));
+        containerRef.current.scrollTo({ top: clamped * containerRef.current.clientHeight, behavior: 'smooth' });
+        setActiveIndex(clamped);
+    }, [reelIds.length]);
+
+    // ── Scroll event ─────────────────────────────────────────────────────────
+    const handleScroll = useCallback(() => {
+        if (!containerRef.current) return;
+        const idx = Math.round(containerRef.current.scrollTop / containerRef.current.clientHeight);
+        setActiveIndex(prev => prev !== idx ? idx : prev);
+    }, []);
+
+    // ── Touch swipe ──────────────────────────────────────────────────────────
+    const onTouchStart = (e) => {
+        touchStartY.current = e.touches[0].clientY;
+        touchStartX.current = e.touches[0].clientX;
+    };
+
+    const onTouchEnd = (e) => {
+        if (touchStartY.current === null) return;
+        const dy = touchStartY.current - e.changedTouches[0].clientY;
+        const dx = Math.abs(touchStartX.current - e.changedTouches[0].clientX);
+        if (Math.abs(dy) > 50 && Math.abs(dy) > dx * 1.5) {
+            goTo(dy > 0 ? activeIndex + 1 : activeIndex - 1);
+        }
+        touchStartY.current = null;
+        touchStartX.current = null;
+    };
+
+    // ── auto-load more when near end ─────────────────────────────────────────
+    useEffect(() => {
+        if (activeIndex >= reelIds.length - 3 && fetchStatus === 'idle') {
+            refreshReels();
+        }
+    }, [activeIndex, reelIds.length, fetchStatus, refreshReels]);
+
+    return (
+        <div className="fixed inset-0 bg-black text-white flex flex-col overflow-hidden select-none">
+
+            {/* ── Header ── */}
+            <div className="absolute top-0 left-0 right-0 z-50 flex justify-between items-center px-3 pt-3 pb-8 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+                <Link
+                    to="/"
+                    className="p-2.5 bg-black/40 backdrop-blur-sm rounded-full border border-white/20 pointer-events-auto active:scale-95 transition-transform"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                    <ArrowLeft size={20} />
+                </Link>
+
+                <div className="flex items-center gap-2 text-sm font-bold drop-shadow">
+                    <Video size={16} className="text-pink-400" fill="currentColor" />
+                    Bookkeeping Shorts
+                </div>
+
+                <button
+                    onClick={() => { setFetchStatus('idle'); refreshReels(); }}
+                    disabled={fetchStatus === 'loading'}
+                    className="p-2.5 bg-black/40 backdrop-blur-sm rounded-full border border-white/20 pointer-events-auto active:scale-95 transition-transform disabled:opacity-50"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                    title="Load fresh shorts"
+                >
+                    {fetchStatus === 'loading'
+                        ? <Loader2 size={18} className="animate-spin" />
+                        : <RefreshCcw size={18} />}
+                </button>
             </div>
 
-            {/* Scroll Container */}
-            <div 
+            {/* ── Reel scroll container ── */}
+            <div
                 ref={containerRef}
-                className="w-full h-full overflow-y-auto snap-y snap-mandatory scroll-smooth hide-scrollbar"
+                className="w-full h-full overflow-y-scroll snap-y snap-mandatory"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
                 onScroll={handleScroll}
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                onTouchStart={onTouchStart}
+                onTouchEnd={onTouchEnd}
             >
-                {REELS.map((id, idx) => (
-                    <div key={id} className="w-full h-full snap-start snap-always relative flex items-center justify-center bg-zinc-950">
-                        {/* We load the iframe for adjacent items to prevent white flashes, but autoplay only the active one */}
-                        {Math.abs(activeIndex - idx) <= 2 ? (
-                            <div className="w-full h-full relative sm:max-w-md m-auto">
-                                <iframe 
-                                    className="w-full h-full border-none shadow-2xl"
-                                    src={`https://www.youtube.com/embed/${id}?autoplay=${activeIndex === idx ? 1 : 0}&loop=1&playlist=${id}&controls=1&rel=0&modestbranding=1&playsinline=1`} 
-                                    title="YouTube Short" 
-                                    frameBorder="0" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                                    allowFullScreen
-                                ></iframe>
-                            </div>
-                        ) : (
-                            <div className="w-full h-full bg-zinc-900 flex items-center justify-center sm:max-w-md text-zinc-600 font-bold tracking-widest uppercase text-xs">
-                                Loading...
-                            </div>
-                        )}
-                        
-                        {/* Status Overlay */}
-                        <div className="absolute bottom-6 left-4 z-40 px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-xl text-xs font-bold font-plex shadow-lg pointer-events-none border border-white/10">
-                            Reel {idx + 1} of {REELS.length}
-                        </div>
+                {reelIds.map((id, idx) => (
+                    <div key={`${id}-${idx}`} className="w-full snap-start snap-always" style={{ height: '100dvh' }}>
+                        <ReelSlide id={id} idx={idx} activeIndex={activeIndex} total={reelIds.length} />
                     </div>
                 ))}
+
+                {/* Loading more indicator at bottom */}
+                <div className="w-full flex items-center justify-center py-6 bg-black snap-start" style={{ height: '100dvh' }}>
+                    <div className="flex flex-col items-center gap-4 text-zinc-500">
+                        <Loader2 className="animate-spin" size={32} />
+                        <p className="text-sm font-plex font-bold uppercase tracking-widest">Loading More...</p>
+                        <button
+                            onClick={() => { setFetchStatus('idle'); refreshReels(); }}
+                            className="mt-2 px-6 py-3 bg-pink-500 text-white font-bold rounded-xl text-sm flex items-center gap-2 active:scale-95 transition-transform"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
+                        >
+                            <RefreshCcw size={16} /> Refresh Shorts
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {/* Floating Navigation Controls (Alternative to swipe for reliable access) */}
-            <div className="absolute right-4 bottom-1/2 translate-y-1/2 flex flex-col gap-4 z-50 pointer-events-auto">
-                <button 
-                    onClick={() => scrollToIndex(activeIndex - 1)}
+            {/* ── Side nav buttons ── */}
+            <div className="absolute right-3 bottom-1/2 translate-y-1/2 z-50 flex flex-col gap-3 pointer-events-auto">
+                <button
+                    onPointerDown={(e) => { e.preventDefault(); goTo(activeIndex - 1); }}
                     disabled={activeIndex === 0}
-                    className="p-3 bg-black/60 backdrop-blur-md border border-white/20 rounded-full text-white disabled:opacity-30 transition-all hover:bg-black/80 hover:scale-110"
+                    className="w-11 h-11 bg-black/60 border border-white/20 rounded-full flex items-center justify-center text-white disabled:opacity-20 active:scale-90 transition-transform"
+                    style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                 >
-                    <ChevronUp size={24}/>
+                    <ChevronUp size={22} />
                 </button>
-                <button 
-                    onClick={() => scrollToIndex(activeIndex + 1)}
-                    disabled={activeIndex === REELS.length - 1}
-                    className="p-3 bg-black/60 backdrop-blur-md border border-white/20 rounded-full text-white disabled:opacity-30 transition-all hover:bg-black/80 hover:scale-110"
+                <button
+                    onPointerDown={(e) => { e.preventDefault(); goTo(activeIndex + 1); }}
+                    disabled={activeIndex >= reelIds.length - 1}
+                    className="w-11 h-11 bg-black/60 border border-white/20 rounded-full flex items-center justify-center text-white disabled:opacity-20 active:scale-90 transition-transform"
+                    style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                 >
-                    <ChevronDown size={24}/>
+                    <ChevronDown size={22} />
                 </button>
             </div>
+
+            {/* ── Fetch status toast ── */}
+            {fetchStatus === 'done' && (
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-green-500/90 text-white text-xs font-bold rounded-full shadow-lg animate-in fade-in slide-in-from-bottom pointer-events-none">
+                    ✅ Fresh shorts loaded!
+                </div>
+            )}
+            {fetchStatus === 'error' && (
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-red-500/90 text-white text-xs font-bold rounded-full shadow-lg pointer-events-none">
+                    ⚠️ Using offline list
+                </div>
+            )}
         </div>
     );
 }
