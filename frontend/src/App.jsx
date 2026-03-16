@@ -4,6 +4,7 @@ import Home from './Home';
 import Admin from './Admin';
 import InterviewMode from './InterviewMode';
 import JournalMode from './JournalMode';
+import Reels from './Reels';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/interview" element={<InterviewMode />} />
         <Route path="/journal" element={<JournalMode />} />
+        <Route path="/reels" element={<Reels />} />
       </Routes>
     </BrowserRouter>
   );
