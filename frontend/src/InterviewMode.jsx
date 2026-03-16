@@ -387,7 +387,7 @@ export default function InterviewMode() {
         setStage(currentStage);
         setQIdx(idx); setBusy(true); setTimerActive(false); setTimeElapsed(0); setConfidence(0);
         setCurrentHint('');
-        addSystemMsg(`Stage: ${currentStage}`);
+        addSystemMsg(`Stage: ${currentStage} - Q${idx + 1}/${qList.length}`);
 
         const tid = addTyping();
         const qData = qList[idx];
@@ -614,8 +614,20 @@ ${data.correct_answer}
                                     </div>
                                 </div>
                             </div>
-                            
-                            {/* Stats removed */}
+                            {/* Live Timer & Stats */}
+                            <div className="flex items-center gap-4">
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] uppercase font-bold text-muted">Time Elapsed</span>
+                                    <span className={`text-lg font-plex font-bold ${timeElapsed > 60 ? 'text-red-400' : 'text-text'}`}>
+                                        {Math.floor(timeElapsed/60).toString().padStart(2,'0')}:{(timeElapsed%60).toString().padStart(2,'0')}
+                                    </span>
+                                </div>
+                                <div className="w-px h-8 bg-border"></div>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] uppercase font-bold text-muted">Progress</span>
+                                    <span className="text-sm font-bold">{qIdx+1}/{queue.length}</span>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Chat History */}
