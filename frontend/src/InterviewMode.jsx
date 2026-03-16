@@ -2,21 +2,17 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import {
     Mic, MicOff, ArrowLeft, Play, Pause, Bot, User,
-    Loader2, RefreshCcw, Settings, X, Check, Volume2, Square
+    Loader2, RefreshCcw, Settings, X, Check, Volume2, Clock, BarChart2, Star,
+    AlertCircle, Briefcase, Zap
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // ─── Groq helpers ────────────────────────────────────────────────────────────
-async function callGroq(apiKey, messages, maxTokens = 400) {
+async function callGroq(apiKey, messages, maxTokens = 800) {
     try {
         const res = await axios.post(
             'https://api.groq.com/openai/v1/chat/completions',
-            {
-                model: 'llama-3.3-70b-versatile',
-                messages,
-                temperature: 0.7,
-                max_tokens: maxTokens
-            },
+            { model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: maxTokens },
             { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
         );
         return res.data?.choices?.[0]?.message?.content || '';
@@ -26,58 +22,57 @@ async function callGroq(apiKey, messages, maxTokens = 400) {
     }
 }
 
-// ─── Ringg Squirrel TTS (Free Indian Female Voice API) ───────────────────────
-// Docs: https://huggingface.co/RinggAI/Ringg-Squirrel-Free-API
-// No API key needed. Returns audio/mpeg audio bytes directly.
+// ─── Sound Effects (AudioContext for beeps) ─────────────────────────────────
+const playTone = (frequency, type, duration) => {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + duration);
+    } catch (e) { } // Ignore if blocked
+};
+const fxNext = () => playTone(800, 'sine', 0.2);
+const fxStart = () => { playTone(440, 'sine', 0.1); setTimeout(() => playTone(660, 'sine', 0.2), 100); };
+const fxEnd = () => { playTone(660, 'sine', 0.1); setTimeout(() => playTone(440, 'sine', 0.2), 100); };
 
-// Indian English female voice IDs from Ringg Squirrel catalogue
-// voice_id from the documented example — English Indian female
+// ─── Ringg Squirrel TTS (Free Indian Female Voice API) ───────────────────────
 const RINGG_VOICE_ID = '83ba74e4-9efb-4db3-913a-f2a0ad66904d';
 const RINGG_API_URL  = 'https://prod-api2.desivocal.com/dv/api/v0/tts_api/generate_squirrel';
-
-// Module-level Audio element to control play/stop
 let _ringgAudio = null;
 
 async function ringgSpeak(text, onEnd) {
     try {
-        // Stop anything currently playing
         ringgStop();
-
-        // Ringg API has 300 char limit — split and play first chunk
         const clean = text.replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
-        const chunk = clean.slice(0, 280); // stay under 300 char limit
-
+        const chunk = clean.slice(0, 280);
         const res = await fetch(RINGG_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: chunk, voice_id: RINGG_VOICE_ID }),
-            signal: AbortSignal.timeout(8000) // 8s timeout
+            signal: AbortSignal.timeout(8000)
         });
-
         if (!res.ok) throw new Error(`Ringg API ${res.status}`);
-
         const blob = await res.blob();
         const url  = URL.createObjectURL(blob);
         _ringgAudio = new Audio(url);
         _ringgAudio.onended = () => { URL.revokeObjectURL(url); onEnd?.(); };
         _ringgAudio.onerror = () => { URL.revokeObjectURL(url); onEnd?.(); };
         _ringgAudio.play();
-        return true; // success
-    } catch (e) {
-        console.warn('Ringg TTS failed, using browser TTS fallback:', e.message);
-        return false; // tell caller to use fallback
-    }
+        return true;
+    } catch { return false; }
 }
 
 function ringgStop() {
-    if (_ringgAudio) {
-        _ringgAudio.pause();
-        _ringgAudio.src = '';
-        _ringgAudio = null;
-    }
+    if (_ringgAudio) { _ringgAudio.pause(); _ringgAudio.src = ''; _ringgAudio = null; }
 }
 
-// ─── Browser TTS fallback (Indian female voice) ───────────────────────────────
 function getIndianFemaleVoice() {
     const voices = window.speechSynthesis.getVoices();
     if (!voices.length) return null;
@@ -86,151 +81,123 @@ function getIndianFemaleVoice() {
         const v = voices.find(v => v.name.toLowerCase().includes(name));
         if (v) return v;
     }
-    const enIN = voices.find(v => v.lang === 'en-IN');
-    if (enIN)  return enIN;
-    return voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
+    return voices.find(v => v.lang === 'en-IN') || voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
 }
 
-function browserTtsSpeak(text) {
+function browserTtsSpeak(text, onEnd) {
     try {
         if (!window.speechSynthesis) return;
         window.speechSynthesis.cancel();
         const clean = text.replace(/<[^>]+>/g, ' ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
-        const u     = new SpeechSynthesisUtterance(clean);
-        u.rate  = 0.95;
-        u.pitch = 1.1;
-        u.lang  = 'en-IN';
+        const u = new SpeechSynthesisUtterance(clean);
+        u.rate = 0.95; u.pitch = 1.1; u.lang = 'en-IN';
         const voice = getIndianFemaleVoice();
         if (voice) u.voice = voice;
+        u.onend = () => onEnd?.();
+        u.onerror = () => onEnd?.();
         window.speechSynthesis.speak(u);
-    } catch (e) { /* non-critical */ }
+    } catch { }
 }
 
-// Master ttsSpeak — tries Ringg first, falls back to browser TTS
-async function ttsSpeak(text) {
-    const ok = await ringgSpeak(text);
-    if (!ok) browserTtsSpeak(text); // fallback
-}
+let _activeTtsSetter = null;
+async function ttsSpeak(text, setTtsState) {
+    if (_activeTtsSetter) _activeTtsSetter('idle');
+    _activeTtsSetter = setTtsState;
+    if (setTtsState) setTtsState('speaking');
+    
+    // Auto detect if it's feedback and slice correctly
+    const playText = text.includes('Full Correct Answer:') 
+        ? text.split('Full Correct Answer:')[1]?.split('🏢')[0]?.trim() || text 
+        : text;
 
+    const ok = await ringgSpeak(playText, () => {
+        if (_activeTtsSetter === setTtsState && setTtsState) setTtsState('idle');
+    });
+    if (!ok) {
+        browserTtsSpeak(playText, () => {
+             if (_activeTtsSetter === setTtsState && setTtsState) setTtsState('idle');
+        });
+    }
+}
 function ttsStop() {
     ringgStop();
-    try { window.speechSynthesis?.cancel(); } catch (e) { }
+    try { window.speechSynthesis?.cancel(); } catch { }
+    if (_activeTtsSetter) { _activeTtsSetter('idle'); _activeTtsSetter = null; }
 }
 
-// Module-level tracker so only 1 bubble speaks at a time
-let _activeTtsSetter = null;
-
-// Strip emoji and markdown symbols for clean TTS audio
-function cleanForTTS(text) {
-    return (text || '')
-        .replace(/[✅❌⚠️📖🏢💡👋]/g, '')
-        .replace(/\*\*/g, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-// ─── Chat Bubble with TTS play/pause button ───────────────────────────────────
+// ─── Chat Bubble ─────────────────────────────────────────────────────────────
 const Bubble = ({ msg }) => {
     const ai = msg.role === 'ai';
-    const [tts, setTts] = useState('idle'); // idle | speaking | paused
+    const [tts, setTts] = useState('idle');
 
-    // Extract only the "Full Correct Answer" section from feedback for TTS
-    const getListenText = () => {
-        const content = msg.content || '';
-        // Find "Full Correct Answer:" section
-        const marker = 'Full Correct Answer:';
-        const startIdx = content.indexOf(marker);
-        if (startIdx === -1) return cleanForTTS(content); // fallback: speak all
-        // Extract from after the marker until the next section (line starting with emoji)
-        const afterMarker = content.slice(startIdx + marker.length).trim();
-        // Stop at next section that starts with an emoji bullet
-        const nextSection = afterMarker.search(/\n[\u{1F300}-\u{1FFFF}\u2600-\u27FF]/u);
-        const answer = nextSection !== -1 ? afterMarker.slice(0, nextSection).trim() : afterMarker.trim();
-        return cleanForTTS(answer);
-    };
+    useEffect(() => {
+        if (msg.autoSpeak && msg.content && !msg.typing) {
+            ttsSpeak(msg.content, setTts);
+        }
+    }, [msg.autoSpeak, msg.content, msg.typing]);
 
-    const handleTTS = async () => {
+    const handleTTS = () => {
         if (tts === 'speaking') {
-            // Pause Ringg audio or browser TTS
-            if (_ringgAudio) { _ringgAudio.pause(); }
-            else { try { window.speechSynthesis?.pause(); } catch(e){} }
+            if (_ringgAudio) _ringgAudio.pause();
+            else window.speechSynthesis?.pause();
             setTts('paused');
         } else if (tts === 'paused') {
-            // Resume
-            if (_ringgAudio) { _ringgAudio.play(); }
-            else { try { window.speechSynthesis?.resume(); } catch(e){} }
+            if (_ringgAudio) _ringgAudio.play();
+            else window.speechSynthesis?.resume();
             setTts('speaking');
-        } else {
-            // Stop any currently playing voice
-            if (_activeTtsSetter) { _activeTtsSetter('idle'); _activeTtsSetter = null; }
-            ttsStop();
-            setTts('speaking');
-            _activeTtsSetter = setTts;
-
-            // Only speak the Full Correct Answer section
-            const listenText = getListenText();
-
-            // Try Ringg API first, fallback to browser TTS
-            const ok = await ringgSpeak(listenText, () => {
-                setTts('idle');
-                if (_activeTtsSetter === setTts) _activeTtsSetter = null;
-            });
-            if (!ok) {
-                // Browser TTS fallback
-                const u = new SpeechSynthesisUtterance(listenText);
-                u.rate = 0.95; u.pitch = 1.1; u.lang = 'en-IN';
-                const voice = getIndianFemaleVoice();
-                if (voice) u.voice = voice;
-                u.onend   = () => { setTts('idle'); _activeTtsSetter = null; };
-                u.onerror = () => { setTts('idle'); _activeTtsSetter = null; };
-                window.speechSynthesis?.cancel();
-                window.speechSynthesis?.speak(u);
-            }
-        }
+        } else ttsSpeak(msg.content, setTts);
     };
 
-    return (
-        <div className={`flex gap-3 mb-4 ${ai ? '' : 'flex-row-reverse'}`}>
-            <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
-                ai ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30'
-                   : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-            }`}>
-                {ai ? 'A' : 'U'}
+    if (msg.type === 'system') {
+        return (
+            <div className="flex justify-center my-4">
+                <span className="bg-surface/50 border border-border px-4 py-1.5 rounded-full text-[10px] font-bold text-muted uppercase tracking-widest font-plex">
+                    {msg.content}
+                </span>
             </div>
-            <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                ai ? 'bg-surface border border-border text-text rounded-tl-none'
-                   : 'bg-accent/10 border border-accent/30 text-text rounded-tr-none'
+        );
+    }
+
+    return (
+        <div className={`flex gap-3 mb-5 ${ai ? '' : 'flex-row-reverse'}`}>
+            <div className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shadow-md ${
+                ai ? 'bg-gradient-to-br from-yellow-500/30 to-accent text-yellow-50 border border-yellow-500/50'
+                   : 'bg-gradient-to-br from-blue-500/30 to-blue-600/50 text-blue-50 border border-blue-500/50'
+            }`}>
+                {ai ? <Bot size={18}/> : <User size={18}/>}
+            </div>
+            <div className={`max-w-[85%] px-5 py-4 rounded-3xl text-[15px] leading-relaxed relative shadow-lg ${
+                ai ? 'bg-surface border border-border text-text rounded-tl-sm'
+                   : 'bg-accent/10 border border-accent/40 text-text rounded-tr-sm'
             }`}>
                 {msg.typing ? (
-                    <span className="flex gap-1">
+                    <span className="flex gap-1.5 items-center h-4">
                         {[0,150,300].map(d => (
                             <span key={d} className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{animationDelay:`${d}ms`}} />
                         ))}
                     </span>
                 ) : (
-                    <span className="whitespace-pre-wrap">{msg.content}</span>
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
                 )}
+                
                 {msg.score != null && (
-                    <div className={`mt-2 pt-2 border-t border-border/40 font-bold text-base ${
-                        msg.score >= 70 ? 'text-green-500' : msg.score >= 40 ? 'text-yellow-500' : 'text-red-500'
-                    }`}>Score: {msg.score}%</div>
+                    <div className="mt-3 pt-3 border-t border-border/40 grid grid-cols-2 gap-2 text-sm">
+                        <div className={`font-bold flex items-center gap-1 ${
+                            msg.score >= 80 ? 'text-green-500' : msg.score >= 50 ? 'text-yellow-500' : 'text-red-500'
+                        }`}><BarChart2 size={16}/> Score: {msg.score}%</div>
+                        {msg.confidence && (
+                            <div className="text-muted flex items-center justify-end gap-1 font-plex text-xs">
+                                Conf: {msg.confidence}/5 <Star size={12} className="text-yellow-500" fill="currentColor"/>
+                            </div>
+                        )}
+                    </div>
                 )}
-                {/* TTS button — only on non-typing AI bubbles */}
+
                 {ai && !msg.typing && msg.content && (
-                    <button
-                        onClick={handleTTS}
-                        title={tts === 'speaking' ? 'Pause' : tts === 'paused' ? 'Resume' : 'Listen'}
-                        className={`mt-2 pt-2 border-t border-border/30 w-full flex items-center gap-1.5 text-[10px] font-plex font-bold transition-all ${
-                            tts !== 'idle' ? 'text-accent' : 'text-muted hover:text-accent'
-                        }`}
-                    >
-                        {tts === 'speaking'
-                            ? <><Pause size={11} fill="currentColor" /> Pause</>
-                            : tts === 'paused'
-                            ? <><Play  size={11} fill="currentColor" /> Resume</>
-                            : <><Volume2 size={11} /> Listen</>
-                        }
+                    <button onClick={handleTTS} className={`absolute -bottom-8 ${ai ? 'left-2' : 'right-2'} flex items-center gap-1 text-[11px] font-bold font-plex transition-all px-3 py-1 rounded-full border ${
+                        tts !== 'idle' ? 'bg-accent/20 text-accent border-accent/30' : 'bg-surface border-border text-muted hover:text-accent hover:border-accent'
+                    }`}>
+                        {tts === 'speaking' ? <><Pause size={12}/> Pause</> : tts === 'paused' ? <><Play size={12}/> Resume</> : <><Volume2 size={12}/> Listen</>}
                     </button>
                 )}
             </div>
@@ -238,9 +205,8 @@ const Bubble = ({ msg }) => {
     );
 };
 
-// ════════════════════════════════════════════════════════════════════════════
+// ─── Main Component ──────────────────────────────────────────────────────────
 export default function InterviewMode() {
-    // API key
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
     const [keyInput, setKeyInput] = useState('');
     const [showSettings, setShowSettings] = useState(false);
@@ -250,25 +216,28 @@ export default function InterviewMode() {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Setup options
+    // Options
     const [yourName, setYourName] = useState('');
     const [category, setCategory] = useState('All');
     const [difficulty, setDifficulty] = useState('Mixed');
-    const [numQ, setNumQ] = useState(10);
+    const [numQ, setNumQ] = useState(5);
 
-    // Interview flow — simple state machine
-    // screen: 'setup' | 'interview' | 'done'
+    // State Machine: setup -> intro -> question -> evaluating -> feedback -> wrapup -> done
     const [screen, setScreen] = useState('setup');
-    const [starting, setStarting] = useState(false); // loading spinner on button
+    const [stage, setStage] = useState('Intro'); // Intro, Warm-up, Main, Wrap-up
     const [msgs, setMsgs] = useState([]);
     const [queue, setQueue] = useState([]);
     const [qIdx, setQIdx] = useState(0);
     const [scores, setScores] = useState([]);
-    const [busy, setBusy] = useState(false); // AI is generating
-    const [showInput, setShowInput] = useState(false);
+    const [busy, setBusy] = useState(false);
     const [summary, setSummary] = useState(null);
 
-    // Voice / Text input
+    // Timer & Confidence
+    const [timeElapsed, setTimeElapsed] = useState(0);
+    const [confidence, setConfidence] = useState(0);
+    const [timerActive, setTimerActive] = useState(false);
+
+    // Voice/Text
     const [inputMode, setInputMode] = useState('voice');
     const [listening, setListening] = useState(false);
     const [voiceText, setVoiceText] = useState('');
@@ -276,37 +245,52 @@ export default function InterviewMode() {
     const [typedText, setTypedText] = useState('');
     const [useWhisper, setUseWhisper] = useState(() => localStorage.getItem('useGroqAI') === 'true');
 
+    // Live Voice Waveform simulation
+    const [aiSpeaking, setAiSpeaking] = useState(false);
+
+    // Hints
+    const [hintLoading, setHintLoading] = useState(false);
+    const [currentHint, setCurrentHint] = useState('');
+
     const recorderRef = useRef(null);
     const chunksRef = useRef([]);
     const srRef = useRef(null);
     const srFinalRef = useRef('');
     const bottomRef = useRef(null);
+    const autoProceedRef = useRef(null);
 
-    // Scroll to bottom whenever msgs change
-    useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [msgs]);
+    useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
-    // Load data
+    // Timer Interval
     useEffect(() => {
-        const apply = (d) => {
-            setQuestions(d.questions || []);
-            setCategories(d.categories || []);
-            setLoading(false);
-        };
+        let interval = null;
+        if (timerActive) interval = setInterval(() => setTimeElapsed(t => t + 1), 1000);
+        else clearInterval(interval);
+        return () => clearInterval(interval);
+    }, [timerActive]);
+
+    // Track AI speaking state by hooking into tts
+    useEffect(() => {
+        const checkTts = setInterval(() => {
+            setAiSpeaking(_activeTtsSetter !== null || !!window.speechSynthesis?.speaking);
+        }, 300);
+        return () => clearInterval(checkTts);
+    }, []);
+
+    // Load Data
+    useEffect(() => {
+        const apply = (d) => { setQuestions(d.questions || []); setCategories(d.categories || []); setLoading(false); };
         axios.get('/data.json').then(r => apply(r.data)).catch(() =>
             axios.get('/api/data').then(r => apply(r.data)).catch(() => setLoading(false))
         );
     }, []);
 
-    // Browser speech recognition
+    // Browser Speech Rec
     useEffect(() => {
         if (!useWhisper && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             const sr = new SR();
-            sr.continuous = true;
-            sr.interimResults = true;
-            sr.lang = 'en-IN';
+            sr.continuous = true; sr.interimResults = true; sr.lang = 'en-US';
             sr.onresult = e => {
                 let interim = '';
                 for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -320,657 +304,425 @@ export default function InterviewMode() {
         }
     }, [useWhisper]);
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-    const addMsg = (role, content, extra = {}) =>
-        setMsgs(prev => [...prev, { role, content, ...extra }]);
+    // Helpers
+    const addMsg = (role, content, extra = {}) => setMsgs(prev => [...prev, { role, content, ...extra }]);
+    const addSystemMsg = (content) => setMsgs(prev => [...prev, { role: 'system', type: 'system', content }]);
+    const addTyping = () => { const id = `t${Date.now()}`; setMsgs(prev => [...prev, { role: 'ai', content: '', typing: true, id }]); return id; };
+    const resolveTyping = (id, content, extra = {}) => setMsgs(prev => prev.map(m => m.id === id ? { role: 'ai', content, ...extra } : m));
 
-    const addTyping = () => {
-        const id = `t${Date.now()}`;
-        setMsgs(prev => [...prev, { role: 'ai', content: '', typing: true, id }]);
-        return id;
-    };
-
-    const resolveTyping = (id, content, extra = {}) =>
-        setMsgs(prev => prev.map(m => m.id === id ? { role: 'ai', content, ...extra } : m));
-
-    // ── Voice recording ───────────────────────────────────────────────────────
     const startListen = async () => {
-        setVoiceText('');
-        srFinalRef.current = '';
+        setVoiceText(''); srFinalRef.current = '';
         if (useWhisper) {
-            if (!apiKey) { alert('Add Groq API key in Settings first!'); return; }
+            if (!apiKey) return alert('API Key required for Whisper.');
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 chunksRef.current = [];
                 const rec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
                 rec.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-                rec.onstop = () => {
-                    const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-                    transcribeBlob(blob);
-                    stream.getTracks().forEach(t => t.stop());
-                };
-                rec.start();
-                recorderRef.current = rec;
-                setListening(true);
-            } catch { alert('Microphone permission denied.'); }
-        } else {
-            srRef.current?.start();
-            setListening(true);
-        }
+                rec.onstop = () => { transcribeBlob(new Blob(chunksRef.current, { type: 'audio/webm' })); stream.getTracks().forEach(t => t.stop()); };
+                rec.start(); recorderRef.current = rec; setListening(true);
+            } catch { alert('Mic access denied.'); }
+        } else { srRef.current?.start(); setListening(true); }
     };
-
-    const stopListen = () => {
-        if (useWhisper) { recorderRef.current?.stop(); }
-        else { srRef.current?.stop(); }
-        setListening(false);
-    };
-
+    const stopListen = () => { useWhisper ? recorderRef.current?.stop() : srRef.current?.stop(); setListening(false); };
     const transcribeBlob = async (blob) => {
         setTranscribing(true);
-        const fd = new FormData();
-        fd.append('file', new File([blob], 'audio.webm', { type: 'audio/webm' }));
-        fd.append('model', 'whisper-large-v3-turbo');
-        fd.append('language', 'en');
-        try {
-            const r = await axios.post('https://api.groq.com/openai/v1/audio/transcriptions', fd, {
-                headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'multipart/form-data' }
-            });
-            setVoiceText(r.data.text || '');
-        } catch { setVoiceText('(transcription failed — please type your answer)'); }
+        const fd = new FormData(); fd.append('file', new File([blob], 'audio.webm', { type: 'audio/webm' })); fd.append('model', 'whisper-large-v3-turbo');
+        try { const r = await axios.post('https://api.groq.com/openai/v1/audio/transcriptions', fd, { headers: { Authorization: `Bearer ${apiKey}` } }); setVoiceText(r.data.text || ''); } 
+        catch { setVoiceText('(Transcription failed)'); }
         setTranscribing(false);
     };
 
-    // ── START INTERVIEW (no fixed count — runs until user ends) ─────────────
+    // ── INTERVIEW FLOW ────────────────────────────────────────────────────────
+    
+    // 1. Kickoff
     const startInterview = async () => {
-        if (!apiKey) { setShowSettings(true); return; }
-        setStarting(true);
+        if (!apiKey) return setShowSettings(true);
+        fxStart();
+        setScreen('interview'); setStage('Intro'); setBusy(true); setTimerActive(false);
+        setScores([]); setTimeElapsed(0); setConfidence(0);
 
-        // Build question pool (all questions, shuffled)
-        let pool = [...questions];
-        if (category !== 'All') {
-            const cat = categories.find(c => c.name === category);
-            if (cat) pool = pool.filter(q => q.cat === cat.id);
-        }
-        if (!pool.length) pool = [...questions];
-        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+        let pool = category !== 'All' ? questions.filter(q => q.cat === categories.find(c=>c.name===category)?.id) : [...questions];
+        if(!pool.length) pool = [...questions];
+        const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, numQ);
+        setQueue(shuffled); setQIdx(0); setMsgs([]);
 
-        // Instant fallback greeting (no API wait)
-        const name = yourName.trim() || 'there';
-        const greetLocal = `Hi ${name}! 👋 I am Aria. I will ask you USA bookkeeping and payroll questions. Say or type your answer. Press "End Interview" anytime to stop. Let us begin!`;
-
-        let greetMsg = greetLocal;
-        const aiGreet = await callGroq(apiKey, [
-            {
-                role: 'system',
-                content: `You are Aria, an AI interviewer for USA bookkeeping and payroll. You work for an Indian KPO firm.
-Rules:
-- Use very simple, short English. No complex words.
-- 2 short sentences only.
-- Be friendly and welcoming.`
-            },
-            { role: 'user', content: `Greet candidate named "${name}". Tell them to answer USA bookkeeping/payroll questions. Say they can press End Interview to stop.` }
-        ], 80);
-        if (aiGreet) greetMsg = aiGreet;
-
-        setMsgs([{ role: 'ai', content: greetMsg }]);
-        setQueue(shuffled);
-        setQIdx(0);
-        setScores([]);
-        setSummary(null);
-        setShowInput(false);
+        addSystemMsg('Interview Initiated');
+        const tid = addTyping();
+        const intro = await callGroq(apiKey, [
+            { role: 'system', content: `You are Aria, lead recruiter at a top US Bookkeeping/Payroll firm. Keep it strictly professional, welcoming but serious. 2 sentences.` },
+            { role: 'user', content: `Welcome candidate ${yourName || 'there'} to the technical interview. Inform them there will be ${numQ} questions.` }
+        ], 100);
+        
+        resolveTyping(tid, intro || `Welcome ${yourName || ''}. I'm Aria, your interviewer today. We will go through ${numQ} questions on US Bookkeeping and Payroll.`, { autoSpeak: true });
+        
         setBusy(false);
-        setVoiceText('');
-        setTypedText('');
-        setStarting(false);
-        setScreen('interview');
-
-        setTimeout(() => askQuestion(shuffled, 0), 800);
+        // Auto proceed to first question after 5s
+        autoProceedRef.current = setTimeout(() => askQuestion(shuffled, 0, 'Warm-up'), 5000);
     };
 
-    // ── ASK QUESTION (infinite loop — reshuffle when pool runs out) ──────────
-    const askQuestion = async (q_queue, idx) => {
-        let arr = q_queue || queue;
-
-        // When all questions done — reshuffle and restart from 0
-        if (idx >= arr.length) {
-            const reshuffled = [...arr].sort(() => Math.random() - 0.5);
-            setQueue(reshuffled);
-            arr = reshuffled;
-            idx = 0;
-        }
-
-        const q = arr[idx];
-        setBusy(true);
-        setShowInput(false);
-        setQIdx(idx);
+    // 2. Ask Question
+    const askQuestion = async (qList, idx, currentStage) => {
+        clearTimeout(autoProceedRef.current);
+        fxNext();
+        setStage(currentStage);
+        setQIdx(idx); setBusy(true); setTimerActive(false); setTimeElapsed(0); setConfidence(0);
+        setCurrentHint('');
+        addSystemMsg(`Stage: ${currentStage} - Q${idx + 1}/${qList.length}`);
 
         const tid = addTyping();
+        const qData = qList[idx];
 
-        // Vary the question style randomly for a more natural interview feel
-        const styles = ['direct', 'scenario', 'explain'];
-        const style = styles[idx % 3];
+        // Provide depth constraint based on stage
+        let flavor = currentStage === 'Warm-up' ? "Ask gently, basic concepts." : 
+                     idx === qList.length - 1 ? "Ask an advanced, tricky situation." : "Ask it as a real-world scenario.";
 
-        const styleInstruction =
-            style === 'scenario'
-                ? 'Put the question as a small real-life work situation. Start with "Imagine" or "Suppose". 2 sentences max.'
-                : style === 'explain'
-                ? 'Ask the candidate to explain it in their own words. Start with "In your own words" or "Can you explain". 1 sentence.'
-                : 'Ask the question directly and simply. 1 short sentence. No extra words.';
+        const prompt = await callGroq(apiKey, [
+            { role: 'system', content: `You are Aria, a serious Technical Interviewer. ${flavor} Be direct, sharp, professional. No pleasantries. 1-2 sentences.` },
+            { role: 'user', content: `Question to ask: ${qData.q}` }
+        ], 100);
 
-        const aiQ = await callGroq(apiKey, [
-            {
-                role: 'system',
-                content: `You are Aria, an interviewer at an Indian KPO firm that handles USA bookkeeping and payroll.
-You are asking interview question number ${idx + 1}.
-
-Rules:
-- Use very simple, clear English. Short words.
-- Do NOT give the answer or any hint.
-- ${styleInstruction}
-- Sound friendly and professional, like a real interviewer.`
-            },
-            {
-                role: 'user',
-                content: `Question to ask: ${q.q}`
-            }
-        ], 80);
-
-        const finalQ = aiQ || q.q;
-        resolveTyping(tid, finalQ);
-        setBusy(false);
-        setShowInput(true);
-        ttsSpeak(finalQ);
+        resolveTyping(tid, prompt || qData.q, { autoSpeak: true });
+        setBusy(false); setTimerActive(true);
     };
 
-    // ── SUBMIT ANSWER ─────────────────────────────────────────────────────────
+    // 3. Submit & Eval
     const submitAnswer = async () => {
         const ans = inputMode === 'voice' ? voiceText : typedText;
-        if (!ans.trim()) { alert('Please give an answer first!'); return; }
-
-        ttsStop();
-        if (listening) stopListen();
-
+        if (!ans.trim() || confidence === 0) return alert('Provide an answer and select your confidence level!');
+        
+        ttsStop(); if (listening) stopListen();
+        setTimerActive(false);
         addMsg('user', ans);
-        setVoiceText('');
-        setTypedText('');
-        setShowInput(false);
-        setBusy(true);
+        setVoiceText(''); setTypedText(''); setBusy(true); setScreen('evaluating');
 
-        const q = queue[qIdx];
+        const qData = queue[qIdx];
         const tid = addTyping();
 
-        // Evaluate — detailed structured feedback
-        const correctAns = (q.a || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        const raw = await callGroq(apiKey, [
-            {
-                role: 'system',
-                content: `You are Aria, an expert USA bookkeeping and payroll trainer at an Indian KPO firm.
-You evaluate interview answers and give DETAILED, ACCURATE feedback.
-
-Scoring guide:
-- 90-100: Answer is fully correct with all key points mentioned.
-- 70-89: Answer is mostly correct, minor points missing.
-- 40-69: Answer is partially correct, some key points missing or some mistakes.
-- 10-39: Answer has a few right ideas but mostly incorrect or incomplete.
-- 0-9: Answer is completely wrong or the candidate said they don't know.
-
-Important: Be accurate. If the candidate says the correct key term or concept, give credit. Do not be too strict or too lenient.
-
-Use VERY SIMPLE English. Short sentences. Like explaining to a new employee.
-
+        const evalReq = await callGroq(apiKey, [
+            { role: 'system', content: `You are a strict, expert US Payroll & Accounting Examiner. Evaluate the answer thoroughly. The candidate stated their confidence as ${confidence}/5. Time taken: ${timeElapsed}s.
 Return ONLY valid JSON:
 {
-  "score": <0 to 100>,
-  "verdict": "<Correct / Partially Correct / Incorrect>",
-  "feedback": "<2 sentences: exactly what was right and what was wrong in their answer>",
-  "what_was_right": "<specific things they got correct, or 'Nothing was correct' if fully wrong>",
-  "what_was_wrong": "<specific mistakes they made, or 'No mistakes' if fully correct>",
-  "what_was_missing": "<key points they forgot to mention, or 'Nothing was missing' if fully correct>",
-  "correct_answer": "<full correct answer in simple English, 3-4 sentences, teach it properly>",
-  "example": "<one real USA bookkeeping/payroll example with company name and employee name>",
-  "tip": "<one important thing to remember, max 15 words>"
-}`
-            },
-            {
-                role: 'user',
-                content: `Question: ${q.q}\n\nReference Answer: ${correctAns}\n\nCandidate answered: ${ans}`
-            }
-        ], 700);
+  "score": <0-100>,
+  "verdict": "<Correct / Flawed / Incorrect>",
+  "feedback": "<1 rigorous paragraph evaluating their technical accuracy>",
+  "key_strengths": ["point 1"],
+  "critical_misses": ["point 1"],
+  "correct_answer": "<Expert explanation, 2 sentences>",
+  "follow_up_thought": "<1 short rhetorical follow-up question to test deeper understanding>"
+}` },
+            { role: 'user', content: `Q: ${qData.q}\nExpected: ${qData.a}\nCandidate Ans: ${ans}` }
+        ], 800);
 
-        let score = 50;
-        let feedbackContent = '❌ Could not check. Please try again.';
-        try {
-            const match = (raw || '').match(/\{[\s\S]*\}/);
-            const parsed = JSON.parse(match ? match[0] : raw);
-            score = Math.max(0, Math.min(100, Number(parsed.score) || 50));
+        let data = { score: 50, feedback: 'Error evaluating.', correct_answer: qData.a };
+        try { data = JSON.parse(evalReq.match(/\{[\s\S]*\}/)[0]); } catch {}
 
-            const verdict = parsed.verdict || (score >= 70 ? 'Correct' : score >= 40 ? 'Partially Correct' : 'Incorrect');
-            const icon = verdict === 'Correct' ? '✅' : verdict === 'Partially Correct' ? '⚠️' : '❌';
+        const finalScore = Math.max(0, Math.min(100, data.score));
+        setScores(prev => [...prev, finalScore]);
 
-            const parts = [];
+        let feedbackText = `${data.verdict === 'Correct' ? '✅' : data.verdict === 'Flawed' ? '⚠️' : '❌'} EVALUATION:
+${data.feedback}
 
-            // Header: verdict + overall feedback
-            parts.push(`${icon} ${verdict.toUpperCase()} (${score}%)
-${parsed.feedback || ''}`);
+✅ Key Strengths: ${data.key_strengths?.join(', ') || 'None'}
+❌ Critical Misses: ${data.critical_misses?.join(', ') || 'None'}
 
-            // What was right
-            if (parsed.what_was_right) {
-                parts.push(`
-✅ What you got right:
-${parsed.what_was_right}`);
-            }
-
-            // What was wrong
-            if (parsed.what_was_wrong && parsed.what_was_wrong !== 'No mistakes') {
-                parts.push(`
-❌ What was wrong:
-${parsed.what_was_wrong}`);
-            }
-
-            // What was missing
-            if (parsed.what_was_missing && parsed.what_was_missing !== 'Nothing was missing') {
-                parts.push(`
-📌 What you missed:
-${parsed.what_was_missing}`);
-            }
-
-            // Full correct answer
-            if (parsed.correct_answer) {
-                parts.push(`
 📖 Full Correct Answer:
-${parsed.correct_answer}`);
-            }
+${data.correct_answer}
 
-            // Real example
-            if (parsed.example) {
-                parts.push(`
-🏢 Real Example:
-${parsed.example}`);
-            }
+🤔 Think About This: ${data.follow_up_thought || 'Keep practicing.'}`;
 
-            // Tip
-            if (parsed.tip) {
-                parts.push(`
-💡 Remember: ${parsed.tip}`);
-            }
+        resolveTyping(tid, feedbackText, { autoSpeak: true, score: finalScore, confidence });
+        setBusy(false); setScreen('feedback');
 
-            feedbackContent = parts.join('\n');
-        } catch {
-            feedbackContent = '❌ Could not evaluate. Please try again.';
+        // Prepare next round auto-advance
+        if (qIdx + 1 < queue.length) {
+            const nextStage = qIdx + 1 === queue.length - 1 ? 'Wrap-up' : 'Main';
+            autoProceedRef.current = setTimeout(() => askQuestion(queue, qIdx + 1, nextStage), 12000); // 12s to read feedback
+        } else {
+            autoProceedRef.current = setTimeout(() => finishInterview(), 10000);
         }
-
-        resolveTyping(tid, feedbackContent, { score });
-        setScores(prev => [...prev, score]);
-        setBusy(false);
-
-        // Auto-speak feedback then move to next question
-        const nextIdx = qIdx + 1;
-        ttsSpeak(cleanForTTS(feedbackContent));
-        setTimeout(() => askQuestion(queue, nextIdx), 7000); // 7s — enough to hear detailed feedback
     };
 
-    // ── END INTERVIEW (called by user pressing End button) ────────────────────
-    const endInterview = async () => {
-        ttsStop();
-        if (listening) stopListen();
-        setShowInput(false);
-        setBusy(true);
+    // 4. Get a Hint
+    const getHint = async () => {
+        if (!apiKey || hintLoading || currentHint) return;
+        setHintLoading(true);
+        const qData = queue[qIdx];
+        const hint = await callGroq(apiKey, [
+            { role: 'system', content: 'You are an interview coach. Provide a brief, bullet-point idea or structure on how the candidate should answer this question. Do not write the full exact answer. Maximum 3 short bullet points.' },
+            { role: 'user', content: `Question: ${qData.q}` }
+        ], 150);
+        setCurrentHint(hint || 'Focus on the key concepts and give a practical example.');
+        setHintLoading(false);
+    };
 
-        const all_scores = scores.length ? scores : [50];
-        const avg = Math.round(all_scores.reduce((a, b) => a + b, 0) / all_scores.length);
+    // 5. Finish
+    const finishInterview = async () => {
+        clearTimeout(autoProceedRef.current);
+        ttsStop(); setBusy(true); setScreen('interview'); setStage('Wrap-up');
+        fxEnd();
+
+        const allScores = scores.length ? scores : [0];
+        const avg = Math.round(allScores.reduce((a,b)=>a+b,0)/allScores.length);
+        addSystemMsg('Interview Concluded');
 
         const tid = addTyping();
-        const closing = await callGroq(apiKey, [
-            {
-                role: 'system',
-                content: `You are Aria. The interview is now over.
-Rules:
-- Use very simple, short English.
-- 2 sentences only.
-- Tell them their score and encourage them.`
-            },
-            { role: 'user', content: `Interview ended. Candidate answered ${all_scores.length} questions. Average score: ${avg}%. Give a short closing message.` }
-        ], 80);
-        resolveTyping(tid, closing || `Well done! You answered ${all_scores.length} questions with an average score of ${avg}%. Keep practicing every day! 💪`);
-        setBusy(false);
-        setScreen('done');
+        const finishMsg = await callGroq(apiKey, [
+            { role: 'system', content: 'You are Aria. Conclude the interview professionally based on their avg score.' },
+            { role: 'user', content: `Candidate avg score: ${avg}%. Give 2 final sentences of feedback.` }
+        ], 100);
+        resolveTyping(tid, finishMsg || `Thank you for your time. Your final average score is ${avg}%. We will be in touch.`, { autoSpeak: true });
 
-        // Background summary
-        const sumRaw = await callGroq(apiKey, [
-            {
-                role: 'system',
-                content: `You check USA bookkeeping and payroll interview performance for Indian KPO firms.
-Return ONLY valid JSON: {"overallScore":<0-100>,"strengths":["short point 1","short point 2"],"improvements":["short point 1","short point 2"],"advice":"one short sentence"}
-Use very simple English. Keep each point under 10 words.`
-            },
-            {
-                role: 'user',
-                content: `Scores for each answer: ${all_scores.join(', ')}. Overall average: ${avg}%. Total questions answered: ${all_scores.length}.`
-            }
-        ], 250);
-        try {
-            const m = (sumRaw || '').match(/\{[\s\S]*\}/);
-            setSummary(JSON.parse(m ? m[0] : sumRaw));
-        } catch {
-            setSummary({ overallScore: avg, strengths: ['Good effort', 'Answered all questions'], improvements: ['Review payroll rules', 'Practice bookkeeping entries'], advice: 'Study US payroll and bookkeeping daily!' });
-        }
+        // Generate Charts Summary
+        const sumReq = await callGroq(apiKey, [
+            { role: 'system', content: `Return JSON: {"strengths":["s1"],"weaknesses":["w1"],"hire_recommendation":"<Yes/No/Needs Review>","final_rating":"<Junior/Mid/Senior>"}` },
+            { role: 'user', content: `Scores array: [${scores.join(', ')}]. Questions: ${queue.length}` }
+        ], 200);
+        
+        try { setSummary({...JSON.parse(sumReq.match(/\{[\s\S]*\}/)[0]), overall: avg}); } 
+        catch { setSummary({ overall: avg, strengths: [], weaknesses: [], hire_recommendation: 'Review', final_rating: 'Unknown' }); }
+        
+        setBusy(false);
+        setTimeout(() => setScreen('done'), 5000);
     };
 
-    const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+    const skipWait = () => {
+        clearTimeout(autoProceedRef.current);
+        if (qIdx + 1 < queue.length) askQuestion(queue, qIdx + 1, qIdx + 1 === queue.length - 1 ? 'Wrap-up' : 'Main');
+        else finishInterview();
+    };
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // RENDER
-    // ─────────────────────────────────────────────────────────────────────────
-    if (loading) return (
-        <div style={{ minHeight: '100vh', background: 'var(--color-bg, #0f0e0d)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Loader2 className="text-accent animate-spin" size={32} />
-        </div>
-    );
+    // ── RENDER ────────────────────────────────────────────────────────────────
+    if (loading) return <div className="h-screen flex items-center justify-center bg-bg"><Loader2 className="animate-spin text-accent" size={32}/></div>;
 
     return (
-        <div className="min-h-screen bg-bg text-text" style={{ display: 'flex', flexDirection: 'column' }}>
-
-            {/* ── TOP BAR ─────────────────────────────────────────────────── */}
-            <div className="bg-surface border-b border-border px-4 py-3 flex justify-between items-center sticky top-0 z-50">
-                <div className="flex items-center gap-3">
-                    <Link to="/" className="p-2 rounded-lg border border-border text-muted hover:text-accent hover:border-accent/50 transition-all">
-                        <ArrowLeft size={16} />
-                    </Link>
-                    <div>
-                        <div className="font-bold text-sm text-text flex items-center gap-2">
-                            <Bot size={15} className="text-accent" /> Aria AI Interviewer
-                        </div>
-                        <div className="text-[10px] text-muted font-plex">Groq LLaMA 3.3 · 70B</div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    {screen === 'interview' && (
-                        <button
-                            onClick={endInterview}
-                            className="px-3 py-1.5 text-xs font-bold font-plex rounded-lg border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all"
-                        >
-                            ⏹ End Interview
-                        </button>
+        <div className="min-h-screen bg-bg text-text flex flex-col font-inter selection:bg-accent/30 selection:text-accent">
+            {/* Nav */}
+            <div className="bg-surface/90 backdrop-blur-md border-b border-border p-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+                <Link to="/" className="p-2 border border-border rounded-xl text-muted hover:text-accent hover:border-accent/50 transition-colors"><ArrowLeft size={18}/></Link>
+                <div className="flex flex-col items-center">
+                    <h1 className="font-bold tracking-wide flex items-center gap-2 text-sm"><Briefcase size={16} className="text-accent"/> Live Interview</h1>
+                    {stage !== 'Intro' && screen !== 'setup' && screen !== 'done' && (
+                        <div className="text-[10px] text-muted font-bold tracking-widest uppercase mt-0.5">{stage} Stage</div>
                     )}
-                    {screen === 'interview' && scores.length > 0 && (
-                        <div className={`text-[11px] font-bold px-3 py-1 rounded-full border font-plex ${
-                            avgScore >= 70 ? 'bg-green-500/10 border-green-500/30 text-green-500'
-                            : avgScore >= 40 ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500'
-                            : 'bg-red-500/10 border-red-500/30 text-red-500'
-                        }`}>{avgScore}% avg</div>
-                    )}
-                    <button onClick={() => setShowSettings(s => !s)} className="p-2 rounded-lg border border-border text-muted hover:text-accent hover:border-accent/50 transition-all">
-                        <Settings size={16} />
-                    </button>
                 </div>
+                <button onClick={() => setShowSettings(!showSettings)} className="p-2 border border-border rounded-xl text-muted hover:text-accent transition-colors"><Settings size={18}/></button>
             </div>
 
-            {/* ── SETTINGS ────────────────────────────────────────────────── */}
-            {showSettings && (
-                <div className="bg-surface border-b border-border px-4 py-4">
-                    <div className="max-w-lg mx-auto">
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="text-xs font-bold text-text">⚙ Settings</span>
-                            <button onClick={() => setShowSettings(false)} className="text-muted"><X size={15} /></button>
+            {/* Content area */}
+            <div className="flex-1 max-w-2xl w-full mx-auto p-4 flex flex-col h-full">
+
+                {/* Settings Panel */}
+                {showSettings && (
+                    <div className="bg-surface border border-border rounded-2xl p-4 mb-4 shadow-xl">
+                        <div className="flex justify-between items-center mb-4"><span className="font-bold text-sm">Settings</span><button onClick={()=>setShowSettings(false)} className="text-muted"><X size={16}/></button></div>
+                        <label className="text-xs font-bold text-muted mb-1 block uppercase">Groq API Key</label>
+                        <div className="flex gap-2">
+                            <input type="password" value={keyInput||apiKey} onChange={e=>setKeyInput(e.target.value)} placeholder="gsk_..." className="flex-1 bg-bg border border-border p-2 rounded-lg text-sm focus:border-accent outline-none font-plex" />
+                            <button onClick={()=>{setApiKey(keyInput||apiKey); localStorage.setItem('groqApiKey', keyInput||apiKey); setShowSettings(false);}} className="bg-accent text-[#0f0e0d] px-4 font-bold rounded-lg text-sm">Save</button>
                         </div>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1 tracking-wider">Groq API Key</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="password"
-                                        value={keyInput || apiKey}
-                                        onChange={e => setKeyInput(e.target.value)}
-                                        placeholder="gsk_..."
-                                        className="flex-1 bg-bg border border-border px-3 py-2 rounded-lg text-xs font-plex text-text outline-none focus:border-accent"
-                                    />
-                                    <button onClick={() => {
-                                        const k = keyInput || apiKey;
-                                        setApiKey(k);
-                                        localStorage.setItem('groqApiKey', k);
-                                        setShowSettings(false);
-                                    }} className="bg-accent text-[#0f0e0d] text-xs font-bold px-4 rounded-lg">Save</button>
-                                </div>
-                                {apiKey && <p className="text-[10px] text-green-500 mt-1">✔ Key saved</p>}
-                            </div>
-                            <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1 tracking-wider">Voice Engine</label>
-                                <div className="flex gap-2">
-                                    {[['Browser', false], ['Groq Whisper ✨', true]].map(([label, val]) => (
-                                        <button key={label} onClick={() => { setUseWhisper(val); localStorage.setItem('useGroqAI', String(val)); }}
-                                            className={`px-3 py-1.5 text-xs rounded-lg border font-plex font-bold transition-all ${
-                                                useWhisper === val ? 'bg-accent text-[#0f0e0d] border-accent' : 'border-border text-muted'
-                                            }`}>{label}</button>
-                                    ))}
-                                </div>
-                            </div>
+                        <label className="text-xs font-bold text-muted mt-4 mb-1 block uppercase">Voice Engine</label>
+                        <div className="flex gap-2">
+                            {[['Browser', false], ['Groq Whisper', true]].map(([l,v]) => (
+                                <button key={l} onClick={()=>{setUseWhisper(v); localStorage.setItem('useGroqAI', v);}} className={`px-3 py-2 text-xs font-bold rounded-lg border ${useWhisper===v?'bg-accent/20 border-accent text-accent':'border-border text-muted'} transition-all`}>{l}</button>
+                            ))}
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* ══════════════════ SETUP SCREEN ══════════════════════════════ */}
-            {screen === 'setup' && (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
-                    <div style={{ width: '100%', maxWidth: '440px' }}>
-                        {/* Hero */}
-                        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                            <div className="w-16 h-16 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center mx-auto mb-3">
-                                <Bot size={28} className="text-accent" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-text mb-1" style={{ fontFamily: 'Playfair Display, serif' }}>Meet Aria</h2>
-                            <p className="text-muted text-sm font-plex">Your AI accounting interviewer — asks questions, listens to answers, gives feedback instantly.</p>
+                {/* Setup */}
+                {screen === 'setup' && (
+                    <div className="m-auto w-full max-w-sm flex flex-col items-center animate-in fade-in zoom-in duration-500">
+                        <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-surface to-bg border-4 border-surface shadow-2xl flex items-center justify-center mb-6">
+                            <div className="absolute inset-0 rounded-full border border-accent/30 animate-ping opacity-20" style={{ animationDuration: '3s' }}></div>
+                            <Bot size={40} className="text-accent" />
                         </div>
-
-                        {/* Config */}
-                        <div className="bg-surface border border-border rounded-2xl p-5 space-y-4">
-                            {/* Name */}
+                        <h2 className="text-3xl font-bold mb-2 font-display text-center">Ready for your Interview?</h2>
+                        <p className="text-sm text-muted text-center mb-8">Set your parameters. Aria will conduct a full technical evaluation.</p>
+                        
+                        <div className="w-full space-y-4 bg-surface p-6 rounded-3xl border border-border shadow-md">
                             <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1.5 tracking-wider">Your Name (optional)</label>
-                                <input
-                                    type="text"
-                                    value={yourName}
-                                    onChange={e => setYourName(e.target.value)}
-                                    placeholder="e.g. Ahmed"
-                                    className="w-full bg-bg border border-border px-3 py-2.5 rounded-xl text-sm font-plex text-text outline-none focus:border-accent transition-all"
-                                />
+                                <label className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-1.5">Candidate Name</label>
+                                <input placeholder="Enter name..." value={yourName} onChange={e=>setYourName(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 text-sm focus:border-accent outline-none" />
                             </div>
-                            {/* Category */}
-                            <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1.5 tracking-wider">Topic</label>
-                                <select value={category} onChange={e => setCategory(e.target.value)}
-                                    className="w-full bg-bg border border-border px-3 py-2.5 rounded-xl text-sm font-plex text-text outline-none focus:border-accent appearance-none">
-                                    <option value="All">All Topics ({questions.length})</option>
-                                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                </select>
-                            </div>
-                            {/* Difficulty */}
-                            <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1.5 tracking-wider">Difficulty</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {[['🟢 Beginner','Beginner'],['🟡 Intermediate','Intermediate'],['🔀 Mixed','Mixed']].map(([label, val]) => (
-                                        <button key={val} onClick={() => setDifficulty(val)}
-                                            className={`py-2 rounded-xl text-xs font-bold font-plex border transition-all ${
-                                                difficulty === val ? 'bg-accent text-[#0f0e0d] border-accent' : 'bg-bg border-border text-muted hover:border-accent/40'
-                                            }`}>{label}</button>
-                                    ))}
-                                </div>
-                            </div>
-                            {!apiKey && (
-                                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs font-plex text-red-400">
-                                    ⚠ No API key. <button onClick={() => setShowSettings(true)} className="underline font-bold">Add it in Settings ⚙</button><br />
-                                    Free key: <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="underline font-bold">console.groq.com</a>
-                                </div>
-                            )}
-
-                            <button
-                                onClick={startInterview}
-                                disabled={!apiKey || starting}
-                                className={`w-full py-3.5 rounded-xl font-bold text-base font-plex flex items-center justify-center gap-2 transition-all ${
-                                    !apiKey ? 'bg-surface2 text-muted cursor-not-allowed border border-border'
-                                    : starting ? 'bg-accent/60 text-[#0f0e0d] cursor-wait'
-                                    : 'bg-accent text-[#0f0e0d] hover:scale-[1.01] shadow-lg shadow-accent/20'
-                                }`}
-                            >
-                                {starting
-                                    ? <><Loader2 size={18} className="animate-spin" /> Connecting to Aria...</>
-                                    : <><Play size={18} fill="currentColor" /> Start Interview</>
-                                }
-                            </button>
-                        </div>
-                        <p className="text-center text-[11px] text-muted mt-3 font-plex">
-                            Free · Unlimited questions · Press "End Interview" to stop · Groq LLaMA 3.3 70B
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {/* ══════════════════ INTERVIEW SCREEN ══════════════════════════ */}
-            {(screen === 'interview' || screen === 'done') && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: '680px', margin: '0 auto', width: '100%', padding: '12px' }}>
-
-                    {/* Progress */}
-                    {screen === 'interview' && (
-                        <div className="flex items-center gap-2 mb-3 px-1">
-                            <span className="text-[10px] font-plex text-muted shrink-0 font-bold">Answered: {scores.length}</span>
-                            <div className="flex-1 bg-surface border border-border rounded-full h-1.5 overflow-hidden">
-                                <div className="bg-accent h-full rounded-full transition-all duration-700"
-                                    style={{ width: `${queue.length ? (qIdx / queue.length) * 100 : 0}%` }} />
-                            </div>
-                            {scores.length > 0 && (
-                                <span className={`text-[10px] font-bold font-plex shrink-0 ${avgScore >= 70 ? 'text-green-500' : avgScore >= 40 ? 'text-yellow-500' : 'text-red-500'}`}>
-                                    {avgScore}%
-                                </span>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Chat */}
-                    <div style={{ flex: 1, overflowY: 'auto', minHeight: '200px', paddingBottom: '8px' }}>
-                        {msgs.map((m, i) => <Bubble key={i} msg={m} />)}
-                        {busy && msgs.length > 0 && !msgs[msgs.length - 1]?.typing && (
-                            <div className="flex gap-3 mb-4">
-                                <div className="w-8 h-8 rounded-xl bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 flex items-center justify-center text-xs font-bold">A</div>
-                                <div className="bg-surface border border-border rounded-2xl rounded-tl-none px-4 py-3">
-                                    <span className="flex gap-1">
-                                        {[0,150,300].map(d => <span key={d} className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{animationDelay:`${d}ms`}} />)}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                        <div ref={bottomRef} />
-                    </div>
-
-                    {/* Input Panel */}
-                    {screen === 'interview' && showInput && (
-                        <div className="bg-surface border border-border rounded-2xl p-4 mt-3 space-y-3">
-                            {/* Toggle */}
-                            <div className="flex gap-2">
-                                {[['🎤 Voice', 'voice'], ['⌨ Type', 'text']].map(([label, val]) => (
-                                    <button key={val} onClick={() => setInputMode(val)}
-                                        className={`flex-1 py-2 text-xs font-bold font-plex rounded-xl border transition-all ${
-                                            inputMode === val ? 'bg-accent/15 border-accent/50 text-accent' : 'border-border text-muted'
-                                        }`}>{label}</button>
-                                ))}
-                            </div>
-
-                            {/* Voice */}
-                            {inputMode === 'voice' && (
-                                <div className="space-y-2">
-                                    <button
-                                        onClick={listening ? stopListen : startListen}
-                                        disabled={transcribing}
-                                        className={`w-full py-3 rounded-xl font-bold font-plex text-sm flex items-center justify-center gap-2 transition-all ${
-                                            listening ? 'bg-red-500 text-white shadow-red-500/20 shadow-lg'
-                                            : 'bg-accent text-[#0f0e0d] hover:scale-[1.01] shadow-accent/20 shadow-lg'
-                                        } ${transcribing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        {listening ? <><MicOff size={17}/> Stop Recording</>
-                                            : transcribing ? <><Loader2 size={17} className="animate-spin"/> Transcribing...</>
-                                            : <><Mic size={17}/> Tap to Speak</>}
-                                    </button>
-
-                                    {voiceText && (
-                                        <div className="bg-bg border border-border rounded-xl px-4 py-3 text-sm font-plex text-text/90 italic min-h-[50px]">
-                                            <span className="text-[10px] text-muted font-bold not-italic block mb-1">YOUR ANSWER:</span>
-                                            "{voiceText}"
-                                        </div>
-                                    )}
-
-                                    {voiceText && !listening && !transcribing && (
-                                        <button onClick={submitAnswer}
-                                            className="w-full py-3 rounded-xl font-bold font-plex text-sm bg-surface2 border border-accent text-accent hover:bg-accent hover:text-[#0f0e0d] transition-all flex items-center justify-center gap-2">
-                                            <Check size={16}/> Submit Answer
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Text */}
-                            {inputMode === 'text' && (
-                                <div className="space-y-2">
-                                    <textarea
-                                        value={typedText}
-                                        onChange={e => setTypedText(e.target.value)}
-                                        placeholder="Type your answer here..."
-                                        rows={3}
-                                        className="w-full bg-bg border border-border rounded-xl px-4 py-3 text-sm font-plex text-text outline-none focus:border-accent resize-none"
-                                    />
-                                    <button onClick={submitAnswer} disabled={!typedText.trim()}
-                                        className={`w-full py-3 rounded-xl font-bold font-plex text-sm flex items-center justify-center gap-2 transition-all ${
-                                            typedText.trim() ? 'bg-accent text-[#0f0e0d] hover:scale-[1.01] shadow-lg shadow-accent/20' : 'bg-surface2 text-muted cursor-not-allowed border border-border'
-                                        }`}>
-                                        <Check size={16}/> Submit Answer
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Summary */}
-                    {screen === 'done' && summary && (
-                        <div className="bg-surface border border-border rounded-2xl p-5 mt-3 space-y-4">
-                            <div className="flex items-center gap-4">
-                                <div className={`text-4xl font-black ${summary.overallScore >= 70 ? 'text-green-500' : summary.overallScore >= 40 ? 'text-yellow-500' : 'text-red-500'}`}>
-                                    {summary.overallScore}%
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-1.5">Topic</label>
+                                    <select value={category} onChange={e=>setCategory(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 text-sm focus:border-accent outline-none appearance-none">
+                                        <option value="All">Mixed Topics</option>
+                                        {categories.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}
+                                    </select>
                                 </div>
                                 <div>
-                                    <p className="font-bold text-text" style={{ fontFamily: 'Playfair Display, serif' }}>Interview Complete</p>
-                                    <div className="flex gap-1 mt-1 flex-wrap">
-                                        {scores.map((s, i) => (
-                                            <span key={i} className={`text-[10px] font-bold px-2 py-0.5 rounded font-plex ${s>=70?'bg-green-500/15 text-green-500':s>=40?'bg-yellow-500/15 text-yellow-500':'bg-red-500/15 text-red-500'}`}>Q{i+1}: {s}%</span>
-                                        ))}
+                                    <label className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-1.5">Questions</label>
+                                    <select value={numQ} onChange={e=>setNumQ(Number(e.target.value))} className="w-full bg-bg border border-border rounded-xl p-3 text-sm focus:border-accent outline-none appearance-none">
+                                        {[3,5,10,15].map(n=><option key={n} value={n}>{n} Questions</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <button onClick={startInterview} disabled={!apiKey} className="w-full mt-2 py-3.5 bg-accent text-[#0f0e0d] font-bold rounded-xl text-base hover:scale-[1.02] shadow-xl shadow-accent/20 transition-all flex justify-center items-center gap-2">
+                                <Play size={18} fill="currentColor"/> Start Session
+                            </button>
+                            {!apiKey && <p className="text-xs text-red-400 text-center font-bold font-plex mt-2"><AlertCircle size={14} className="inline mr-1"/> API Key Required in Settings</p>}
+                        </div>
+                    </div>
+                )}
+
+                {/* Interview Interface */}
+                {(screen === 'interview' || screen === 'evaluating' || screen === 'feedback') && (
+                    <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-500">
+                        {/* Status Header */}
+                        <div className="flex items-center justify-between mb-4 bg-surface/50 border border-border rounded-2xl p-3 shadow-inner">
+                            <div className="flex items-center gap-3">
+                                <div className="relative">
+                                    <div className={`w-10 h-10 rounded-full bg-gradient-to-tr from-accent to-yellow-400 flex items-center justify-center text-[#0f0e0d] shadow-lg ${aiSpeaking ? 'animate-pulse' : ''}`}>
+                                        <Bot size={20} />
+                                    </div>
+                                    {aiSpeaking && <span className="absolute -inset-1 blur-sm rounded-full bg-accent/40 animate-ping -z-10"></span>}
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold">Aria</div>
+                                    <div className="text-[10px] text-accent font-plex flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span> {aiSpeaking ? 'Speaking...' : 'Listening'}
                                     </div>
                                 </div>
                             </div>
-
-                            {summary.strengths?.length > 0 && (
-                                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
-                                    <p className="text-[10px] font-bold text-green-500 uppercase tracking-wider mb-2">✅ Strengths</p>
-                                    {summary.strengths.map((s, i) => <p key={i} className="text-xs font-plex text-text">• {s}</p>)}
+                            
+                            {/* Live Timer & Stats */}
+                            <div className="flex items-center gap-4">
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] uppercase font-bold text-muted">Time Elapsed</span>
+                                    <span className={`text-lg font-plex font-bold ${timeElapsed > 60 ? 'text-red-400' : 'text-text'}`}>
+                                        {Math.floor(timeElapsed/60).toString().padStart(2,'0')}:{(timeElapsed%60).toString().padStart(2,'0')}
+                                    </span>
                                 </div>
-                            )}
-                            {summary.improvements?.length > 0 && (
-                                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
-                                    <p className="text-[10px] font-bold text-yellow-500 uppercase tracking-wider mb-2">📈 To Improve</p>
-                                    {summary.improvements.map((s, i) => <p key={i} className="text-xs font-plex text-text">• {s}</p>)}
+                                <div className="w-px h-8 bg-border"></div>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] uppercase font-bold text-muted">Progress</span>
+                                    <span className="text-sm font-bold">{qIdx+1}/{queue.length}</span>
                                 </div>
-                            )}
-                            {summary.advice && (
-                                <div className="bg-accent/5 border border-accent/20 rounded-xl p-3">
-                                    <p className="text-[10px] font-bold text-accent uppercase tracking-wider mb-1">🎯 Next Steps</p>
-                                    <p className="text-xs font-plex text-text">{summary.advice}</p>
-                                </div>
-                            )}
-
-                            <button onClick={() => { setScreen('setup'); setMsgs([]); setScores([]); setSummary(null); }}
-                                className="w-full bg-accent text-[#0f0e0d] font-bold py-3.5 rounded-xl font-plex flex items-center justify-center gap-2 hover:scale-[1.01] transition-all shadow-lg shadow-accent/20">
-                                <RefreshCcw size={16}/> Start New Interview
-                            </button>
+                            </div>
                         </div>
-                    )}
-                </div>
-            )}
+
+                        {/* Chat History */}
+                        <div className="flex-1 overflow-y-auto pr-2 pb-32 custom-scrollbar">
+                            {msgs.map((m, i) => <Bubble key={i} msg={m} />)}
+                            <div ref={bottomRef}/>
+                        </div>
+
+                        {/* Input Area Overlay */}
+                        <div className="absolute bottom-4 left-4 right-4 max-w-2xl mx-auto">
+                            {screen === 'interview' && !busy && (
+                                <div className="bg-surface border border-border shadow-2xl rounded-3xl p-4 animate-in slide-in-from-bottom duration-300">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <div className="flex gap-2 bg-bg rounded-lg p-1 border border-border">
+                                            {[['voice', <Mic size={14} key="mic"/>, 'Voice'], ['text', <Zap size={14} key="zap"/>, 'Type']].map(([v, i, l]) => (
+                                                <button key={v} onClick={()=>setInputMode(v)} className={`px-4 py-1.5 flex items-center justify-center gap-1.5 text-xs font-bold rounded-md transition-all ${inputMode===v?'bg-surface border border-border shadow-sm text-text':'text-muted hover:text-text'}`}>{i} {l}</button>
+                                            ))}
+                                        </div>
+                                        <button 
+                                            onClick={getHint} 
+                                            disabled={hintLoading || !!currentHint}
+                                            className={`text-xs font-bold font-plex flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${currentHint ? 'bg-accent/10 text-accent border-accent/20' : 'bg-surface text-muted border-border hover:text-text hover:bg-bg'}`}
+                                        >
+                                            {hintLoading ? <Loader2 size={12} className="animate-spin"/> : <AlertCircle size={12}/>}
+                                            {currentHint ? 'Hint Provided' : 'Need an Idea?'}
+                                        </button>
+                                    </div>
+                                    
+                                    {currentHint && (
+                                        <div className="mb-3 px-4 py-3 bg-accent/5 border border-accent/20 rounded-xl text-sm font-plex text-text/90 animate-in fade-in zoom-in">
+                                            <div className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">💡 Suggested Approach</div>
+                                            <div className="whitespace-pre-wrap">{currentHint}</div>
+                                        </div>
+                                    )}
+
+                                    {inputMode === 'voice' ? (
+                                        <div className="flex items-center gap-3">
+                                            <button onClick={listening?stopListen:startListen} disabled={transcribing} 
+                                                className={`p-4 rounded-full flex-shrink-0 transition-all ${listening ? 'bg-red-500 text-white animate-pulse shadow-xl shadow-red-500/20' : 'bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20'}`}>
+                                                {transcribing ? <Loader2 size={24} className="animate-spin"/> : listening ? <MicOff size={24}/> : <Mic size={24}/>}
+                                            </button>
+                                            <div className="flex-1 text-sm font-plex text-muted bg-bg p-3 rounded-xl border border-border h-14 overflow-hidden overflow-ellipsis break-words">
+                                                {voiceText || (listening ? 'Listening... speak clearly.' : 'Tap mic to answer')}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <textarea value={typedText} onChange={e=>setTypedText(e.target.value)} placeholder="Type your response like a real interview..." className="w-full bg-bg border border-border rounded-xl p-3 text-sm focus:border-accent outline-none resize-none h-20 font-plex" />
+                                    )}
+
+                                    {/* Confidence & Submit row */}
+                                    <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-muted uppercase">Confidence:</span>
+                                            <div className="flex gap-1">
+                                                {[1,2,3,4,5].map(n => (
+                                                    <button key={n} onClick={()=>setConfidence(n)} className={`p-1 rounded transition-colors ${confidence>=n?'text-yellow-500':'text-muted hover:text-yellow-500/50'}`}>
+                                                        <Star size={18} fill={confidence>=n?"currentColor":"none"} />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <button onClick={submitAnswer} disabled={(inputMode==='voice'?!voiceText:!typedText)||confidence===0} className="px-5 py-2 bg-accent text-[#0f0e0d] font-bold rounded-xl text-sm hover:scale-[1.02] shadow-lg shadow-accent/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                                            Submit <ArrowLeft size={14} className="rotate-180"/>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {screen === 'feedback' && (
+                                <div className="bg-surface/80 backdrop-blur-md border border-border shadow-2xl rounded-3xl p-4 flex justify-between items-center animate-in slide-in-from-bottom">
+                                    <div className="text-xs text-muted font-bold flex items-center gap-2"><Loader2 size={14} className="animate-spin"/> AI is waiting for you to review feedback...</div>
+                                    <button onClick={skipWait} className="px-4 py-2 bg-white/5 border border-border text-text font-bold text-sm rounded-xl hover:bg-white/10 flex items-center gap-2 transition-all">
+                                        Continue <ArrowLeft size={16} className="rotate-180"/>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Dashboard / Done */}
+                {screen === 'done' && summary && (
+                    <div className="m-auto w-full max-w-lg bg-surface border border-border p-6 rounded-3xl shadow-2xl animate-in zoom-in duration-500">
+                        <div className="text-center mb-6">
+                            <h2 className="text-2xl font-bold font-display text-text">Interview Complete</h2>
+                            <p className="text-sm text-muted">Here's your technical assessment report.</p>
+                        </div>
+
+                        <div className="flex items-center gap-6 p-5 bg-bg rounded-2xl border border-border mb-6">
+                            <div className="relative w-24 h-24 flex items-center justify-center">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-surface border-border"/>
+                                    <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray="251.2" strokeDashoffset={251.2 - (251.2 * summary.overall) / 100} className={`${summary.overall >= 80 ? 'text-green-500' : summary.overall >= 50 ? 'text-yellow-500' : 'text-red-500'} transition-all duration-1000`}/>
+                                </svg>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span className="text-xl font-black">{summary.overall}%</span>
+                                </div>
+                            </div>
+                            <div className="flex-1 space-y-3">
+                                <div><div className="text-[10px] text-muted font-bold uppercase mb-1">Recommendation</div><div className="text-sm font-bold px-3 py-1 bg-surface border border-border inline-block rounded-lg">{summary.hire_recommendation}</div></div>
+                                <div><div className="text-[10px] text-muted font-bold uppercase mb-1">Assessed Level</div><div className="text-sm font-bold text-accent px-3 py-1 bg-accent/10 border border-accent/20 inline-block rounded-lg">{summary.final_rating}</div></div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="bg-green-500/5 border border-green-500/20 p-4 rounded-2xl">
+                                <h3 className="text-xs font-bold text-green-500 uppercase mb-2 flex items-center gap-1"><Check size={14}/> Top Strengths</h3>
+                                <ul className="text-xs space-y-2 text-text/80 list-disc ml-4">{summary.strengths?.map((s,i) => <li key={i}>{s}</li>)}</ul>
+                            </div>
+                            <div className="bg-red-500/5 border border-red-500/20 p-4 rounded-2xl">
+                                <h3 className="text-xs font-bold text-red-500 uppercase mb-2 flex items-center gap-1"><AlertCircle size={14}/> Weaknesses</h3>
+                                <ul className="text-xs space-y-2 text-text/80 list-disc ml-4">{summary.weaknesses?.map((w,i) => <li key={i}>{w}</li>)}</ul>
+                            </div>
+                        </div>
+
+                        <button onClick={()=>{setScreen('setup'); setMsgs([]); setScores([]);}} className="w-full py-3.5 bg-accent text-[#0f0e0d] font-bold rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-all">
+                            <RefreshCcw size={16}/> Start New Session
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
