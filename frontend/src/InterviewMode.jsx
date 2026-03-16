@@ -449,10 +449,10 @@ ${data.correct_answer}
         setHintLoading(true);
         const qData = queue[qIdx];
         const hint = await callGroq(apiKey, [
-            { role: 'system', content: 'You are an interview coach. Provide a brief, bullet-point idea or structure on how the candidate should answer this question. Do not write the full exact answer. Maximum 3 short bullet points.' },
+            { role: 'system', content: 'You are a helpful interview coach. When given an interview question, provide a hint to the candidate on how to structure their answer. DO NOT write the actual answer. Instead, give them 2 to 3 bullet points on what topics or concepts they should cover in their answer. Start your response exactly with "To answer this question, consider the following points:" followed by bullet points.' },
             { role: 'user', content: `Question: ${qData.q}` }
-        ], 150);
-        setCurrentHint(hint || 'Focus on the key concepts and give a practical example.');
+        ], 200);
+        setCurrentHint(hint || 'To answer this question, consider the following points:\n* Focus on the key concepts.\n* Give a practical example.');
         setHintLoading(false);
     };
 
