@@ -100,10 +100,10 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, isProcessing }) => {
             <div className="bg-zinc-900 w-full max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="p-6 border-b border-white/5 flex justify-between items-center bg-zinc-900/50">
                     <div>
-                        <h2 className="text-xl font-black flex items-center gap-2">
-                            <Plus size={20} className="text-pink-500" /> Bulk Add Shorts
+                        <h2 className="text-xl font-black flex items-center gap-2 text-white">
+                            <Plus size={20} className="text-pink-500" /> Fast Bulk Import
                         </h2>
-                        <p className="text-zinc-500 text-xs mt-1">Paste multiple YT links. AI will categorize them.</p>
+                        <p className="text-zinc-500 text-xs mt-1">Paste multiple YT links. Instant processing.</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
                         <X size={20} />
@@ -127,9 +127,9 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, isProcessing }) => {
                         className="w-full mt-4 bg-gradient-to-r from-pink-600 to-purple-600 disabled:opacity-50 disabled:grayscale py-4 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:shadow-lg hover:shadow-pink-500/20"
                     >
                         {isProcessing ? (
-                            <> <Loader2 size={18} className="animate-spin" /> Processing with AI... </>
+                            <> <Loader2 size={18} className="animate-spin" /> Adding to feed... </>
                         ) : (
-                            <> <Send size={18} /> Start Bulk Import </>
+                            <> <Send size={18} /> Add Instantly </>
                         )}
                     </button>
                 </div>
@@ -213,57 +213,11 @@ export default function Reels() {
         try {
             let processed = [];
             
-            if (groqKey) {
-                // Prepare AI Prompt for Categorization (Asking for Object root)
-                const aiPrompt = [
-                    { role: 'system', content: 'You are a Categorization AI for a USA Accounting/Payroll app. I will give you a list of YouTube Video IDs. Assuming they are about USA Accounting/Payroll/Tax, suggest 2 relevant hashtags for each. Format your response exactly as a JSON object with a "reels" key containing the array: {"reels": [{"id": "...", "tags": ["#Tag1", "#Tag2"]}, ...]}. Only return valid JSON.' },
-                    { role: 'user', content: `Categorize these IDs: ${ids.join(', ')}` }
-                ];
-
-                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        model: 'llama-3.1-8b-instant', 
-                        messages: aiPrompt, 
-                        temperature: 0.1, 
-                        response_format: { type: "json_object" } 
-                    })
-                });
-                
-                if (!res.ok) throw new Error(`Groq API returned ${res.status}`);
-                
-                const aiData = await res.json();
-                let content = aiData.choices[0].message.content;
-                
-                // Extra safety: Remove markdown code blocks if AI added them
-                content = content.replace(/```json\n?|```/g, '').trim();
-                
-                const parsed = JSON.parse(content);
-                processed = parsed.reels || parsed.data || (Array.isArray(parsed) ? parsed : []);
-            }
-
-            // Combine with defaults
-            const finalReels = ids.map(id => {
-                const found = Array.isArray(processed) ? processed.find(p => p.id === id) : null;
-                return {
-                    id,
-                    tags: found ? found.tags : ["#USA_ACCOUNTING", "#PRO_TIPS"]
-                };
-            });
-
-            // Save to Firestore (Primary sync)
-            try {
-                const batch = writeBatch(db);
-                finalReels.forEach(reel => {
-                    const reelRef = doc(db, "reels", reel.id);
-                    batch.set(reelRef, reel);
-                });
-                await batch.commit();
-                console.log("Saved reels to Firestore");
-            } catch (fireErr) {
-                console.error("Failed to save to Firestore:", fireErr);
-            }
+            // Instantly Combine with defaults (SKIP AI for speed)
+            const finalReels = ids.map(id => ({
+                id,
+                tags: ["#USA_ACCOUNTING", "#PRO_TIPS"]
+            }));
 
             // Save to Backend (Backup)
             const saveRes = await fetch(`${API_BASE}/reels/bulk`, {
