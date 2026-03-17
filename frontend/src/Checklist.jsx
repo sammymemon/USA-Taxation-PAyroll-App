@@ -220,7 +220,6 @@ export default function Checklist() {
         } catch (e) { return {}; }
     });
     
-    const [loading, setLoading] = useState(false); // Default false for instant UI
     const [saving, setSaving] = useState(false);
 
     // Background Sync from Firestore
@@ -231,8 +230,8 @@ export default function Checklist() {
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                setCheckedItems(data);
-                localStorage.setItem('accounting_checklist', JSON.stringify(data));
+                setCheckedItems(data || {});
+                localStorage.setItem('accounting_checklist', JSON.stringify(data || {}));
             }
         }, (err) => {
             console.warn("Firestore sync background error:", err);
@@ -261,6 +260,7 @@ export default function Checklist() {
 
     const totalItems = CHECKLIST_DATA.reduce((acc, c) => acc + c.subcategories.reduce((acc2, s) => acc2 + s.items.length, 0), 0);
     const completedCount = Object.values(checkedItems).filter(Boolean).length;
+
 
     return (
         <div className="min-h-screen bg-bg text-text font-serif">

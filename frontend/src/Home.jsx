@@ -372,7 +372,9 @@ function Home() {
         }
     };
 
-    if (loading) return <div className="text-center p-20 text-muted">Loading Application Data...</div>;
+    // Non-blocking return - render immediately
+    // if (loading) return ... removed for instant load
+
 
     return (
         <div className="min-h-screen bg-bg text-text font-serif">

@@ -16,6 +16,15 @@ const SEED_REELS = [
     { id: 'Qm-78U3yEn0', tags: ['#QUICKBOOKS', '#ACCOUNTING'] },
     { id: 'MafYa5E0-dg', tags: ['#KPO_INTERVIEW', '#TIPS'] },
 ];
+// ── Helper: Shuffle Array ──────────────────────────────────
+const shuffleArray = (array) => {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+};
 
 const QUERY_POOL = [
     'USA payroll processing shorts', 'USA taxation basics shorts', 'USA bookkeeping standards shorts',
@@ -129,17 +138,17 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, isProcessing }) => {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Reels() {
-    // Instant Initialization
+    // Instant Initialization - Shuffled every time component mounts (page change or refresh)
     const [reels, setReels] = useState(() => {
         const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
         if (local) {
             try {
                 const parsed = JSON.parse(local);
-                // Ensure format compatibility
-                return parsed.map(item => typeof item === 'string' ? { id: item, tags: ["#USA_ACCOUNTING", "#PRO_TIPS"] } : item);
-            } catch (e) { return SEED_REELS; }
+                const list = parsed.map(item => typeof item === 'string' ? { id: item, tags: ["#USA_ACCOUNTING", "#PRO_TIPS"] } : item);
+                return shuffleArray(list);
+            } catch (e) { return shuffleArray(SEED_REELS); }
         }
-        return SEED_REELS;
+        return shuffleArray(SEED_REELS);
     });
 
     const [activeIndex, setActiveIndex] = useState(0);
@@ -157,15 +166,6 @@ export default function Reels() {
 
     // Background Sync from Firestore
     useEffect(() => {
-        const shuffle = (array) => {
-            const arr = [...array];
-            for (let i = arr.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [arr[i], arr[j]] = [arr[j], arr[i]];
-            }
-            return arr;
-        };
-
         const syncData = async () => {
             const formatData = (data) => {
                 if (!Array.isArray(data) || data.length === 0) return SEED_REELS;
@@ -183,8 +183,8 @@ export default function Reels() {
 
                 if (firestoreData.length > 0) {
                     const formatted = formatData(firestoreData);
-                    // Update state and local storage with fresh data
-                    setReels(shuffle(formatted));
+                    // Update state with shuffled data, but keep sorted list in localStorage
+                    setReels(shuffleArray(formatted));
                     localStorage.setItem('reels', JSON.stringify(formatted));
                     console.log("Sync complete:", firestoreData.length, "reels");
                 }
