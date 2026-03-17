@@ -125,6 +125,16 @@ function ttsStop() {
     if (_activeTtsSetter) { _activeTtsSetter('idle'); _activeTtsSetter = null; }
 }
 
+// ─── Helper: Shuffle ────────────────────────────────────────────────────────
+const shuffleArray = (array) => {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+};
+
 // ─── Chat Bubble ─────────────────────────────────────────────────────────────
 const Bubble = ({ msg }) => {
     const ai = msg.role === 'ai';
@@ -150,8 +160,8 @@ const Bubble = ({ msg }) => {
 
     if (msg.type === 'system') {
         return (
-            <div className="flex justify-center my-4">
-                <span className="bg-surface/50 border border-border px-4 py-1.5 rounded-full text-[10px] font-bold text-muted uppercase tracking-widest font-plex">
+            <div className="flex justify-center my-6">
+                <span className="bg-bg border border-border px-5 py-2 rounded-full text-[10px] font-black text-muted uppercase tracking-[0.3em] font-plex shadow-sm">
                     {msg.content}
                 </span>
             </div>
@@ -159,46 +169,55 @@ const Bubble = ({ msg }) => {
     }
 
     return (
-        <div className={`flex gap-2 mb-4 ${ai ? '' : 'flex-row-reverse'}`}>
-            <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm ${
-                ai ? 'bg-gradient-to-br from-yellow-500/30 to-accent text-yellow-50 border border-yellow-500/50'
-                   : 'bg-gradient-to-br from-blue-500/30 to-blue-600/50 text-blue-50 border border-blue-500/50'
+        <div className={`flex gap-3 mb-6 ${ai ? 'items-start' : 'flex-row-reverse items-start'} group animate-fadeIn`}>
+            <div className={`shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-bold shadow-lg transition-transform group-hover:scale-105 ${
+                ai ? 'bg-gradient-to-br from-accent/20 to-accent text-bg border border-accent/40'
+                   : 'bg-gradient-to-br from-blue-500/20 to-blue-600 text-white border border-blue-500/40'
             }`}>
-                {ai ? <Bot size={16}/> : <User size={16}/>}
+                {ai ? <Bot size={20}/> : <User size={20}/>}
             </div>
-            <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-[14px] leading-relaxed relative shadow-sm ${
-                ai ? 'bg-surface border border-border text-text rounded-tl-sm'
-                   : 'bg-accent/10 border border-accent/40 text-text rounded-tr-sm'
-            }`}>
-                {msg.typing ? (
-                    <span className="flex gap-1.5 items-center h-4">
-                        {[0,150,300].map(d => (
-                            <span key={d} className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{animationDelay:`${d}ms`}} />
-                        ))}
-                    </span>
-                ) : (
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                )}
-                
-                {msg.score != null && (
-                    <div className="mt-3 pt-3 border-t border-border/40 grid grid-cols-2 gap-2 text-sm">
-                        <div className={`font-bold flex items-center gap-1 ${
-                            msg.score >= 80 ? 'text-green-500' : msg.score >= 50 ? 'text-yellow-500' : 'text-red-500'
-                        }`}><BarChart2 size={16}/> Score: {msg.score}%</div>
-                        {msg.confidence && (
-                            <div className="text-muted flex items-center justify-end gap-1 font-plex text-xs">
-                                Conf: {msg.confidence}/5 <Star size={12} className="text-yellow-500" fill="currentColor"/>
+            <div className={`max-w-[85%] flex flex-col ${ai ? 'items-start' : 'items-end'}`}>
+                <div className={`px-5 py-4 rounded-3xl text-[14px] md:text-[15px] leading-[1.6] relative shadow-xl ${
+                    ai ? 'bg-surface border border-border text-text rounded-tl-none'
+                       : 'bg-accent/10 border border-accent/40 text-text rounded-tr-none'
+                }`}>
+                    {msg.typing ? (
+                        <div className="flex gap-2 items-center h-6">
+                            {[0,150,300].map(d => (
+                                <div key={d} className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" style={{animationDelay:`${d}ms`}} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="whitespace-pre-wrap font-serif tracking-wide">{msg.content}</div>
+                    )}
+                    
+                    {msg.score != null && (
+                        <div className="mt-4 pt-4 border-t border-border/60 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-24 bg-bg rounded-full overflow-hidden border border-border/50">
+                                    <div className={`h-full transition-all duration-1000 ${msg.score >= 80 ? 'bg-green-500' : msg.score >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{width:`${msg.score}%`}}/>
+                                </div>
+                                <span className={`text-xs font-black font-plex ${msg.score >= 80 ? 'text-green-500' : msg.score >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                    {msg.score}%
+                                </span>
                             </div>
-                        )}
-                    </div>
-                )}
-
+                            {msg.confidence && (
+                                <div className="flex gap-0.5">
+                                    {[1,2,3,4,5].map(s => <Star key={s} size={10} className={s <= msg.confidence ? 'text-yellow-500' : 'text-muted/30'} fill={s <= msg.confidence ? 'currentColor' : 'none'}/>)}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+                
                 {ai && !msg.typing && msg.content && (
-                    <button onClick={handleTTS} className={`absolute -bottom-8 ${ai ? 'left-2' : 'right-2'} flex items-center gap-1 text-[11px] font-bold font-plex transition-all px-3 py-1 rounded-full border ${
-                        tts !== 'idle' ? 'bg-accent/20 text-accent border-accent/30' : 'bg-surface border-border text-muted hover:text-accent hover:border-accent'
-                    }`}>
-                        {tts === 'speaking' ? <><Pause size={12}/> Pause</> : tts === 'paused' ? <><Play size={12}/> Resume</> : <><Volume2 size={12}/> Listen</>}
-                    </button>
+                    <div className="mt-2 flex items-center gap-2">
+                        <button onClick={handleTTS} className={`flex items-center gap-2 text-[10px] font-black font-plex transition-all px-4 py-1.5 rounded-full border shadow-sm active:scale-95 ${
+                            tts !== 'idle' ? 'bg-accent/20 text-accent border-accent/40' : 'bg-surface border-border text-muted hover:text-accent hover:border-accent/60'
+                        }`}>
+                            {tts === 'speaking' ? <><Pause size={10}/> SPEAKING</> : tts === 'paused' ? <><Play size={10}/> RESUME</> : <><Volume2 size={10}/> REPLAY VOICE</>}
+                        </button>
+                    </div>
                 )}
             </div>
         </div>
@@ -214,7 +233,7 @@ export default function InterviewMode() {
     // Data
     const [questions, setQuestions] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // Default false for instant load
 
     // Options
     const [yourName, setYourName] = useState('');
@@ -278,13 +297,16 @@ export default function InterviewMode() {
         return () => clearInterval(checkTts);
     }, []);
 
-    // Load Data
     useEffect(() => {
-        const apply = (d) => { setQuestions(d.questions || []); setCategories(d.categories || []); setLoading(false); };
-        axios.get('/data.json').then(r => apply(r.data)).catch(() =>
-            axios.get('/api/data').then(r => apply(r.data)).catch(() => setLoading(false))
-        );
+        const apply = (d) => { 
+            setQuestions(d.questions || []); 
+            setCategories(d.categories || []); 
+        };
+        
+        // Try local data.json first
+        axios.get('/data.json').then(r => apply(r.data)).catch(console.error);
     }, []);
+
 
     // Browser Speech Rec
     useEffect(() => {
@@ -338,46 +360,41 @@ export default function InterviewMode() {
     
     // 1. Kickoff
     const startInterview = async () => {
-        if (!apiKey) return setShowSettings(true);
-        setBusy(true);
-
         let finalQueue = [];
         if (pastedQA.trim()) {
             try {
                 const parseReq = await callGroq(apiKey, [
-                    { role: 'system', content: 'You are an advanced text parser. The user will provide a long, unstructured block of text containing questions and answers (or concepts and definitions). Your task is to aggressively extract them all and format them properly.\n\nRULES:\n1. Find matching Questions ("q") and Expected Answers ("a").\n2. Fix obvious typos, combine multi-line answers into a single string, and remove unnecessary bullet points or numbering.\n3. Return ONLY a valid JSON array of objects with exactly two keys: "q" and "a".\n4. Do not include any other markdown, explanations, or text outside the JSON array.\nExample output: [{"q": "What is AP?", "a": "Accounts Payable represents..."}]' },
+                    { role: 'system', content: 'Extract Q&A into JSON array: [{"q": "...", "a": "..."}]' },
                     { role: 'user', content: pastedQA }
                 ], 3000);
                 finalQueue = JSON.parse(parseReq.match(/\[[\s\S]*\]/)[0]);
-                if (!finalQueue || finalQueue.length === 0) throw new Error("Empty array");
             } catch(e) {
                 setBusy(false);
-                return alert("AI could not extract Q&A from your text. Please provide it in a clearer format, e.g., Q: ... A: ...");
+                return alert("AI could not extract Q&A. Please check your text format.");
             }
         } else {
             let pool = category !== 'All' ? questions.filter(q => q.cat === categories.find(c=>c.name===category)?.id) : [...questions];
             if(!pool.length) pool = [...questions];
-            finalQueue = [...pool].sort(() => Math.random() - 0.5).slice(0, numQ);
+            // PROPER SHUFFLE BEFORE SLICE
+            finalQueue = shuffleArray(pool).slice(0, numQ);
         }
 
         fxStart();
         setScreen('interview'); setStage('Intro'); setTimerActive(false);
         setScores([]); setTimeElapsed(0); setConfidence(0);
-
         setQueue(finalQueue); setQIdx(0); setMsgs([]);
 
         addSystemMsg('Interview Initiated');
         const tid = addTyping();
         const intro = await callGroq(apiKey, [
-            { role: 'system', content: `You are Aria, lead recruiter. Keep it strictly professional, welcoming but serious. 2 sentences.` },
-            { role: 'user', content: `Welcome candidate ${yourName || 'there'} to the technical interview. Inform them we are ready to begin.` }
-        ], 100);
+            { role: 'system', content: `You are Aria, lead recruiter at a top KPO firm. You are conducting a technical interview for ${yourName || 'a candidate'}. Welcome them professionally. Be concise (2 sentences).` },
+            { role: 'user', content: `Start the session.` }
+        ], 150);
         
-        resolveTyping(tid, intro || `Welcome ${yourName || ''}. I'm Aria, your interviewer today. We will now begin the technical evaluation.`, { autoSpeak: true });
+        resolveTyping(tid, intro || `Welcome ${yourName || ''}. I'm Aria, and we'll be starting your technical evaluation now. Ready?`, { autoSpeak: true });
         
         setBusy(false);
-        // Auto proceed to first question after 5s
-        autoProceedRef.current = setTimeout(() => askQuestion(finalQueue, 0, 'Warm-up'), 5000);
+        autoProceedRef.current = setTimeout(() => askQuestion(finalQueue, 0, 'Warm-up'), 6000);
     };
 
     // 2. Ask Question
