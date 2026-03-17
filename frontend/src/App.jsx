@@ -5,6 +5,7 @@ import Admin from './Admin';
 import InterviewMode from './InterviewMode';
 import JournalMode from './JournalMode';
 import Reels from './Reels';
+import Checklist from './Checklist';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/interview" element={<InterviewMode />} />
         <Route path="/journal" element={<JournalMode />} />
         <Route path="/reels" element={<Reels />} />
+        <Route path="/checklist" element={<Checklist />} />
       </Routes>
     </BrowserRouter>
   );
