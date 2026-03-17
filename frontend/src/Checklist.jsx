@@ -212,31 +212,30 @@ const CHECKLIST_DATA = [
 ];
 
 export default function Checklist() {
-    const [checkedItems, setCheckedItems] = useState({});
-    const [loading, setLoading] = useState(true);
+    // Instant Initialization from LocalCache
+    const [checkedItems, setCheckedItems] = useState(() => {
+        try {
+            const local = localStorage.getItem('accounting_checklist');
+            return local ? JSON.parse(local) : {};
+        } catch (e) { return {}; }
+    });
+    
+    const [loading, setLoading] = useState(false); // Default false for instant UI
     const [saving, setSaving] = useState(false);
 
-    // Load from Firestore
+    // Background Sync from Firestore
     useEffect(() => {
         const docRef = doc(db, "settings", "checklist");
         
-        // Instant load from localStorage
-        const local = localStorage.getItem('accounting_checklist');
-        if (local) {
-            try { setCheckedItems(JSON.parse(local)); } catch (e) {}
-        }
-
-        // Real-time sync
+        // Listen for remote changes
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setCheckedItems(data);
                 localStorage.setItem('accounting_checklist', JSON.stringify(data));
             }
-            setLoading(false);
         }, (err) => {
-            console.error("Firestore sync error:", err);
-            setLoading(false);
+            console.warn("Firestore sync background error:", err);
         });
 
         return () => unsubscribe();
@@ -246,10 +245,10 @@ export default function Checklist() {
         const next = { ...checkedItems, [itemName]: !checkedItems[itemName] };
         setCheckedItems(next);
         
-        // Optimistic update to localStorage
+        // Local first
         localStorage.setItem('accounting_checklist', JSON.stringify(next));
 
-        // Background save to Firestore
+        // Background save
         try {
             setSaving(true);
             await setDoc(doc(db, "settings", "checklist"), next);
@@ -260,65 +259,80 @@ export default function Checklist() {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-bg flex items-center justify-center">
-                <Loader2 className="text-accent animate-spin" size={40} />
-            </div>
-        );
-    }
+    const totalItems = CHECKLIST_DATA.reduce((acc, c) => acc + c.subcategories.reduce((acc2, s) => acc2 + s.items.length, 0), 0);
+    const completedCount = Object.values(checkedItems).filter(Boolean).length;
 
     return (
         <div className="min-h-screen bg-bg text-text font-serif">
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-surface/80 backdrop-blur-md border-b border-border p-4 md:px-10 flex justify-between items-center shadow-sm">
-                <div className="flex items-center gap-4">
-                    <Link to="/" className="p-2 bg-bg border border-border rounded-lg hover:bg-surface2 transition-all text-muted hover:text-accent shadow-sm">
-                        <ArrowLeft size={18} />
+            {/* Header - Fixed & Premium */}
+            <header className="sticky top-0 z-50 bg-bg/90 backdrop-blur-xl border-b border-border p-4 md:px-8 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <Link to="/" className="p-2 bg-surface hover:bg-surface2 border border-border rounded-xl transition-all text-muted hover:text-accent group">
+                        <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
                     </Link>
                     <div>
-                        <h1 className="font-playfair text-xl md:text-2xl font-bold flex items-center gap-2">
-                            <ListTodo className="text-accent" /> Accounting Checklist
+                        <h1 className="font-playfair text-lg md:text-2xl font-black text-white tracking-tight leading-none mb-1">
+                            Roadmap Checklist
                         </h1>
-                        <p className="font-plex text-[10px] text-muted tracking-widest uppercase">Syncs across PC & Mobile</p>
+                        <div className="font-plex text-[10px] text-accent tracking-[0.2em] uppercase font-bold">
+                            KPO Mastery Sync
+                        </div>
                     </div>
                 </div>
-                {saving && (
-                    <div className="flex items-center gap-2 text-accent font-plex text-xs">
-                        <RefreshCw size={14} className="animate-spin" /> saving...
+                
+                <div className="flex items-center gap-4">
+                    {saving && <Loader2 className="animate-spin text-accent" size={16} />}
+                    <div className="hidden sm:flex flex-col items-end">
+                        <div className="font-plex text-[10px] text-muted uppercase tracking-widest font-bold">Progress</div>
+                        <div className="font-playfair text-xl font-bold text-accent">{completedCount} / {totalItems}</div>
                     </div>
-                )}
+                </div>
             </header>
 
-            <main className="max-w-5xl mx-auto p-6 md:p-10 pb-20">
-                <div className="grid gap-10">
+            <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+                {/* Mobile Progress Bar */}
+                <div className="sm:hidden bg-surface border border-border p-4 rounded-2xl mb-2">
+                     <div className="flex justify-between text-[11px] font-plex text-muted uppercase tracking-widest mb-2 font-bold">
+                        <span>Course Completion</span>
+                        <span>{Math.round((completedCount/totalItems)*100)}%</span>
+                     </div>
+                     <div className="h-2 w-full bg-bg border border-border rounded-full overflow-hidden">
+                        <div 
+                            className="h-full bg-accent transition-all duration-700 ease-out"
+                            style={{ width: `${(completedCount/totalItems)*100}%` }}
+                        />
+                     </div>
+                </div>
+
+                <div className="columns-1 lg:columns-2 gap-6 space-y-6">
                     {CHECKLIST_DATA.map((cat, cIdx) => (
-                        <section key={cIdx} className="bg-surface border border-border rounded-2xl overflow-hidden shadow-lg animate-fadeIn">
-                            <div className="bg-surface2/50 px-6 py-4 border-b border-border">
-                                <h2 className="font-playfair text-xl font-black text-accent tracking-tight">
+                        <section key={cIdx} className="break-inside-avoid bg-surface border border-border rounded-3xl overflow-hidden shadow-xl hover:shadow-accent/5 transition-all duration-300">
+                            <div className="bg-gradient-to-r from-accent/10 to-transparent px-6 py-4 border-b border-border">
+                                <h2 className="font-playfair text-lg md:text-xl font-black text-accent tracking-wide">
                                     {cat.category}
                                 </h2>
                             </div>
                             
-                            <div className="divide-y divide-border/50">
+                            <div className="p-4 md:p-6 space-y-8">
                                 {cat.subcategories.map((sub, sIdx) => (
-                                    <div key={sIdx} className="p-6">
-                                        <h3 className="font-plex text-xs font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border/30 pb-2">
+                                    <div key={sIdx} className="group/sub">
+                                        <h3 className="font-plex text-[11px] font-black text-muted uppercase tracking-[0.2em] mb-4 flex items-center gap-2 group-hover/sub:text-accent transition-colors">
+                                            <span className="h-1.5 w-1.5 bg-accent/40 rounded-full" />
                                             {sub.name}
                                         </h3>
-                                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             {sub.items.map((item, iIdx) => {
                                                 const isChecked = checkedItems[item];
                                                 return (
                                                     <div 
                                                         key={iIdx}
                                                         onClick={() => toggleItem(item)}
-                                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 group ${isChecked ? 'bg-accent/10 border-accent/40 text-accent ring-1 ring-accent/20' : 'bg-bg/50 border-border hover:border-accent/30 hover:bg-surface2'}`}
+                                                        className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all duration-200 group/item ${isChecked ? 'bg-accent/10 border-accent/40 text-accent ring-1 ring-accent/20' : 'bg-bg/40 border-border/60 hover:border-accent/40 hover:bg-surface/50'}`}
                                                     >
-                                                        <div className={`shrink-0 transition-transform group-active:scale-95 ${isChecked ? 'text-accent' : 'text-muted/40'}`}>
-                                                            {isChecked ? <CheckCircle size={20} fill="currentColor" className="fill-accent/20" /> : <Circle size={20} />}
+                                                        <div className={`mt-0.5 shrink-0 transition-transform group-active/item:scale-90 ${isChecked ? 'text-accent' : 'text-muted/30 group-hover/item:text-accent/40'}`}>
+                                                            {isChecked ? <CheckCircle size={18} fill="currentColor" className="fill-accent/20" /> : <div className="h-[18px] w-[18px] rounded-full border-2 border-current" />}
                                                         </div>
-                                                        <span className={`font-plex text-xs sm:text-[13px] leading-tight transition-all ${isChecked ? 'font-semibold' : 'text-text opacity-90'}`}>
+                                                        <span className={`font-plex text-[12px] md:text-[13px] leading-snug transition-all ${isChecked ? 'font-bold' : 'text-text opacity-80 group-hover/item:opacity-100'}`}>
                                                             {item.replace('• ', '')}
                                                         </span>
                                                     </div>
@@ -333,13 +347,17 @@ export default function Checklist() {
                 </div>
             </main>
 
-            {/* Float Stats */}
-            <div className="fixed bottom-6 right-6 bg-accent text-[#0f0e0d] px-6 py-3 rounded-full font-plex font-bold shadow-2xl z-[100] flex items-center gap-3 border-2 border-white/20">
-                <div className="flex flex-col items-center leading-none">
-                    <span className="text-[10px] uppercase opacity-70 tracking-widest mb-1">Items Completed</span>
-                    <span className="text-xl">
-                        {Object.values(checkedItems).filter(Boolean).length} / {CHECKLIST_DATA.reduce((acc, c) => acc + c.subcategories.reduce((acc2, s) => acc2 + s.items.length, 0), 0)}
+            {/* Float Stats - Desktop/Mobile Adaptive */}
+            <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-auto bg-white text-black px-6 py-4 rounded-2xl md:rounded-full font-plex font-bold shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] flex items-center justify-between md:justify-center gap-4 border border-white/20 animate-slideUp">
+                <div className="flex flex-col md:items-center leading-tight">
+                    <span className="text-[10px] uppercase opacity-70 tracking-widest mb-0.5">Concepts Mastered</span>
+                    <span className="text-lg md:text-xl font-black">
+                        {completedCount} <span className="text-muted font-normal text-sm">/ {totalItems}</span>
                     </span>
+                </div>
+                <div className="h-10 w-px bg-black/10 hidden md:block" />
+                <div className="p-2 md:p-3 bg-black text-white rounded-xl md:rounded-full">
+                    <ListTodo size={20} />
                 </div>
             </div>
         </div>
