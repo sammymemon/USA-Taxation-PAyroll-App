@@ -119,6 +119,8 @@ export default function Reels() {
     const [fetchStatus, setFetchStatus] = useState('idle'); // idle | loading | done | error
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+    const [pageLoading, setPageLoading] = useState(true);
+    const [pageError, setPageError] = useState(null);
     
     const containerRef = useRef(null);
     const touchStartY = useRef(null);
@@ -138,41 +140,58 @@ export default function Reels() {
         };
 
         const loadInitial = async () => {
+            setPageLoading(true);
             const formatData = (data) => {
-                if (!Array.isArray(data)) return SEED_REELS;
+                if (!Array.isArray(data) || data.length === 0) return SEED_REELS;
                 return data.map(item => typeof item === 'string' ? { id: item, tags: ["#USA_ACCOUNTING", "#PRO_TIPS"] } : item);
             };
 
             try {
                 // Fetch from Firestore
-                const querySnapshot = await getDocs(collection(db, "reels"));
-                const firestoreData = [];
-                querySnapshot.forEach((doc) => {
-                    firestoreData.push(doc.data());
+                console.log("Attempting Firestore fetch...");
+                const querySnapshot = await getDocs(collection(db, "reels")).catch(err => {
+                    console.warn("Firestore collection fetch failed, trying fallback...", err);
+                    return null;
                 });
+                
+                let firestoreData = [];
+                if (querySnapshot) {
+                    querySnapshot.forEach((doc) => firestoreData.push(doc.data()));
+                }
 
                 if (firestoreData.length > 0) {
                     setReels(shuffle(formatData(firestoreData)));
-                    console.log("Loaded reels from Firestore");
+                    console.log("Loaded reels from Firestore:", firestoreData.length);
                 } else {
-                    // Fallback to Backend or Seed
-                    const res = await fetch(`${API_BASE}/reels`);
-                    const data = await res.json();
-                    if (data && data.length > 0) {
-                        setReels(shuffle(formatData(data)));
-                    } else {
-                        const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
-                        setReels(local ? shuffle(formatData(JSON.parse(local))) : shuffle(SEED_REELS));
-                    }
+                    console.log("Firestore empty or failed, trying backend/local/seed...");
+                    // Fallback to Backend or Local or Seed
+                    try {
+                        const res = await fetch(`${API_BASE}/reels`).catch(() => null);
+                        if (res && res.ok) {
+                            const data = await res.json();
+                            if (data && data.length > 0) {
+                                setReels(shuffle(formatData(data)));
+                                setPageLoading(false);
+                                return;
+                            }
+                        }
+                    } catch (e) { console.warn("Backend fallback failed"); }
+
+                    const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
+                    setReels(local ? shuffle(formatData(JSON.parse(local))) : shuffle(SEED_REELS));
                 }
             } catch (e) {
-                console.error("Firestore error, falling back to local:", e);
-                const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
-                setReels(local ? shuffle(formatData(JSON.parse(local))) : shuffle(SEED_REELS));
+                console.error("Critical load error:", e);
+                setPageError(e.message);
+                // Last ditch effort: SEED_REELS
+                setReels(shuffle(SEED_REELS));
+            } finally {
+                setPageLoading(false);
             }
         };
         loadInitial();
     }, [API_BASE]);
+
 
 
     // Extract Video IDs from text
@@ -376,6 +395,15 @@ export default function Reels() {
         }
         touchStartY.current = null;
     };
+
+    if (pageLoading && reels.length === 0) {
+        return (
+            <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-4 text-white">
+                <Loader2 className="animate-spin text-pink-500" size={48} />
+                <p className="font-plex text-sm text-zinc-500 animate-pulse">Syncing your reels across devices...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 bg-black text-white flex flex-col overflow-hidden select-none">
