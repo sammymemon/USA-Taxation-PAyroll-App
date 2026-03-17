@@ -39,21 +39,25 @@ const QUERY_POOL = [
 const ReelSlide = React.memo(({ reel, idx, activeIndex, total, onDelete }) => {
     const { id, tags = ["#USA_ACCOUNTING", "#KPO_INTERVIEW"] } = reel;
     const isActive = activeIndex === idx;
-    const isNear = Math.abs(activeIndex - idx) <= 1;
 
     return (
-        <div className="relative flex-shrink-0 w-full bg-black" style={{ height: '100%' }}>
-            {isNear ? (
+        <div 
+            data-index={idx}
+            className="reels-slide relative flex-shrink-0 w-full bg-black h-[100dvh] snap-start snap-always overflow-hidden"
+        >
+            {isActive ? (
                 <iframe
-                    className="w-full h-full border-none"
-                    src={`https://www.youtube.com/embed/${id}?autoplay=${isActive ? 1 : 0}&loop=1&playlist=${id}&controls=1&rel=0&modestbranding=1&playsinline=1&mute=0`}
-                    title={`Bookkeeping Short ${idx + 1}`}
+                    className="w-full h-full border-none pointer-events-auto"
+                    src={`https://www.youtube.com/embed/${id}?autoplay=1&loop=1&playlist=${id}&controls=1&rel=0&modestbranding=1&playsinline=1&mute=0`}
+                    title={`Reel ${idx + 1}`}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
+                    loading="lazy"
                 />
             ) : (
-                <div className="w-full h-full bg-zinc-950 flex items-center justify-center">
-                    <Loader2 className="text-zinc-700 animate-spin" size={32} />
+                <div className="w-full h-full bg-zinc-950 flex flex-col items-center justify-center gap-4">
+                    <div className="w-16 h-16 rounded-full border-4 border-zinc-800 border-t-pink-500 animate-spin" />
+                    <p className="text-zinc-600 font-plex text-[10px] tracking-widest uppercase">Loading Magic...</p>
                 </div>
             )}
 
@@ -152,15 +156,13 @@ export default function Reels() {
     });
 
     const [activeIndex, setActiveIndex] = useState(0);
-    const [fetchStatus, setFetchStatus] = useState('idle'); // idle | loading | done | error
+    const [fetchStatus, setFetchStatus] = useState('idle');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-    const [pageLoading, setPageLoading] = useState(false); // Default false for instant load
+    const [pageLoading, setPageLoading] = useState(false);
     const [pageError, setPageError] = useState(null);
     
     const containerRef = useRef(null);
-    const touchStartY = useRef(null);
-    const touchStartX = useRef(null);
 
     const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://usa-payroll-backend.onrender.com/api');
 
@@ -372,32 +374,42 @@ export default function Reels() {
         }
     }, [fetchStatus]);
 
+    // Intersection Observer for Smooth Scrolling Performance
+    useEffect(() => {
+        if (!containerRef.current) return;
+        
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const idx = parseInt(entry.target.getAttribute('data-index'));
+                        setActiveIndex(idx);
+                        
+                        // Prefetch next batch if close to end
+                        if (idx >= reels.length - 3 && fetchStatus === 'idle') {
+                            fetchShortsBatch(true);
+                        }
+                    }
+                });
+            },
+            { threshold: 0.6 } // More than half the slide must be visible
+        );
+
+        const slides = containerRef.current.querySelectorAll('.reels-slide');
+        slides.forEach(s => observer.observe(s));
+
+        return () => observer.disconnect();
+    }, [reels.length, fetchStatus]);
+
     // Nav & Scroll
-    const goTo = useCallback((idx) => {
+    const goTo = (idx) => {
         if (!containerRef.current) return;
         const clamped = Math.max(0, Math.min(idx, reels.length - 1));
-        containerRef.current.scrollTo({ top: clamped * containerRef.current.clientHeight, behavior: 'smooth' });
-        setActiveIndex(clamped);
-    }, [reels.length]);
-
-    const handleScroll = useCallback(() => {
-        if (!containerRef.current) return;
-        const idx = Math.round(containerRef.current.scrollTop / containerRef.current.clientHeight);
-        if (idx !== activeIndex) setActiveIndex(idx);
-        
-        if (idx >= reels.length - 3 && fetchStatus === 'idle') {
-            fetchShortsBatch(true);
+        const slide = containerRef.current.querySelector(`[data-index="${clamped}"]`);
+        if (slide) {
+            slide.scrollIntoView({ behavior: 'smooth' });
+            setActiveIndex(clamped);
         }
-    }, [activeIndex, reels.length, fetchStatus, fetchShortsBatch]);
-
-    const onTouchEnd = (e) => {
-        if (touchStartY.current === null) return;
-        const dy = touchStartY.current - e.changedTouches[0].clientY;
-        const dx = Math.abs(touchStartX.current - e.changedTouches[0].clientX);
-        if (Math.abs(dy) > 40 && Math.abs(dy) > dx * 1.5) {
-            goTo(dy > 0 ? activeIndex + 1 : activeIndex - 1);
-        }
-        touchStartY.current = null;
     };
 
     const handleRemoveReel = async (id) => {
@@ -469,22 +481,18 @@ export default function Reels() {
             {/* Scroll Container */}
             <div
                 ref={containerRef}
-                className="w-full h-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar"
+                className="w-full h-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar overscroll-none"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
-                onScroll={handleScroll}
-                onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; touchStartX.current = e.touches[0].clientX; }}
-                onTouchEnd={onTouchEnd}
             >
                 {reels.map((reel, idx) => (
-                    <div key={`${reel.id}-${idx}`} className="w-full snap-start snap-always" style={{ height: '100dvh' }}>
-                        <ReelSlide 
-                            reel={reel} 
-                            idx={idx} 
-                            activeIndex={activeIndex} 
-                            total={reels.length} 
-                            onDelete={handleRemoveReel}
-                        />
-                    </div>
+                    <ReelSlide 
+                        key={`${reel.id}-${idx}`} 
+                        reel={reel} 
+                        idx={idx} 
+                        activeIndex={activeIndex} 
+                        total={reels.length} 
+                        onDelete={handleRemoveReel}
+                    />
                 ))}
             </div>
 
