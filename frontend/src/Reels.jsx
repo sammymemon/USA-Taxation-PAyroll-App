@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-    X, ChevronUp, ChevronDown, MessageCircle, Share2, Heart, 
-    MoreVertical, Volume2, VolumeX, Search, Plus, Loader2, Sparkles,
-    Smartphone, Zap, ShieldCheck, HelpCircle, History
+    X, ChevronUp, ChevronDown, Plus, Loader2, Sparkles,
+    ArrowLeft, Video, Send, RefreshCcw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { db } from './firebase';
