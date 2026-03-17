@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
     X, ChevronUp, ChevronDown, Plus, Loader2, Sparkles,
-    ArrowLeft, Video, Send, RefreshCcw
+    ArrowLeft, Video, Send, RefreshCcw, Trash2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { db } from './firebase';
-import { collection, getDocs, setDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, setDoc, doc, writeBatch, deleteDoc } from 'firebase/firestore';
 
 // ── Fallback static list (used as seed) ─────────────────────
 const SEED_REELS = [
@@ -27,7 +27,7 @@ const QUERY_POOL = [
 ];
 
 // ── Single Reel slide ────────────────────────────────────────────────────────
-const ReelSlide = React.memo(({ reel, idx, activeIndex, total }) => {
+const ReelSlide = React.memo(({ reel, idx, activeIndex, total, onDelete }) => {
     const { id, tags = ["#USA_ACCOUNTING", "#KPO_INTERVIEW"] } = reel;
     const isActive = activeIndex === idx;
     const isNear = Math.abs(activeIndex - idx) <= 1;
@@ -47,6 +47,21 @@ const ReelSlide = React.memo(({ reel, idx, activeIndex, total }) => {
                     <Loader2 className="text-zinc-700 animate-spin" size={32} />
                 </div>
             )}
+
+            {/* Top Right Action (Delete) */}
+            <div className="absolute top-20 right-4 z-50 pointer-events-auto">
+                <button 
+                    onClick={() => {
+                        if(window.confirm("Delete this reel for everyone?")) {
+                            onDelete(id);
+                        }
+                    }}
+                    className="p-3 bg-red-500/20 hover:bg-red-500/40 backdrop-blur-md rounded-full border border-red-500/40 transition-all text-red-500 active:scale-90"
+                    title="Remove this reel"
+                >
+                    <Trash2 size={20} />
+                </button>
+            </div>
 
             {/* Bottom overlay */}
             <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none px-4 py-5 bg-gradient-to-t from-black/70 to-transparent">
@@ -114,12 +129,24 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, isProcessing }) => {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Reels() {
-    const [reels, setReels] = useState([]);
+    // Instant Initialization
+    const [reels, setReels] = useState(() => {
+        const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
+        if (local) {
+            try {
+                const parsed = JSON.parse(local);
+                // Ensure format compatibility
+                return parsed.map(item => typeof item === 'string' ? { id: item, tags: ["#USA_ACCOUNTING", "#PRO_TIPS"] } : item);
+            } catch (e) { return SEED_REELS; }
+        }
+        return SEED_REELS;
+    });
+
     const [activeIndex, setActiveIndex] = useState(0);
     const [fetchStatus, setFetchStatus] = useState('idle'); // idle | loading | done | error
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-    const [pageLoading, setPageLoading] = useState(true);
+    const [pageLoading, setPageLoading] = useState(false); // Default false for instant load
     const [pageError, setPageError] = useState(null);
     
     const containerRef = useRef(null);
@@ -128,7 +155,7 @@ export default function Reels() {
 
     const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://usa-payroll-backend.onrender.com/api');
 
-    // Load reels from Firestore (Universal sync)
+    // Background Sync from Firestore
     useEffect(() => {
         const shuffle = (array) => {
             const arr = [...array];
@@ -139,20 +166,15 @@ export default function Reels() {
             return arr;
         };
 
-        const loadInitial = async () => {
-            setPageLoading(true);
+        const syncData = async () => {
             const formatData = (data) => {
                 if (!Array.isArray(data) || data.length === 0) return SEED_REELS;
                 return data.map(item => typeof item === 'string' ? { id: item, tags: ["#USA_ACCOUNTING", "#PRO_TIPS"] } : item);
             };
 
             try {
-                // Fetch from Firestore
-                console.log("Attempting Firestore fetch...");
-                const querySnapshot = await getDocs(collection(db, "reels")).catch(err => {
-                    console.warn("Firestore collection fetch failed, trying fallback...", err);
-                    return null;
-                });
+                console.log("Background syncing from Firestore...");
+                const querySnapshot = await getDocs(collection(db, "reels")).catch(() => null);
                 
                 let firestoreData = [];
                 if (querySnapshot) {
@@ -160,37 +182,19 @@ export default function Reels() {
                 }
 
                 if (firestoreData.length > 0) {
-                    setReels(shuffle(formatData(firestoreData)));
-                    console.log("Loaded reels from Firestore:", firestoreData.length);
-                } else {
-                    console.log("Firestore empty or failed, trying backend/local/seed...");
-                    // Fallback to Backend or Local or Seed
-                    try {
-                        const res = await fetch(`${API_BASE}/reels`).catch(() => null);
-                        if (res && res.ok) {
-                            const data = await res.json();
-                            if (data && data.length > 0) {
-                                setReels(shuffle(formatData(data)));
-                                setPageLoading(false);
-                                return;
-                            }
-                        }
-                    } catch (e) { console.warn("Backend fallback failed"); }
-
-                    const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
-                    setReels(local ? shuffle(formatData(JSON.parse(local))) : shuffle(SEED_REELS));
+                    const formatted = formatData(firestoreData);
+                    // Update state and local storage with fresh data
+                    setReels(shuffle(formatted));
+                    localStorage.setItem('reels', JSON.stringify(formatted));
+                    console.log("Sync complete:", firestoreData.length, "reels");
                 }
             } catch (e) {
-                console.error("Critical load error:", e);
-                setPageError(e.message);
-                // Last ditch effort: SEED_REELS
-                setReels(shuffle(SEED_REELS));
-            } finally {
-                setPageLoading(false);
+                console.warn("Background sync failed:", e);
             }
         };
-        loadInitial();
+        syncData();
     }, [API_BASE]);
+
 
 
 
@@ -396,6 +400,24 @@ export default function Reels() {
         touchStartY.current = null;
     };
 
+    const handleRemoveReel = async (id) => {
+        try {
+            // Remove from Firestore
+            await deleteDoc(doc(db, "reels", id));
+            
+            // Remove from Local State
+            setReels(prev => {
+                const filtered = prev.filter(r => r.id !== id);
+                localStorage.setItem('reels', JSON.stringify(filtered));
+                return filtered;
+            });
+            console.log("Reel removed successfully");
+        } catch (e) {
+            console.error("Failed to remove reel:", e);
+            alert("Delete failed. Please try again.");
+        }
+    };
+
     if (pageLoading && reels.length === 0) {
         return (
             <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-4 text-white">
@@ -455,7 +477,13 @@ export default function Reels() {
             >
                 {reels.map((reel, idx) => (
                     <div key={`${reel.id}-${idx}`} className="w-full snap-start snap-always" style={{ height: '100dvh' }}>
-                        <ReelSlide reel={reel} idx={idx} activeIndex={activeIndex} total={reels.length} />
+                        <ReelSlide 
+                            reel={reel} 
+                            idx={idx} 
+                            activeIndex={activeIndex} 
+                            total={reels.length} 
+                            onDelete={handleRemoveReel}
+                        />
                     </div>
                 ))}
             </div>
