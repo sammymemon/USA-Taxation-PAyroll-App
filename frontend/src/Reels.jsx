@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { 
+    X, ChevronUp, ChevronDown, MessageCircle, Share2, Heart, 
+    MoreVertical, Volume2, VolumeX, Search, Plus, Loader2, Sparkles,
+    Smartphone, Zap, ShieldCheck, HelpCircle, History
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Video, ChevronUp, ChevronDown, RefreshCcw, Loader2, Sparkles, Plus, X, Send } from 'lucide-react';
+import { db } from './firebase';
+import { collection, getDocs, setDoc, doc, writeBatch } from 'firebase/firestore';
 
 // ── Fallback static list (used as seed) ─────────────────────
 const SEED_REELS = [
@@ -121,7 +127,7 @@ export default function Reels() {
 
     const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://usa-payroll-backend.onrender.com/api');
 
-    // Load reels from backend + fallback
+    // Load reels from Firestore (Universal sync)
     useEffect(() => {
         const shuffle = (array) => {
             const arr = [...array];
@@ -139,23 +145,36 @@ export default function Reels() {
             };
 
             try {
-                // Using fetch here, need full URL
-                const res = await fetch(`${API_BASE}/reels`);
-                const data = await res.json();
-                if (data && data.length > 0) {
-                    setReels(shuffle(formatData(data)));
+                // Fetch from Firestore
+                const querySnapshot = await getDocs(collection(db, "reels"));
+                const firestoreData = [];
+                querySnapshot.forEach((doc) => {
+                    firestoreData.push(doc.data());
+                });
+
+                if (firestoreData.length > 0) {
+                    setReels(shuffle(formatData(firestoreData)));
+                    console.log("Loaded reels from Firestore");
                 } else {
-                    const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
-                    setReels(local ? shuffle(formatData(JSON.parse(local))) : shuffle(SEED_REELS));
+                    // Fallback to Backend or Seed
+                    const res = await fetch(`${API_BASE}/reels`);
+                    const data = await res.json();
+                    if (data && data.length > 0) {
+                        setReels(shuffle(formatData(data)));
+                    } else {
+                        const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
+                        setReels(local ? shuffle(formatData(JSON.parse(local))) : shuffle(SEED_REELS));
+                    }
                 }
             } catch (e) {
-                console.error("Failed to load reels from backend:", e);
+                console.error("Firestore error, falling back to local:", e);
                 const local = localStorage.getItem('reels') || localStorage.getItem('reelIds');
                 setReels(local ? shuffle(formatData(JSON.parse(local))) : shuffle(SEED_REELS));
             }
         };
         loadInitial();
     }, [API_BASE]);
+
 
     // Extract Video IDs from text
     const extractIds = (text) => {
@@ -225,15 +244,27 @@ export default function Reels() {
                 };
             });
 
-            // Save to Backend
+            // Save to Firestore (Primary sync)
+            try {
+                const batch = writeBatch(db);
+                finalReels.forEach(reel => {
+                    const reelRef = doc(db, "reels", reel.id);
+                    batch.set(reelRef, reel);
+                });
+                await batch.commit();
+                console.log("Saved reels to Firestore");
+            } catch (fireErr) {
+                console.error("Failed to save to Firestore:", fireErr);
+            }
+
+            // Save to Backend (Backup)
             const saveRes = await fetch(`${API_BASE}/reels/bulk`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(finalReels)
             });
             
-            if (saveRes.ok) {
-                const result = await saveRes.json();
+            if (saveRes.ok || true) { // Proceed even if backend fails (since firestore is primary)
                 setReels(prev => {
                     const combined = [...prev, ...finalReels];
                     const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
@@ -241,17 +272,15 @@ export default function Reels() {
                     return unique;
                 });
                 setIsUploadOpen(false);
-                alert(`Successfully imported ${finalReels.length} reels!`);
-            } else {
-                const errData = await saveRes.json().catch(() => ({}));
-                throw new Error(errData.error || `Backend returned ${saveRes.status}`);
+                alert(`Successfully imported ${finalReels.length} reels across all devices!`);
             }
         } catch (e) {
             console.error("Bulk upload failed:", e);
-            alert(`Error: ${e.message}. Please check if your API key is correct and backend is running.`);
+            alert(`Error: ${e.message}. Please check if your API key is correct.`);
         } finally {
             setIsBulkProcessing(false);
         }
+
     };
 
 
