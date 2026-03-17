@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
     X, ChevronUp, ChevronDown, Plus, Loader2, Sparkles,
-    ArrowLeft, Video, Send, RefreshCcw, Trash2
+    ArrowLeft, Video, Send, RefreshCcw, Trash2 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { db } from './firebase';
-import { collection, getDocs, setDoc, doc, writeBatch, deleteDoc } from 'firebase/firestore';
 
 // ── Fallback static list (used as seed) ─────────────────────
 const SEED_REELS = [
@@ -166,35 +164,21 @@ export default function Reels() {
 
     const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://usa-payroll-backend.onrender.com/api');
 
-    // Background Sync from Firestore
+    // Load local reels
     useEffect(() => {
-        const syncData = async () => {
-            const formatData = (data) => {
-                if (!Array.isArray(data) || data.length === 0) return SEED_REELS;
-                return data.map(item => typeof item === 'string' ? { id: item, tags: ["#USA_ACCOUNTING", "#PRO_TIPS"] } : item);
-            };
-
+        const local = localStorage.getItem('reels');
+        if (local) {
             try {
-                console.log("Background syncing from Firestore...");
-                const querySnapshot = await getDocs(collection(db, "reels")).catch(() => null);
-                
-                let firestoreData = [];
-                if (querySnapshot) {
-                    querySnapshot.forEach((doc) => firestoreData.push(doc.data()));
-                }
-
-                if (firestoreData.length > 0) {
-                    const formatted = formatData(firestoreData);
-                    // Update state with shuffled data, but keep sorted list in localStorage
-                    setReels(shuffleArray(formatted));
-                    localStorage.setItem('reels', JSON.stringify(formatted));
-                    console.log("Sync complete:", firestoreData.length, "reels");
+                const parsed = JSON.parse(local);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setReels(shuffleArray(parsed));
                 }
             } catch (e) {
-                console.warn("Background sync failed:", e);
+                setReels(shuffleArray(SEED_REELS));
             }
-        };
-        syncData();
+        } else {
+            setReels(shuffleArray(SEED_REELS));
+        }
     }, [API_BASE]);
 
 
@@ -288,7 +272,7 @@ export default function Reels() {
                 body: JSON.stringify(finalReels)
             });
             
-            if (saveRes.ok || true) { // Proceed even if backend fails (since firestore is primary)
+            if (saveRes.ok) { 
                 setReels(prev => {
                     const combined = [...prev, ...finalReels];
                     const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
@@ -296,7 +280,7 @@ export default function Reels() {
                     return unique;
                 });
                 setIsUploadOpen(false);
-                alert(`Successfully imported ${finalReels.length} reels across all devices!`);
+                alert(`Successfully imported ${finalReels.length} reels!`);
             }
         } catch (e) {
             console.error("Bulk upload failed:", e);
@@ -413,10 +397,8 @@ export default function Reels() {
     };
 
     const handleRemoveReel = async (id) => {
+        if (!confirm("Remove this reel from your local feed?")) return;
         try {
-            // Remove from Firestore
-            await deleteDoc(doc(db, "reels", id));
-            
             // Remove from Local State
             setReels(prev => {
                 const filtered = prev.filter(r => r.id !== id);
@@ -426,7 +408,6 @@ export default function Reels() {
             console.log("Reel removed successfully");
         } catch (e) {
             console.error("Failed to remove reel:", e);
-            alert("Delete failed. Please try again.");
         }
     };
 
@@ -434,7 +415,7 @@ export default function Reels() {
         return (
             <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-4 text-white">
                 <Loader2 className="animate-spin text-pink-500" size={48} />
-                <p className="font-plex text-sm text-zinc-500 animate-pulse">Syncing your reels across devices...</p>
+                <p className="font-plex text-sm text-zinc-500 animate-pulse">Loading USA Payroll AI Shorts...</p>
             </div>
         );
     }

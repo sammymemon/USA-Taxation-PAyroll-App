@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle, Circle, Save, RefreshCw, Loader2, ListTodo } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Circle, ListTodo } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { db } from './firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 const CHECKLIST_DATA = [
     {
@@ -222,40 +220,14 @@ export default function Checklist() {
     
     const [saving, setSaving] = useState(false);
 
-    // Background Sync from Firestore
     useEffect(() => {
-        const docRef = doc(db, "settings", "checklist");
-        
-        // Listen for remote changes
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                setCheckedItems(data || {});
-                localStorage.setItem('accounting_checklist', JSON.stringify(data || {}));
-            }
-        }, (err) => {
-            console.warn("Firestore sync background error:", err);
-        });
-
-        return () => unsubscribe();
+        // Background sync disabled
     }, []);
 
-    const toggleItem = async (itemName) => {
+    const toggleItem = (itemName) => {
         const next = { ...checkedItems, [itemName]: !checkedItems[itemName] };
         setCheckedItems(next);
-        
-        // Local first
         localStorage.setItem('accounting_checklist', JSON.stringify(next));
-
-        // Background save
-        try {
-            setSaving(true);
-            await setDoc(doc(db, "settings", "checklist"), next);
-            setSaving(false);
-        } catch (e) {
-            console.error("Save failed:", e);
-            setSaving(false);
-        }
     };
 
     const totalItems = CHECKLIST_DATA.reduce((acc, c) => acc + c.subcategories.reduce((acc2, s) => acc2 + s.items.length, 0), 0);
@@ -275,7 +247,7 @@ export default function Checklist() {
                             Roadmap Checklist
                         </h1>
                         <div className="font-plex text-[10px] text-accent tracking-[0.2em] uppercase font-bold">
-                            KPO Mastery Sync
+                            KPO Mastery Track
                         </div>
                     </div>
                 </div>
