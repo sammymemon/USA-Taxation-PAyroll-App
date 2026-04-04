@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Plus, Trash2, CheckCircle, RefreshCcw, Activity, Mic, MicOff, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CheckCircle, RefreshCcw, Activity, Mic, MicOff, Loader2, Sparkles, BookOpen, Target, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // A comprehensive American Chart of Accounts for a typical bookkeeping test/app
@@ -473,22 +473,27 @@ Provide your evaluation and standard solution in JSON format ONLY:
             <div className="max-w-5xl mx-auto p-6 md:p-10 space-y-8">
                 {/* Initial Screen: Ready to Learn */}
                 {!questionText && (
-                    <div className="bg-surface border border-border rounded-2xl p-10 shadow-lg text-center animate-fadeIn">
-                        <div className="p-5 bg-accent/10 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-8 text-accent shadow-inner">
-                            <Activity size={48} />
-                        </div>
-                        <h2 className="text-3xl font-playfair font-black text-text mb-4">Master USA Bookkeeping & Payroll</h2>
-                        <p className="text-muted font-plex text-sm md:text-base mb-10 max-w-xl mx-auto leading-relaxed">
-                            Start a dynamic session where the AI will teach you a tricky USA Accounting concept in Hinglish, and then test your knowledge with a real-world scenario.
-                        </p>
+                    <div className="relative overflow-hidden bg-gradient-to-br from-surface to-bg border border-border/50 rounded-[2rem] p-12 md:p-20 shadow-[0_20px_60px_rgba(0,0,0,0.4)] text-center animate-fadeIn group">
+                        <div className="absolute -top-40 -right-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-all duration-1000"></div>
+                        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-accent/5 rounded-full blur-3xl group-hover:bg-accent/10 transition-all duration-1000"></div>
                         
-                        <button 
-                            onClick={generateTopic}
-                            disabled={generatingText}
-                            className={`w-full max-w-md mx-auto bg-accent text-[#0f0e0d] font-bold py-4 rounded-xl transition-all shadow-[0_10px_30px_rgba(var(--accent-rgb),0.2)] flex items-center justify-center gap-3 text-lg ${generatingText ? 'opacity-70 animate-pulse cursor-not-allowed' : 'hover:scale-[1.03] hover:shadow-[0_15px_40px_rgba(var(--accent-rgb),0.3)]'}`}
-                        >
-                            {generatingText ? <><Loader2 className="animate-spin" /> Preparing Lesson...</> : "🚀 Teach & Test Me"}
-                        </button>
+                        <div className="relative z-10">
+                            <div className="p-6 bg-gradient-to-br from-accent/20 to-accent/5 rounded-3xl w-28 h-28 flex items-center justify-center mx-auto mb-8 text-accent shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] border border-accent/20 backdrop-blur-xl group-hover:scale-110 transition-transform duration-500">
+                                <Sparkles size={48} className="drop-shadow-lg" />
+                            </div>
+                            <h2 className="text-4xl md:text-5xl font-playfair font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 mb-6 tracking-tight">Master USA Bookkeeping</h2>
+                            <p className="text-muted/80 font-plex text-sm md:text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
+                                Experience a dynamic AI-powered session. We will teach you tricky USA Accounting & Payroll concepts in easy Hinglish, followed by a real-world scenario to test your knowledge.
+                            </p>
+                            
+                            <button 
+                                onClick={generateTopic}
+                                disabled={generatingText}
+                                className={`w-full max-w-sm mx-auto bg-gradient-to-r from-accent to-accent-light text-[#0f0e0d] font-bold py-5 px-8 rounded-2xl transition-all shadow-[0_0_40px_rgba(var(--accent-rgb),0.3)] flex items-center justify-center gap-3 text-lg ${generatingText ? 'opacity-70 animate-pulse cursor-not-allowed' : 'hover:scale-[1.04] hover:shadow-[0_0_60px_rgba(var(--accent-rgb),0.5)]'}`}
+                            >
+                                {generatingText ? <><Loader2 className="animate-spin" size={24}/> Parsing Topic...</> : <><BookOpen size={24} /> Teach & Test Me Now</>}
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -497,40 +502,52 @@ Provide your evaluation and standard solution in JSON format ONLY:
                     <div className="space-y-8 animate-fadeIn">
                         
                         {/* The Lesson Panel */}
-                        <div className="bg-surface border border-border rounded-2xl p-6 shadow-xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                                <Activity size={100} />
+                        <div className="bg-gradient-to-br from-surface to-surface/50 border border-border/80 rounded-[2rem] p-8 shadow-2xl relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
+                                <BookOpen size={140} />
                             </div>
-                            <h3 className="font-plex text-sm text-accent uppercase tracking-widest font-bold flex items-center gap-2 mb-4 bg-accent/10 py-1.5 px-4 rounded-full w-fit">
-                                Topic: {topicName}
-                            </h3>
-                            <div className="text-lg md:text-xl font-serif text-text leading-relaxed px-5 border-l-4 border-accent bg-gradient-to-r from-accent/5 to-transparent py-4 rounded-r-xl shadow-inner">
-                                <p className="mb-3 font-bold opacity-80 uppercase text-xs tracking-wider font-plex">Instructor's Lesson (Hinglish):</p>
-                                {lesson}
+                            <div className="flex items-center gap-3 mb-6 relative z-10">
+                                <div className="bg-accent/20 p-2.5 rounded-xl text-accent border border-accent/20">
+                                    <Sparkles size={20} />
+                                </div>
+                                <h3 className="font-plex text-sm text-accent uppercase tracking-[0.2em] font-bold">
+                                    Topic: {topicName}
+                                </h3>
+                            </div>
+                            <div className="relative z-10 text-lg md:text-xl font-serif text-text leading-relaxed px-6 sm:px-8 border-l-[6px] border-accent bg-gradient-to-r from-accent/10 via-accent/5 to-transparent py-6 rounded-r-2xl shadow-inner backdrop-blur-sm">
+                                <p className="mb-4 font-bold opacity-70 uppercase text-xs tracking-widest font-plex flex items-center gap-2">
+                                    <Brain size={14} /> Instructor's Lesson (Hinglish):
+                                </p>
+                                <p className="text-gray-100 drop-shadow-sm">{lesson}</p>
                             </div>
                         </div>
 
                         {/* Practical Question / Scenario Panel */}
-                        <div className="bg-surface border border-border rounded-2xl p-6 shadow-xl">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-plex text-xs text-accent uppercase tracking-widest font-bold flex items-center gap-2 bg-accent/10 py-1 px-3 rounded-full">
-                                Scenario
-                            </h3>
+                        <div className="bg-surface/80 border border-border/80 rounded-[2rem] p-8 shadow-2xl">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-yellow-500/20 p-2.5 rounded-xl text-yellow-500 border border-yellow-500/20">
+                                    <Target size={20} />
+                                </div>
+                                <h3 className="font-plex text-sm text-yellow-500 uppercase tracking-[0.2em] font-bold">
+                                    Scenario to Solve
+                                </h3>
+                            </div>
                             <button 
                                 onClick={getHint} 
                                 disabled={gettingHint || hint}
-                                className={`text-xs font-bold font-plex px-4 py-1.5 rounded-full transition-all flex items-center gap-2 ${hint ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-surface2 border border-border text-muted hover:text-accent hover:border-accent/50'}`}
+                                className={`text-xs font-bold font-plex px-5 py-2.5 rounded-full transition-all flex items-center gap-2 shadow-lg ${hint ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' : 'bg-bg border border-border text-muted hover:text-yellow-500 hover:border-yellow-500/50 hover:bg-yellow-500/10'}`}
                             >
-                                {gettingHint ? <><Loader2 size={12} className="animate-spin" /> Fetching...</> : hint ? "💡 Hint Shown" : "💡 Need a Clue?"}
+                                {gettingHint ? <><Loader2 size={14} className="animate-spin" /> Digging...</> : hint ? "💡 Hint Unlocked" : "💡 Need a Clue?"}
                             </button>
                         </div>
                         {hint && (
-                            <div className="mb-4 p-3 bg-accent/10 border border-accent/20 rounded-xl text-sm font-serif text-accent flex items-start gap-3 animate-fadeIn">
-                                <span className="mt-0.5">💡</span>
-                                <p>{hint}</p>
+                            <div className="mb-6 p-5 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-base font-serif text-yellow-500 flex items-start gap-4 animate-in slide-in-from-top-4 duration-500 shadow-inner">
+                                <span className="mt-1 text-xl">💡</span>
+                                <p className="leading-relaxed">{hint}</p>
                             </div>
                         )}
-                        <div className="text-xl md:text-2xl font-serif text-text mb-8 leading-relaxed px-5 border-l-4 border-accent bg-gradient-to-r from-accent/5 to-transparent py-5 rounded-r-xl shadow-inner">
+                        <div className="text-2xl md:text-3xl font-playfair font-bold text-white mb-10 leading-snug px-2">
                             {questionText}
                         </div>
 
@@ -800,9 +817,9 @@ Provide your evaluation and standard solution in JSON format ONLY:
                             <button 
                                 onClick={submitAnswer}
                                 disabled={evaluating}
-                                className={`w-full font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg ${evaluating ? 'bg-accent/50 cursor-not-allowed animate-pulse text-[#0f0e0d]' : 'bg-surface2 border border-accent text-accent hover:bg-accent hover:text-[#0f0e0d]'}`}
+                                className={`w-full font-bold py-5 rounded-2xl transition-all shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 text-xl tracking-wide ${evaluating ? 'bg-accent/40 cursor-not-allowed animate-pulse text-[#0f0e0d]' : 'bg-gradient-to-r from-accent to-accent-light text-[#0f0e0d] hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(var(--accent-rgb),0.4)]'}`}
                             >
-                                {evaluating ? "🤖 AI Evaluating Journal Entry..." : "Submit Answer"}
+                                {evaluating ? <><Loader2 size={24} className="animate-spin" /> AI is Checking your Entry...</> : <><CheckCircle size={24} /> Submit Journal Entry</>}
                             </button>
                         )}
                         </div>
@@ -811,20 +828,20 @@ Provide your evaluation and standard solution in JSON format ONLY:
 
                 {/* AI Feedback Form */}
                 {feedback && (
-                    <div className="bg-surface border border-border rounded-2xl p-6 shadow-lg animate-fadeIn mt-8">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className={`p-3 rounded-full flex items-center justify-center ${feedback.isCorrect ? 'bg-green-500/20 text-green-500 border border-green-500/50' : 'bg-red-500/20 text-red-500 border border-red-500/50'}`}>
-                                {feedback.isCorrect ? <CheckCircle size={32} /> : <RefreshCcw size={32} />}
+                    <div className="bg-surface/90 backdrop-blur-xl border border-border/80 rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-8 duration-700 mt-12">
+                        <div className="flex items-center gap-5 mb-8">
+                            <div className={`p-4 rounded-2xl flex items-center justify-center ${feedback.isCorrect ? 'bg-green-500/10 text-green-500 border border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'bg-red-500/10 text-red-500 border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]'}`}>
+                                {feedback.isCorrect ? <CheckCircle size={40} /> : <RefreshCcw size={40} />}
                             </div>
                             <div>
-                                <h3 className={`font-playfair text-2xl font-bold ${feedback.isCorrect ? 'text-green-500' : 'text-red-500'}`}>
-                                    {feedback.isCorrect ? 'Correct Entry!' : 'Incorrect / Needs Fixing'}
+                                <h3 className={`font-playfair text-3xl font-black ${feedback.isCorrect ? 'text-green-500 text-shadow-sm' : 'text-red-500 text-shadow-sm'}`}>
+                                    {feedback.isCorrect ? 'Excellent!' : 'Let\'s Learn Together'}
                                 </h3>
-                                <p className="font-plex text-sm text-text mt-1">AI Evaluator</p>
+                                <p className="font-plex text-sm text-muted/80 mt-1 uppercase tracking-widest font-bold">AI Detailed Feedback</p>
                             </div>
                         </div>
 
-                        <div className="bg-surface font-plex border border-border p-6 rounded-xl text-text leading-relaxed text-[15px] mb-8 shadow-inner">
+                        <div className="bg-gradient-to-br from-bg to-surface font-serif border border-border/50 p-8 rounded-2xl text-text leading-loose text-lg mb-10 shadow-inner">
                             {feedback.feedback}
                         </div>
 
