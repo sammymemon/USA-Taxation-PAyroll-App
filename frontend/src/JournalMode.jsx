@@ -109,11 +109,8 @@ const CHART_OF_ACCOUNTS = [
 ];
 
 function JournalMode() {
-    const [categories, setCategories] = useState([]);
-    const [selectedCategory, setSelectedCategory] = useState('');
-    const [selectedLevel, setSelectedLevel] = useState('Beginner');
-    
-    const [loadingCategories, setLoadingCategories] = useState(true);
+    const [topicName, setTopicName] = useState('');
+    const [lesson, setLesson] = useState('');
     
     // Groq Config
     const [groqApiKey, setGroqApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
@@ -137,36 +134,15 @@ function JournalMode() {
     const [parsingVoice, setParsingVoice] = useState(false);
     const recognitionRef = useRef(null);
 
-    useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                let catData;
-                try {
-                    const res = await axios.get('/data.json');
-                    catData = res.data.categories;
-                } catch (e) {
-                    const res = await axios.get('/api/data');
-                    catData = res.data.categories;
-                }
-                setCategories(catData || []);
-                if (catData && catData.length > 0) {
-                    setSelectedCategory(catData[0].name);
-                }
-                setLoadingCategories(false);
-            } catch (err) {
-                console.error("Failed to fetch data:", err);
-                setLoadingCategories(false);
-            }
-        };
-        fetchCategories();
-    }, []);
+    // Topic and Scenario generation is fully AI-driven based on USA concepts.
 
-    const generateQuestion = async () => {
+    const generateTopic = async () => {
         if (!groqApiKey) return alert("Please enter your free Groq API Key at the bottom.");
-        if (!selectedCategory) return alert("Please select a category.");
 
         setGeneratingText(true);
         setQuestionText('');
+        setLesson('');
+        setTopicName('');
         setFeedback(null);
         setHint('');
         setJournalRows([
@@ -174,33 +150,35 @@ function JournalMode() {
             { account: '', debit: '', credit: '', description: '', name: '' }
         ]);
 
-        const prompt = `You are a practical accounting test generator. Generate ONE short journal entry scenario for American bookkeeping in the category "${selectedCategory}" at the "${selectedLevel}" level. 
-        It must contain exact dollar amounts so the user can answer it. 
-        DO NOT PROVIDE THE ANSWER, JUST THE PRACTICAL SCENARIO OR QUESTION. 
-        Example format: "You paid $500 cash for office rent for the month."
-        Output only the text of the scenario.`;
+        const prompt = `You are an expert USA Bookkeeping & Payroll tutor.
+1. Pick a random, tricky USA bookkeeping or payroll concept (e.g. FICA taxes, Advance Salary, Accruals, Depreciation, Bad Debts, Factoring, Net Pay).
+2. Teach the concept very simply in easy Hinglish (Hindi mixed with English) under "lesson". Keep it to 1 solid, encouraging paragraph.
+3. Provide a practical journal entry scenario to test their understanding under "question". Use exact dollar amounts.
+Output ONLY raw JSON format: {"topicName": "...", "lesson": "...", "question": "..."}`;
 
         try {
             const response = await axios.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 {
-                    model: "llama-3.1-8b-instant",
+                    model: "llama-3.3-70b-versatile",
                     messages: [{ role: "user", content: prompt }],
-                    max_tokens: 150,
-                    temperature: 0.7
+                    temperature: 0.8,
+                    max_tokens: 400
                 },
-                {
-                    headers: {
-                        "Authorization": `Bearer ${groqApiKey}`,
-                        "Content-Type": "application/json"
-                    }
-                }
+                { headers: { "Authorization": `Bearer ${groqApiKey}`, "Content-Type": "application/json" } }
             );
-            
-            setQuestionText(response.data.choices[0].message.content.trim().replace(/^"|"$/g, ''));
+
+            let text = response.data.choices[0].message.content || '';
+            if (text.includes('```json')) text = text.split('```json')[1].split('```')[0].trim();
+            else if (text.includes('```')) text = text.split('```')[1].split('```')[0].trim();
+
+            const parsed = JSON.parse(text);
+            setTopicName(parsed.topicName || 'Tricky Concept');
+            setLesson(parsed.lesson || '');
+            setQuestionText(parsed.question || '');
         } catch (error) {
             console.error(error);
-            alert("Failed to generate question from Groq. Check your API key.");
+            alert("Failed to generate learning topic from Groq. Check API Key or try again.");
         }
         setGeneratingText(false);
     };
@@ -428,16 +406,17 @@ NOW PARSE THE TRANSCRIPT AND RETURN JSON ONLY:`;
 
         const userJournalEntry = `Debits:\n${cleanDr.map(d => '- ' + d.account + ' / $' + d.amount).join('\n')}\nCredits:\n${cleanCr.map(c => '- ' + c.account + ' / $' + c.amount).join('\n')}`;
         
-        const prompt = `Act as an expert accounting instructor.
+        const prompt = `Act as an expert USA accounting instructor.
 Question Scenario: ${questionText}
 User's Answer:
 ${userJournalEntry}
 
-Is the user's journal entry correct regarding the selected accounts, their debits/credits orientation, and the amounts?
+CRITICAL INSTRUCTION: Analyze the user's journal entry. If they are wrong, patiently TEACH them exactly where they went wrong, why, and how to correct it step-by-step. All feedback MUST be in simple Hinglish (Hindi mixed with English).
+
 Provide your evaluation and standard solution in JSON format ONLY:
 {
   "isCorrect": boolean,
-  "feedback": "Detailed explanation of exactly what is right or wrong.",
+  "feedback": "<Detailed step-by-step teaching explanation of what is right or wrong, entirely in easy Hinglish>",
   "correctDr": [{"account": "string", "amount": number}],
   "correctCr": [{"account": "string", "amount": number}]
 }`;
@@ -492,49 +471,47 @@ Provide your evaluation and standard solution in JSON format ONLY:
             </div>
 
             <div className="max-w-5xl mx-auto p-6 md:p-10 space-y-8">
-                {/* Control Panel */}
-                <div className="bg-surface border border-border rounded-2xl p-6 shadow-lg">
-                    <h2 className="text-xl font-playfair font-bold text-text mb-4">Generate Question</h2>
-                    
-                    <div className="flex flex-col md:flex-row gap-4 mb-6">
-                        <div className="flex-1">
-                            <label className="block text-xs font-plex text-muted uppercase tracking-widest mb-2">Category</label>
-                            <select 
-                                value={selectedCategory} 
-                                onChange={e => setSelectedCategory(e.target.value)}
-                                className="w-full bg-bg border border-border px-4 py-3 rounded-lg text-text font-serif focus:border-accent outline-none appearance-none"
-                            >
-                                {loadingCategories ? <option>Loading...</option> : categories.map(c => (
-                                    <option key={c.id} value={c.name}>{c.name}</option>
-                                ))}
-                            </select>
+                {/* Initial Screen: Ready to Learn */}
+                {!questionText && (
+                    <div className="bg-surface border border-border rounded-2xl p-10 shadow-lg text-center animate-fadeIn">
+                        <div className="p-5 bg-accent/10 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-8 text-accent shadow-inner">
+                            <Activity size={48} />
                         </div>
-                        <div className="flex-1">
-                            <label className="block text-xs font-plex text-muted uppercase tracking-widest mb-2">Level</label>
-                            <select 
-                                value={selectedLevel} 
-                                onChange={e => setSelectedLevel(e.target.value)}
-                                className="w-full bg-bg border border-border px-4 py-3 rounded-lg text-text font-serif focus:border-accent outline-none appearance-none"
-                            >
-                                <option value="Beginner">Beginner</option>
-                                <option value="Intermediate">Intermediate</option>
-                                <option value="Advanced">Advanced</option>
-                            </select>
-                        </div>
+                        <h2 className="text-3xl font-playfair font-black text-text mb-4">Master USA Bookkeeping & Payroll</h2>
+                        <p className="text-muted font-plex text-sm md:text-base mb-10 max-w-xl mx-auto leading-relaxed">
+                            Start a dynamic session where the AI will teach you a tricky USA Accounting concept in Hinglish, and then test your knowledge with a real-world scenario.
+                        </p>
+                        
+                        <button 
+                            onClick={generateTopic}
+                            disabled={generatingText}
+                            className={`w-full max-w-md mx-auto bg-accent text-[#0f0e0d] font-bold py-4 rounded-xl transition-all shadow-[0_10px_30px_rgba(var(--accent-rgb),0.2)] flex items-center justify-center gap-3 text-lg ${generatingText ? 'opacity-70 animate-pulse cursor-not-allowed' : 'hover:scale-[1.03] hover:shadow-[0_15px_40px_rgba(var(--accent-rgb),0.3)]'}`}
+                        >
+                            {generatingText ? <><Loader2 className="animate-spin" /> Preparing Lesson...</> : "🚀 Teach & Test Me"}
+                        </button>
                     </div>
-                    
-                    <button 
-                        onClick={generateQuestion}
-                        disabled={generatingText}
-                        className={`w-full bg-accent text-[#0f0e0d] font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 ${generatingText ? 'opacity-70 animate-pulse cursor-not-allowed' : 'hover:scale-[1.01]'}`}
-                    >
-                        {generatingText ? "🤖 Generating Question..." : "✨ Generate new Journal Entry Scenario"}
-                    </button>
-                </div>
+                )}
 
-                {/* Interaction Area */}
+                {/* Interaction Area (Visible after generation) */}
                 {questionText && (
-                    <div className="bg-surface border border-border rounded-2xl p-6 shadow-xl animate-fadeIn">
+                    <div className="space-y-8 animate-fadeIn">
+                        
+                        {/* The Lesson Panel */}
+                        <div className="bg-surface border border-border rounded-2xl p-6 shadow-xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                                <Activity size={100} />
+                            </div>
+                            <h3 className="font-plex text-sm text-accent uppercase tracking-widest font-bold flex items-center gap-2 mb-4 bg-accent/10 py-1.5 px-4 rounded-full w-fit">
+                                Topic: {topicName}
+                            </h3>
+                            <div className="text-lg md:text-xl font-serif text-text leading-relaxed px-5 border-l-4 border-accent bg-gradient-to-r from-accent/5 to-transparent py-4 rounded-r-xl shadow-inner">
+                                <p className="mb-3 font-bold opacity-80 uppercase text-xs tracking-wider font-plex">Instructor's Lesson (Hinglish):</p>
+                                {lesson}
+                            </div>
+                        </div>
+
+                        {/* Practical Question / Scenario Panel */}
+                        <div className="bg-surface border border-border rounded-2xl p-6 shadow-xl">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-plex text-xs text-accent uppercase tracking-widest font-bold flex items-center gap-2 bg-accent/10 py-1 px-3 rounded-full">
                                 Scenario
@@ -828,6 +805,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                 {evaluating ? "🤖 AI Evaluating Journal Entry..." : "Submit Answer"}
                             </button>
                         )}
+                        </div>
                     </div>
                 )}
 
@@ -871,10 +849,10 @@ Provide your evaluation and standard solution in JSON format ONLY:
                         </div>
                         
                         <button 
-                            onClick={generateQuestion}
-                            className="bg-surface2 border border-border hover:border-accent text-accent font-bold py-4 px-6 rounded-xl transition-colors flex justify-center items-center gap-2 w-full"
+                            onClick={generateTopic}
+                            className="bg-accent text-[#0f0e0d] font-bold py-4 px-6 rounded-xl transition-all flex justify-center items-center gap-2 w-full shadow-[0_10px_30px_rgba(var(--accent-rgb),0.2)] hover:scale-[1.02]"
                         >
-                            Try Another Question
+                            🚀 Next USA Bookkeeping Trick -{">"}
                         </button>
                     </div>
                 )}
