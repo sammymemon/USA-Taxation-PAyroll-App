@@ -108,7 +108,34 @@ const CHART_OF_ACCOUNTS = [
     "7100 - Loss on Sale of Asset"
 ];
 
+const LEARNING_TOPICS = [
+    "FICA Taxes (Social Security & Medicare)",
+    "Accrued Expenses vs Accrued Revenue",
+    "Prepaid Expenses & Amortization",
+    "Depreciation (Straight-Line & Accumulated)",
+    "Bad Debts (Allowance Method)",
+    "Invoice Factoring",
+    "Net Pay Calculation & Withholdings",
+    "Bank Reconciliation Discrepancies",
+    "Sales Tax Payable",
+    "Overtime Pay Calculation",
+    "Deferred/Unearned Revenue",
+    "Inventory Costing (FIFO/LIFO)",
+    "Payroll Tax Liabilities (Employer vs Employee)",
+    "Worker's Compensation Accrual",
+    "Petty Cash Replenishment",
+    "Gain/Loss on Sale of Equipment",
+    "Declaring and Paying Dividends",
+    "Advance Salary/Employee Loans",
+    "Write-offs of Uncollectible Accounts",
+    "Reimbursable Expenses"
+];
+
 function JournalMode() {
+    const [topicIndex, setTopicIndex] = useState(() => {
+        const saved = localStorage.getItem('journalTopicIndex');
+        return saved ? parseInt(saved, 10) : 0;
+    });
     const [topicName, setTopicName] = useState('');
     const [lesson, setLesson] = useState('');
     
@@ -150,11 +177,13 @@ function JournalMode() {
             { account: '', debit: '', credit: '', description: '', name: '' }
         ]);
 
+        const currentTopic = LEARNING_TOPICS[topicIndex % LEARNING_TOPICS.length];
+
         const prompt = `You are an expert USA Bookkeeping & Payroll tutor.
-1. Pick a random, tricky USA bookkeeping or payroll concept (e.g. FICA taxes, Advance Salary, Accruals, Depreciation, Bad Debts, Factoring, Net Pay).
-2. Teach the concept very simply in easy Hinglish (Hindi mixed with English) under "lesson". Keep it to 1 solid, encouraging paragraph.
-3. Provide a practical journal entry scenario to test their understanding under "question". Use exact dollar amounts.
-Output ONLY raw JSON format: {"topicName": "...", "lesson": "...", "question": "..."}`;
+1. The specific tricky USA bookkeeping or payroll concept you MUST teach is: "${currentTopic}".
+2. Teach this concept very simply in easy Hinglish (Hindi mixed with English) under "lesson". Keep it to 1 solid, encouraging paragraph.
+3. Provide a practical journal entry scenario to test their understanding about "${currentTopic}" under "question". Use exact dollar amounts.
+Output ONLY raw JSON format: {"topicName": "${currentTopic}", "lesson": "...", "question": "..."}`;
 
         try {
             const response = await axios.post(
@@ -173,9 +202,14 @@ Output ONLY raw JSON format: {"topicName": "...", "lesson": "...", "question": "
             else if (text.includes('```')) text = text.split('```')[1].split('```')[0].trim();
 
             const parsed = JSON.parse(text);
-            setTopicName(parsed.topicName || 'Tricky Concept');
+            setTopicName(parsed.topicName || currentTopic);
             setLesson(parsed.lesson || '');
             setQuestionText(parsed.question || '');
+            
+            // Move to next topic
+            const nextIndex = (topicIndex + 1) % LEARNING_TOPICS.length;
+            setTopicIndex(nextIndex);
+            localStorage.setItem('journalTopicIndex', nextIndex.toString());
         } catch (error) {
             console.error(error);
             alert("Failed to generate learning topic from Groq. Check API Key or try again.");
