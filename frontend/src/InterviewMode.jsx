@@ -299,8 +299,18 @@ export default function InterviewMode() {
 
     useEffect(() => {
         const apply = (d) => { 
-            setQuestions(d.questions || []); 
-            setCategories(d.categories || []); 
+            const trickyQuestions = [
+                { id: 't1', cat: 999, diff: 'advanced', q: "Pichhle mahine ki salary 5000 pay ki thi, ab is mahine employee ko 500 advance salary di hai. Iski journal entry batao.", a: "Advance Salary A/c ... Dr 500\nTo Cash/Bank A/c ... 500" },
+                { id: 't2', cat: 999, diff: 'advanced', q: "Company ne employee ko 10,000 salary deni thi, jisme se 1,000 TDS deduct kiya aur 9,000 bank se pay kiya. Iski entry kya hogi?", a: "Salary Expense A/c ... Dr 10,000\nTo Bank A/c ... 9,000\nTo TDS Payable A/c ... 1,000" },
+                { id: 't3', cat: 999, diff: 'advanced', q: "Rent 20,000 due tha, jisme se abhi sirf 15,000 cash me pay kiya hai. Journal entry kya banegi?", a: "Rent Expense A/c ... Dr 20,000\nTo Cash/Bank A/c ... 15,000\nTo Outstanding Rent A/c ... 5,000" },
+                { id: 't4', cat: 999, diff: 'advanced', q: "Business owner ne apne personal use ke liye business bank account se 5,000 withdraw kiye. Iski journal entry batao.", a: "Drawings A/c ... Dr 5,000\nTo Bank A/c ... 5,000" },
+                { id: 't5', cat: 999, diff: 'advanced', q: "Customer se 50,000 ka check receive hua jo bank me deposit kiya, par next day bounce ho gaya aur bank ne 500 penalty charge ki. Entry kya hogi?", a: "Jab check bounce hua, entry: Customer A/c ... Dr 50,500\nTo Bank A/c ... 50,500 (Note: The 500 penalty is reversed and charged to customer)" },
+                { id: 't6', cat: 999, diff: 'advanced', q: "Plant & Machinery par saal bhar ka 10% depreciation lagana hai. Machinery ki value 1,00,000 hai. Entry batao.", a: "Depreciation A/c ... Dr 10,000\nTo Plant & Machinery A/c ... 10,000" }
+            ];
+
+            setQuestions([...trickyQuestions, ...(d.questions || [])]); 
+            setCategories([{ id: 999, name: "Tricky Journal Entries (Hinglish)", short: "Tricky JE", color: "c1", tag: "tag1" }, ...(d.categories || [])]); 
+            setCategory("Tricky Journal Entries (Hinglish)");
         };
         
         // Try local data.json first
@@ -387,7 +397,7 @@ export default function InterviewMode() {
         addSystemMsg('Interview Initiated');
         const tid = addTyping();
         const intro = await callGroq(apiKey, [
-            { role: 'system', content: `You are Aria, lead recruiter at a top KPO firm. You are conducting a technical interview for ${yourName || 'a candidate'}. Welcome them professionally. Be concise (2 sentences).` },
+            { role: 'system', content: `You are Aria, an expert accounting recruiter. You are conducting a technical interview for ${yourName || 'a candidate'} focusing on Journal Entries. Welcome them professionally in simple Hinglish (Hindi + English). Be concise (1-2 sentences).` },
             { role: 'user', content: `Start the session.` }
         ], 150);
         
@@ -409,16 +419,22 @@ export default function InterviewMode() {
         const tid = addTyping();
         const qData = qList[idx];
 
-        // Provide depth constraint based on stage
         let flavor = currentStage === 'Warm-up' ? "Ask gently, basic concepts." : 
                      idx === qList.length - 1 ? "Ask an advanced, tricky situation." : "Ask it as a real-world scenario.";
 
         const prompt = await callGroq(apiKey, [
-            { role: 'system', content: `You are Aria, a serious Technical Interviewer. ${flavor} Be direct, sharp, professional. No pleasantries. 1-2 sentences.` },
-            { role: 'user', content: `Question to ask: ${qData.q}` }
-        ], 100);
+            { role: 'system', content: `You are Aria, a serious Technical Interviewer. ${flavor} Be direct, sharp, professional. No pleasantries. Speak strictly in simple Hinglish (Hindi words written in English alphabet). Keep it conversational and easy to understand.` },
+            { role: 'user', content: `Ignore any predefined question. Dynamically generate ONE brand new, tricky Journal Entry scenario/question for the candidate to solve (e.g., advance salary, check bounce, depreciation, bad debts, TDS). Ask the question directly in Hinglish.` }
+        ], 150);
 
-        resolveTyping(tid, prompt || qData.q, { autoSpeak: true });
+        const generatedText = prompt || qData.q;
+        setQueue(prev => {
+            const nextQueue = [...prev];
+            nextQueue[idx] = { ...nextQueue[idx], askedQuestion: generatedText };
+            return nextQueue;
+        });
+
+        resolveTyping(tid, generatedText, { autoSpeak: true });
         setBusy(false); setTimerActive(true);
     };
 
@@ -436,19 +452,23 @@ export default function InterviewMode() {
         const tid = addTyping();
 
         const evalReq = await callGroq(apiKey, [
-            { role: 'system', content: `You are an expert technical interviewer. Evaluate the candidate's answer thoroughly based ONLY on the "Expected" answer provided. The candidate stated their confidence as ${confidence}/5. Time taken: ${timeElapsed}s.
-If the candidate's answer aligns well with the Expected answer, score them highly. If it is wrong or misses key points from the Expected answer, deduct points and explain what they missed based on the Expected answer.
+            { role: 'system', content: `You are an expert accounting instructor and technical interviewer. Evaluate the candidate's journal entry answer. The candidate stated their confidence as ${confidence}/5. Time taken: ${timeElapsed}s.
+If the candidate's answer aligns well with standard accounting principles, score them highly. 
+CRITICAL RULE: If the candidate is wrong or misses key points, you MUST patiently TEACH them exactly where they went wrong, why it is wrong, and how to correct it step-by-step.
+
+IMPORTANT: Provide the "feedback", "correct_answer", and "study_focus" strictly in easy Hinglish (Hindi mixed with English, written in English alphabet) so the user can learn easily. "key_strengths" and "critical_misses" should also be in Hinglish.
+
 Return ONLY valid JSON:
 {
   "score": <0-100>,
   "verdict": "<Correct / Flawed / Incorrect>",
-  "feedback": "<1 rigorous paragraph evaluating their technical accuracy based ONLY on the Expected answer>",
-  "key_strengths": ["point 1"],
-  "critical_misses": ["point 1"],
-  "correct_answer": "<Clear explanation based on the Expected answer, 2 sentences>",
-  "study_focus": "<Specify exactly which topic or concept the candidate needs to study more based on their mistake>"
+  "feedback": "<1 paragraph evaluating their answer. If wrong, TEACH them their mistake clearly and step-by-step in Hinglish>",
+  "key_strengths": ["point 1 in Hinglish"],
+  "critical_misses": ["point 1 in Hinglish"],
+  "correct_answer": "<Clear explanation of the correct journal entry, in Hinglish, 2 sentences>",
+  "study_focus": "<What concept to study more, in Hinglish>"
 }` },
-            { role: 'user', content: `Q: ${qData.q}\nExpected: ${qData.a}\nCandidate Ans: ${ans}` }
+            { role: 'user', content: `Question Asked: ${qData.askedQuestion || qData.q}\nCandidate Ans: ${ans}` }
         ], 800);
 
         let data = { score: 50, feedback: 'Error evaluating.', correct_answer: qData.a };
@@ -659,9 +679,9 @@ ${data.correct_answer}
                                 <div className="bg-surface border border-border shadow-md rounded-t-2xl sm:rounded-2xl p-3 animate-in slide-in-from-bottom duration-300">
                                     <div className="flex justify-between items-center mb-3">
                                         <div className="flex gap-2 bg-bg rounded-lg p-1 border border-border">
-                                            {[['voice', <Mic size={14} key="mic"/>, 'Voice'], ['text', <Zap size={14} key="zap"/>, 'Type']].map(([v, i, l]) => (
-                                                <button key={v} onClick={()=>setInputMode(v)} className={`px-4 py-1.5 flex items-center justify-center gap-1.5 text-xs font-bold rounded-md transition-all ${inputMode===v?'bg-surface border border-border shadow-sm text-text':'text-muted hover:text-text'}`}>{i} {l}</button>
-                                            ))}
+                                            <div className="px-4 py-1.5 flex items-center justify-center gap-1.5 text-xs font-bold rounded-md bg-surface border border-border shadow-sm text-text">
+                                                <Mic size={14}/> Voice Mode (Required)
+                                            </div>
                                         </div>
                                         <button 
                                             onClick={getHint} 
