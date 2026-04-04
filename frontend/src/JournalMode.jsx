@@ -128,6 +128,8 @@ function JournalMode() {
     
     const [evaluating, setEvaluating] = useState(false);
     const [feedback, setFeedback] = useState(null);
+    const [hint, setHint] = useState('');
+    const [gettingHint, setGettingHint] = useState(false);
 
     // Voice Mode State
     const [isListening, setIsListening] = useState(false);
@@ -166,6 +168,7 @@ function JournalMode() {
         setGeneratingText(true);
         setQuestionText('');
         setFeedback(null);
+        setHint('');
         setJournalRows([
             { account: '', debit: '', credit: '', description: '', name: '' },
             { account: '', debit: '', credit: '', description: '', name: '' }
@@ -363,6 +366,32 @@ NOW PARSE THE TRANSCRIPT AND RETURN JSON ONLY:`;
         setParsingVoice(false);
     };
 
+    const getHint = async () => {
+        if (!groqApiKey) return alert("Please enter your Groq API Key first.");
+        if (!questionText) return;
+        setGettingHint(true);
+        const prompt = `You are a helpful accounting tutor. The student is trying to solve this journal entry: "${questionText}". 
+        Give them a VERY brief clue in simple Hinglish (Hindi mixed with English) about which accounts might be involved, BUT do not give them the full exact answer. Maximum 2 sentences.`;
+
+        try {
+            const response = await axios.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                {
+                    model: "llama-3.1-8b-instant",
+                    messages: [{ role: "user", content: prompt }],
+                    temperature: 0.7,
+                    max_tokens: 100
+                },
+                { headers: { "Authorization": `Bearer ${groqApiKey}`, "Content-Type": "application/json" } }
+            );
+            setHint(response.data.choices[0].message.content.replace(/^"|"$/g, '').trim());
+        } catch (error) {
+            console.error(error);
+            alert("Could not load hint.");
+        }
+        setGettingHint(false);
+    };
+
     const submitAnswer = async () => {
         if (!groqApiKey) return alert("Please enter your Groq API Key first.");
         
@@ -510,7 +539,20 @@ Provide your evaluation and standard solution in JSON format ONLY:
                             <h3 className="font-plex text-xs text-accent uppercase tracking-widest font-bold flex items-center gap-2 bg-accent/10 py-1 px-3 rounded-full">
                                 Scenario
                             </h3>
+                            <button 
+                                onClick={getHint} 
+                                disabled={gettingHint || hint}
+                                className={`text-xs font-bold font-plex px-4 py-1.5 rounded-full transition-all flex items-center gap-2 ${hint ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-surface2 border border-border text-muted hover:text-accent hover:border-accent/50'}`}
+                            >
+                                {gettingHint ? <><Loader2 size={12} className="animate-spin" /> Fetching...</> : hint ? "💡 Hint Shown" : "💡 Need a Clue?"}
+                            </button>
                         </div>
+                        {hint && (
+                            <div className="mb-4 p-3 bg-accent/10 border border-accent/20 rounded-xl text-sm font-serif text-accent flex items-start gap-3 animate-fadeIn">
+                                <span className="mt-0.5">💡</span>
+                                <p>{hint}</p>
+                            </div>
+                        )}
                         <div className="text-xl md:text-2xl font-serif text-text mb-8 leading-relaxed px-5 border-l-4 border-accent bg-gradient-to-r from-accent/5 to-transparent py-5 rounded-r-xl shadow-inner">
                             {questionText}
                         </div>
