@@ -140,7 +140,7 @@ function JournalMode() {
     const [lesson, setLesson] = useState('');
     
     // Groq Config
-    const [groqApiKey, setGroqApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
+    const [groqApiKey, setGroqApiKey] = useState(() => (localStorage.getItem('groqApiKey') || '').trim());
     
     // Entry State
     const [generatingText, setGeneratingText] = useState(false);
@@ -212,7 +212,8 @@ Output ONLY raw JSON format: {"topicName": "${currentTopic}", "lesson": "...", "
             localStorage.setItem('journalTopicIndex', nextIndex.toString());
         } catch (error) {
             console.error(error);
-            alert("Failed to generate learning topic from Groq. Check API Key or try again.");
+            const errMsg = error.response?.data?.error?.message || error.message || "Check API Key or try again.";
+            alert(`Failed to generate learning topic from Groq.\nReason: ${errMsg}`);
         }
         setGeneratingText(false);
     };
@@ -371,9 +372,10 @@ NOW PARSE THE TRANSCRIPT AND RETURN JSON ONLY:`;
             } else {
                 alert('AI could not identify any journal entries from your voice. Please try speaking more clearly, e.g. "Debit Cash 1000, Credit Sales Revenue 1000"');
             }
-        } catch (err) {
-            console.error('Voice parse error:', err);
-            alert('Could not parse your voice input. Please try again or fill manually.');
+        } catch (error) {
+            console.error('Voice parse error:', error);
+            const errMsg = error.response?.data?.error?.message || error.message || "Check your API key.";
+            alert(`Could not parse your voice input.\nReason: ${errMsg}`);
         }
         setParsingVoice(false);
     };
@@ -399,7 +401,8 @@ NOW PARSE THE TRANSCRIPT AND RETURN JSON ONLY:`;
             setHint(response.data.choices[0].message.content.replace(/^"|"$/g, '').trim());
         } catch (error) {
             console.error(error);
-            alert("Could not load hint.");
+            const errMsg = error.response?.data?.error?.message || error.message || "Check API Key.";
+            alert(`Could not load hint.\nReason: ${errMsg}`);
         }
         setGettingHint(false);
     };
@@ -482,7 +485,8 @@ Provide your evaluation and standard solution in JSON format ONLY:
             setFeedback(resultData);
         } catch (error) {
             console.error("AI Evaluation Error", error);
-            alert("Failed to evaluate with AI. The JSON parser might have failed.");
+            const errMsg = error.response?.data?.error?.message || error.message || "The JSON parser might have failed.";
+            alert(`Failed to evaluate with AI.\nReason: ${errMsg}`);
         }
         setEvaluating(false);
     };
@@ -923,8 +927,9 @@ Provide your evaluation and standard solution in JSON format ONLY:
                             placeholder="gsk_xxxxxxxx..."
                             value={groqApiKey}
                             onChange={(e) => {
-                                setGroqApiKey(e.target.value);
-                                localStorage.setItem('groqApiKey', e.target.value);
+                                const val = e.target.value.trim();
+                                setGroqApiKey(val);
+                                localStorage.setItem('groqApiKey', val);
                             }}
                             className="flex-1 bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent"
                         />
