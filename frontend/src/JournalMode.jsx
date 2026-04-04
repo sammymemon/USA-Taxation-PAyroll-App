@@ -470,10 +470,10 @@ Provide your evaluation and standard solution in JSON format ONLY:
                 </div>
             </div>
 
-            <div className="max-w-5xl mx-auto p-6 md:p-10 space-y-8">
+            <div className="max-w-5xl mx-auto p-4 sm:p-6 md:p-10 space-y-6 md:space-y-8">
                 {/* Initial Screen: Ready to Learn */}
                 {!questionText && (
-                    <div className="relative overflow-hidden bg-gradient-to-br from-surface to-bg border border-border/50 rounded-[2rem] p-12 md:p-20 shadow-[0_20px_60px_rgba(0,0,0,0.4)] text-center animate-fadeIn group">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-surface to-bg border border-border/50 rounded-3xl md:rounded-[2rem] p-6 sm:p-12 md:p-20 shadow-[0_20px_60px_rgba(0,0,0,0.4)] text-center animate-fadeIn group z-10">
                         <div className="absolute -top-40 -right-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-all duration-1000"></div>
                         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-accent/5 rounded-full blur-3xl group-hover:bg-accent/10 transition-all duration-1000"></div>
                         
@@ -481,7 +481,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                             <div className="p-6 bg-gradient-to-br from-accent/20 to-accent/5 rounded-3xl w-28 h-28 flex items-center justify-center mx-auto mb-8 text-accent shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] border border-accent/20 backdrop-blur-xl group-hover:scale-110 transition-transform duration-500">
                                 <Sparkles size={48} className="drop-shadow-lg" />
                             </div>
-                            <h2 className="text-4xl md:text-5xl font-playfair font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 mb-6 tracking-tight">Master USA Bookkeeping</h2>
+                            <h2 className="text-3xl md:text-5xl font-playfair font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 mb-4 md:mb-6 tracking-tight">Master USA Bookkeeping</h2>
                             <p className="text-muted/80 font-plex text-sm md:text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
                                 Experience a dynamic AI-powered session. We will teach you tricky USA Accounting & Payroll concepts in easy Hinglish, followed by a real-world scenario to test your knowledge.
                             </p>
@@ -502,7 +502,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                     <div className="space-y-8 animate-fadeIn">
                         
                         {/* The Lesson Panel */}
-                        <div className="bg-gradient-to-br from-surface to-surface/50 border border-border/80 rounded-[2rem] p-8 shadow-2xl relative overflow-hidden group">
+                        <div className="bg-gradient-to-br from-surface to-surface/50 border border-border/80 rounded-3xl md:rounded-[2rem] p-5 md:p-8 shadow-2xl relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
                                 <BookOpen size={140} />
                             </div>
@@ -514,7 +514,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                     Topic: {topicName}
                                 </h3>
                             </div>
-                            <div className="relative z-10 text-lg md:text-xl font-serif text-text leading-relaxed px-6 sm:px-8 border-l-[6px] border-accent bg-gradient-to-r from-accent/10 via-accent/5 to-transparent py-6 rounded-r-2xl shadow-inner backdrop-blur-sm">
+                            <div className="relative z-10 text-base md:text-xl font-serif text-text leading-relaxed px-4 sm:px-8 border-l-[4px] md:border-l-[6px] border-accent bg-gradient-to-r from-accent/10 via-accent/5 to-transparent py-4 md:py-6 rounded-r-2xl shadow-inner backdrop-blur-sm">
                                 <p className="mb-4 font-bold opacity-70 uppercase text-xs tracking-widest font-plex flex items-center gap-2">
                                     <Brain size={14} /> Instructor's Lesson (Hinglish):
                                 </p>
@@ -523,9 +523,9 @@ Provide your evaluation and standard solution in JSON format ONLY:
                         </div>
 
                         {/* Practical Question / Scenario Panel */}
-                        <div className="bg-surface/80 border border-border/80 rounded-[2rem] p-8 shadow-2xl">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
+                        <div className="bg-surface/80 border border-border/80 rounded-3xl md:rounded-[2rem] p-4 md:p-8 shadow-2xl">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 sm:gap-0">
+                            <div className="flex items-center gap-2 md:gap-3">
                                 <div className="bg-yellow-500/20 p-2.5 rounded-xl text-yellow-500 border border-yellow-500/20">
                                     <Target size={20} />
                                 </div>
@@ -536,7 +536,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                             <button 
                                 onClick={getHint} 
                                 disabled={gettingHint || hint}
-                                className={`text-xs font-bold font-plex px-5 py-2.5 rounded-full transition-all flex items-center gap-2 shadow-lg ${hint ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' : 'bg-bg border border-border text-muted hover:text-yellow-500 hover:border-yellow-500/50 hover:bg-yellow-500/10'}`}
+                                className={`w-full sm:w-auto justify-center text-xs font-bold font-plex px-5 py-2.5 rounded-full transition-all flex items-center gap-2 shadow-lg ${hint ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' : 'bg-bg border border-border text-muted hover:text-yellow-500 hover:border-yellow-500/50 hover:bg-yellow-500/10'}`}
                             >
                                 {gettingHint ? <><Loader2 size={14} className="animate-spin" /> Digging...</> : hint ? "💡 Hint Unlocked" : "💡 Need a Clue?"}
                             </button>
@@ -547,7 +547,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                 <p className="leading-relaxed">{hint}</p>
                             </div>
                         )}
-                        <div className="text-2xl md:text-3xl font-playfair font-bold text-white mb-10 leading-snug px-2">
+                        <div className="text-xl md:text-3xl font-playfair font-bold text-white mb-8 md:mb-10 leading-snug px-1 md:px-2">
                             {questionText}
                         </div>
 
@@ -734,8 +734,8 @@ Provide your evaluation and standard solution in JSON format ONLY:
                         </div>
 
                         {/* Voice Entry Section */}
-                        <div className={`rounded-2xl border p-5 transition-all duration-300 ${isListening ? 'border-red-500/60 bg-red-500/5 shadow-[0_0_30px_rgba(239,68,68,0.1)]' : parsingVoice ? 'border-accent/60 bg-accent/5 shadow-[0_0_30px_rgba(var(--accent-rgb),0.08)]' : 'border-border bg-surface'}`}>
-                            <div className="flex items-center justify-between mb-4">
+                        <div className={`rounded-2xl border p-4 md:p-5 transition-all duration-300 ${isListening ? 'border-red-500/60 bg-red-500/5 shadow-[0_0_30px_rgba(239,68,68,0.1)]' : parsingVoice ? 'border-accent/60 bg-accent/5 shadow-[0_0_30px_rgba(var(--accent-rgb),0.08)]' : 'border-border bg-surface'}`}>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4 sm:gap-0">
                                 <div>
                                     <h4 className="font-plex font-bold text-text text-sm flex items-center gap-2">
                                         <Mic size={16} className={isListening ? 'text-red-500' : 'text-accent'} />
@@ -749,7 +749,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                 <button
                                     onClick={startVoiceEntry}
                                     disabled={parsingVoice}
-                                    className={`relative flex items-center gap-2 px-5 py-3 rounded-xl font-plex font-bold text-sm transition-all shadow-md ${
+                                    className={`w-full sm:w-auto relative flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-plex font-bold text-sm transition-all shadow-md ${
                                         isListening
                                             ? 'bg-red-500 text-white hover:bg-red-600 shadow-red-500/30'
                                             : parsingVoice
@@ -817,9 +817,9 @@ Provide your evaluation and standard solution in JSON format ONLY:
                             <button 
                                 onClick={submitAnswer}
                                 disabled={evaluating}
-                                className={`w-full font-bold py-5 rounded-2xl transition-all shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 text-xl tracking-wide ${evaluating ? 'bg-accent/40 cursor-not-allowed animate-pulse text-[#0f0e0d]' : 'bg-gradient-to-r from-accent to-accent-light text-[#0f0e0d] hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(var(--accent-rgb),0.4)]'}`}
+                                className={`w-full font-bold py-4 md:py-5 rounded-2xl transition-all shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center justify-center gap-2 md:gap-3 text-lg md:text-xl tracking-wide ${evaluating ? 'bg-accent/40 cursor-not-allowed animate-pulse text-[#0f0e0d]' : 'bg-gradient-to-r from-accent to-accent-light text-[#0f0e0d] hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(var(--accent-rgb),0.4)]'}`}
                             >
-                                {evaluating ? <><Loader2 size={24} className="animate-spin" /> AI is Checking your Entry...</> : <><CheckCircle size={24} /> Submit Journal Entry</>}
+                                {evaluating ? <><Loader2 size={24} className="animate-spin" /> <span className="hidden sm:inline">AI is Checking your Entry...</span><span className="sm:hidden">Checking...</span></> : <><CheckCircle size={24} /> Submit Journal Entry</>}
                             </button>
                         )}
                         </div>
@@ -828,20 +828,20 @@ Provide your evaluation and standard solution in JSON format ONLY:
 
                 {/* AI Feedback Form */}
                 {feedback && (
-                    <div className="bg-surface/90 backdrop-blur-xl border border-border/80 rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-8 duration-700 mt-12">
-                        <div className="flex items-center gap-5 mb-8">
-                            <div className={`p-4 rounded-2xl flex items-center justify-center ${feedback.isCorrect ? 'bg-green-500/10 text-green-500 border border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'bg-red-500/10 text-red-500 border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]'}`}>
-                                {feedback.isCorrect ? <CheckCircle size={40} /> : <RefreshCcw size={40} />}
+                    <div className="bg-surface/90 backdrop-blur-xl border border-border/80 rounded-3xl md:rounded-[2rem] p-5 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-8 duration-700 mt-8 md:mt-12">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 mb-6 md:mb-8">
+                            <div className={`p-4 rounded-2xl flex items-center justify-center shrink-0 ${feedback.isCorrect ? 'bg-green-500/10 text-green-500 border border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'bg-red-500/10 text-red-500 border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]'}`}>
+                                {feedback.isCorrect ? <CheckCircle size={32} className="md:w-10 md:h-10" /> : <RefreshCcw size={32} className="md:w-10 md:h-10" />}
                             </div>
                             <div>
-                                <h3 className={`font-playfair text-3xl font-black ${feedback.isCorrect ? 'text-green-500 text-shadow-sm' : 'text-red-500 text-shadow-sm'}`}>
+                                <h3 className={`font-playfair text-2xl md:text-3xl font-black ${feedback.isCorrect ? 'text-green-500 text-shadow-sm' : 'text-red-500 text-shadow-sm'}`}>
                                     {feedback.isCorrect ? 'Excellent!' : 'Let\'s Learn Together'}
                                 </h3>
-                                <p className="font-plex text-sm text-muted/80 mt-1 uppercase tracking-widest font-bold">AI Detailed Feedback</p>
+                                <p className="font-plex text-xs md:text-sm text-muted/80 mt-1 uppercase tracking-widest font-bold">AI Detailed Feedback</p>
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-br from-bg to-surface font-serif border border-border/50 p-8 rounded-2xl text-text leading-loose text-lg mb-10 shadow-inner">
+                        <div className="bg-gradient-to-br from-bg to-surface font-serif border border-border/50 p-5 md:p-8 rounded-2xl text-text leading-relaxed md:leading-loose text-base md:text-lg mb-8 md:mb-10 shadow-inner">
                             {feedback.feedback}
                         </div>
 
