@@ -242,10 +242,8 @@ Output ONLY raw JSON format: {"topicName": "${currentTopic}", "lesson": "...", "
             );
 
             let text = response.data.choices[0].message.content || '';
-            if (text.includes('```json')) text = text.split('```json')[1].split('```')[0].trim();
-            else if (text.includes('```')) text = text.split('```')[1].split('```')[0].trim();
-
-            const parsed = JSON.parse(text);
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
             setTopicName(parsed.topicName || currentTopic);
             setLesson(parsed.lesson || '');
             setQuestionText(parsed.question || '');
@@ -521,13 +519,8 @@ Provide your evaluation and standard solution in JSON format ONLY:
             );
 
             let generatedText = response.data.choices[0].message.content || "";
-            if (generatedText.includes('```json')) {
-                generatedText = generatedText.split('```json')[1].split('```')[0].trim();
-            } else if (generatedText.includes('```')) {
-                generatedText = generatedText.split('```')[1].split('```')[0].trim();
-            }
-
-            const resultData = JSON.parse(generatedText);
+            const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+            const resultData = JSON.parse(jsonMatch ? jsonMatch[0] : generatedText);
             setFeedback(resultData);
         } catch (error) {
             console.error("AI Evaluation Error", error);
