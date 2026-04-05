@@ -102,7 +102,7 @@ const CHART_OF_ACCOUNTS = [
     "5840 - Bad Debt Expense",
     "5900 - Miscellaneous Expense",
     "5950 - Taxes & Licenses Expense",
-    
+
     // --- GAINS/LOSSES (7000) ---
     "7000 - Gain on Sale of Asset",
     "7100 - Loss on Sale of Asset"
@@ -138,10 +138,10 @@ function JournalMode() {
     });
     const [topicName, setTopicName] = useState('');
     const [lesson, setLesson] = useState('');
-    
+
     // Groq Config
     const [groqApiKey, setGroqApiKey] = useState(() => (localStorage.getItem('groqApiKey') || '').trim());
-    
+
     // Entry State
     const [generatingText, setGeneratingText] = useState(false);
     const [questionText, setQuestionText] = useState('');
@@ -149,7 +149,7 @@ function JournalMode() {
         { account: '', debit: '', credit: '', description: '', name: '' },
         { account: '', debit: '', credit: '', description: '', name: '' }
     ]);
-    
+
     const [evaluating, setEvaluating] = useState(false);
     const [feedback, setFeedback] = useState(null);
     const [hint, setHint] = useState('');
@@ -205,7 +205,7 @@ Output ONLY raw JSON format: {"topicName": "${currentTopic}", "lesson": "...", "
             setTopicName(parsed.topicName || currentTopic);
             setLesson(parsed.lesson || '');
             setQuestionText(parsed.question || '');
-            
+
             // Move to next topic
             const nextIndex = (topicIndex + 1) % LEARNING_TOPICS.length;
             setTopicIndex(nextIndex);
@@ -409,7 +409,7 @@ NOW PARSE THE TRANSCRIPT AND RETURN JSON ONLY:`;
 
     const submitAnswer = async () => {
         if (!groqApiKey) return alert("Please enter your Groq API Key first.");
-        
+
         let valid = true;
         let totalDr = 0;
         let totalCr = 0;
@@ -442,7 +442,7 @@ NOW PARSE THE TRANSCRIPT AND RETURN JSON ONLY:`;
         setFeedback(null);
 
         const userJournalEntry = `Debits:\n${cleanDr.map(d => '- ' + d.account + ' / $' + d.amount).join('\n')}\nCredits:\n${cleanCr.map(c => '- ' + c.account + ' / $' + c.amount).join('\n')}`;
-        
+
         const prompt = `Act as an expert USA accounting instructor.
 Question Scenario: ${questionText}
 User's Answer:
@@ -514,7 +514,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                     <div className="relative overflow-hidden bg-gradient-to-br from-surface to-bg border border-border/50 rounded-3xl md:rounded-[2rem] p-6 sm:p-12 md:p-20 shadow-[0_20px_60px_rgba(0,0,0,0.4)] text-center animate-fadeIn group z-10">
                         <div className="absolute -top-40 -right-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-all duration-1000"></div>
                         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-accent/5 rounded-full blur-3xl group-hover:bg-accent/10 transition-all duration-1000"></div>
-                        
+
                         <div className="relative z-10">
                             <div className="p-6 bg-gradient-to-br from-accent/20 to-accent/5 rounded-3xl w-28 h-28 flex items-center justify-center mx-auto mb-8 text-accent shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] border border-accent/20 backdrop-blur-xl group-hover:scale-110 transition-transform duration-500">
                                 <Sparkles size={48} className="drop-shadow-lg" />
@@ -523,13 +523,13 @@ Provide your evaluation and standard solution in JSON format ONLY:
                             <p className="text-muted/80 font-plex text-sm md:text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
                                 Experience a dynamic AI-powered session. We will teach you tricky USA Accounting & Payroll concepts in easy Hinglish, followed by a real-world scenario to test your knowledge.
                             </p>
-                            
-                            <button 
+
+                            <button
                                 onClick={generateTopic}
                                 disabled={generatingText}
                                 className={`w-full max-w-sm mx-auto bg-gradient-to-r from-accent to-accent-light text-[#0f0e0d] font-bold py-5 px-8 rounded-2xl transition-all shadow-[0_0_40px_rgba(var(--accent-rgb),0.3)] flex items-center justify-center gap-3 text-lg ${generatingText ? 'opacity-70 animate-pulse cursor-not-allowed' : 'hover:scale-[1.04] hover:shadow-[0_0_60px_rgba(var(--accent-rgb),0.5)]'}`}
                             >
-                                {generatingText ? <><Loader2 className="animate-spin" size={24}/> Parsing Topic...</> : <><BookOpen size={24} /> Teach & Test Me Now</>}
+                                {generatingText ? <><Loader2 className="animate-spin" size={24} /> Parsing Topic...</> : <><BookOpen size={24} /> Teach & Test Me Now</>}
                             </button>
                         </div>
                     </div>
@@ -538,7 +538,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                 {/* Interaction Area (Visible after generation) */}
                 {questionText && (
                     <div className="space-y-8 animate-fadeIn">
-                        
+
                         {/* The Lesson Panel */}
                         <div className="bg-gradient-to-br from-surface to-surface/50 border border-border/80 rounded-3xl md:rounded-[2rem] p-5 md:p-8 shadow-2xl relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
@@ -562,304 +562,303 @@ Provide your evaluation and standard solution in JSON format ONLY:
 
                         {/* Practical Question / Scenario Panel */}
                         <div className="bg-surface/80 border border-border/80 rounded-3xl md:rounded-[2rem] p-4 md:p-8 shadow-2xl">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 sm:gap-0">
-                            <div className="flex items-center gap-2 md:gap-3">
-                                <div className="bg-yellow-500/20 p-2.5 rounded-xl text-yellow-500 border border-yellow-500/20">
-                                    <Target size={20} />
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 sm:gap-0">
+                                <div className="flex items-center gap-2 md:gap-3">
+                                    <div className="bg-yellow-500/20 p-2.5 rounded-xl text-yellow-500 border border-yellow-500/20">
+                                        <Target size={20} />
+                                    </div>
+                                    <h3 className="font-plex text-sm text-yellow-500 uppercase tracking-[0.2em] font-bold">
+                                        Scenario to Solve
+                                    </h3>
                                 </div>
-                                <h3 className="font-plex text-sm text-yellow-500 uppercase tracking-[0.2em] font-bold">
-                                    Scenario to Solve
-                                </h3>
+                                <button
+                                    onClick={getHint}
+                                    disabled={gettingHint || hint}
+                                    className={`w-full sm:w-auto justify-center text-xs font-bold font-plex px-5 py-2.5 rounded-full transition-all flex items-center gap-2 shadow-lg ${hint ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' : 'bg-bg border border-border text-muted hover:text-yellow-500 hover:border-yellow-500/50 hover:bg-yellow-500/10'}`}
+                                >
+                                    {gettingHint ? <><Loader2 size={14} className="animate-spin" /> Digging...</> : hint ? "💡 Hint Unlocked" : "💡 Need a Clue?"}
+                                </button>
                             </div>
-                            <button 
-                                onClick={getHint} 
-                                disabled={gettingHint || hint}
-                                className={`w-full sm:w-auto justify-center text-xs font-bold font-plex px-5 py-2.5 rounded-full transition-all flex items-center gap-2 shadow-lg ${hint ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' : 'bg-bg border border-border text-muted hover:text-yellow-500 hover:border-yellow-500/50 hover:bg-yellow-500/10'}`}
-                            >
-                                {gettingHint ? <><Loader2 size={14} className="animate-spin" /> Digging...</> : hint ? "💡 Hint Unlocked" : "💡 Need a Clue?"}
-                            </button>
-                        </div>
-                        {hint && (
-                            <div className="mb-6 p-5 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-base font-serif text-yellow-500 flex items-start gap-4 animate-in slide-in-from-top-4 duration-500 shadow-inner">
-                                <span className="mt-1 text-xl">💡</span>
-                                <p className="leading-relaxed">{hint}</p>
+                            {hint && (
+                                <div className="mb-6 p-5 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-base font-serif text-yellow-500 flex items-start gap-4 animate-in slide-in-from-top-4 duration-500 shadow-inner">
+                                    <span className="mt-1 text-xl">💡</span>
+                                    <p className="leading-relaxed">{hint}</p>
+                                </div>
+                            )}
+                            <div className="text-xl md:text-3xl font-playfair font-bold text-white mb-8 md:mb-10 leading-snug px-1 md:px-2">
+                                {questionText}
                             </div>
-                        )}
-                        <div className="text-xl md:text-3xl font-playfair font-bold text-white mb-8 md:mb-10 leading-snug px-1 md:px-2">
-                            {questionText}
-                        </div>
 
-                        {/* Journal Entry Form */}
-                        <div className="space-y-6">
-                        {/* Journal Entry Form - Premium Style */}
-                        <div className="bg-bg border border-border rounded-xl shadow-inner overflow-hidden">
-                            
-                            {/* Desktop Table View */}
-                            <div className="hidden md:block overflow-x-auto">
-                                <table className="w-full text-left border-collapse min-w-[800px]">
-                                    <thead>
-                                        <tr className="bg-surface border-b border-border text-[11px] uppercase tracking-widest font-plex text-muted">
-                                            <th className="p-3 w-12 text-center border-r border-border/50">#</th>
-                                            <th className="p-3 min-w-[220px] border-r border-border/50">Account</th>
-                                            <th className="p-3 w-[140px] border-r border-border/50 text-right">Debits</th>
-                                            <th className="p-3 w-[140px] border-r border-border/50 text-right">Credits</th>
-                                            <th className="p-3 min-w-[180px] border-r border-border/50">Description</th>
-                                            <th className="p-3 min-w-[150px] border-r border-border/50">Name</th>
-                                            <th className="p-3 w-12"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border/50 bg-surface/30">
+                            {/* Journal Entry Form */}
+                            <div className="space-y-6">
+                                {/* Journal Entry Form - Premium Style */}
+                                <div className="bg-bg border border-border rounded-xl shadow-inner overflow-hidden">
+
+                                    {/* Desktop Table View */}
+                                    <div className="hidden md:block overflow-x-auto">
+                                        <table className="w-full text-left border-collapse min-w-[800px]">
+                                            <thead>
+                                                <tr className="bg-surface border-b border-border text-[11px] uppercase tracking-widest font-plex text-muted">
+                                                    <th className="p-3 w-12 text-center border-r border-border/50">#</th>
+                                                    <th className="p-3 min-w-[220px] border-r border-border/50">Account</th>
+                                                    <th className="p-3 w-[140px] border-r border-border/50 text-right">Debits</th>
+                                                    <th className="p-3 w-[140px] border-r border-border/50 text-right">Credits</th>
+                                                    <th className="p-3 min-w-[180px] border-r border-border/50">Description</th>
+                                                    <th className="p-3 min-w-[150px] border-r border-border/50">Name</th>
+                                                    <th className="p-3 w-12"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-border/50 bg-surface/30">
+                                                {journalRows.map((row, idx) => (
+                                                    <tr key={idx} className="group hover:bg-surface/80 transition-colors">
+                                                        <td className="p-3 text-center text-muted/70 font-plex text-xs border-r border-border/50">{idx + 1}</td>
+                                                        <td className="p-2 border-r border-border/50">
+                                                            <input
+                                                                type="text"
+                                                                list="accountsList"
+                                                                value={row.account}
+                                                                onChange={e => updateRow(idx, 'account', e.target.value)}
+                                                                placeholder="Select account..."
+                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all placeholder:text-muted/50"
+                                                            />
+                                                        </td>
+                                                        <td className="p-2 border-r border-border/50">
+                                                            <input
+                                                                type="number"
+                                                                value={row.debit}
+                                                                onChange={e => updateRow(idx, 'debit', e.target.value)}
+                                                                placeholder=""
+                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all text-right font-plex"
+                                                            />
+                                                        </td>
+                                                        <td className="p-2 border-r border-border/50">
+                                                            <input
+                                                                type="number"
+                                                                value={row.credit}
+                                                                onChange={e => updateRow(idx, 'credit', e.target.value)}
+                                                                placeholder=""
+                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all text-right font-plex"
+                                                            />
+                                                        </td>
+                                                        <td className="p-2 border-r border-border/50">
+                                                            <input
+                                                                type="text"
+                                                                value={row.description}
+                                                                onChange={e => updateRow(idx, 'description', e.target.value)}
+                                                                placeholder="Enter description..."
+                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all placeholder:text-muted/50"
+                                                            />
+                                                        </td>
+                                                        <td className="p-2 border-r border-border/50">
+                                                            <input
+                                                                type="text"
+                                                                value={row.name}
+                                                                onChange={e => updateRow(idx, 'name', e.target.value)}
+                                                                placeholder="Employee/Vendor..."
+                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all placeholder:text-muted/50"
+                                                            />
+                                                        </td>
+                                                        <td className="p-2 text-center">
+                                                            {journalRows.length > 2 && (
+                                                                <button onClick={() => removeRow(idx)} className="text-red-500/50 hover:text-red-500 p-2 rounded-md hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100" title="Delete Line">
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Mobile Card View */}
+                                    <div className="block md:hidden border-b border-border/50 divide-y divide-border/50 bg-surface/30">
                                         {journalRows.map((row, idx) => (
-                                            <tr key={idx} className="group hover:bg-surface/80 transition-colors">
-                                                <td className="p-3 text-center text-muted/70 font-plex text-xs border-r border-border/50">{idx + 1}</td>
-                                                <td className="p-2 border-r border-border/50">
-                                                    <input 
-                                                        type="text" 
-                                                        list="accountsList"
-                                                        value={row.account}
-                                                        onChange={e => updateRow(idx, 'account', e.target.value)}
-                                                        placeholder="Select account..." 
-                                                        className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all placeholder:text-muted/50"
-                                                    />
-                                                </td>
-                                                <td className="p-2 border-r border-border/50">
-                                                    <input 
-                                                        type="number" 
-                                                        value={row.debit}
-                                                        onChange={e => updateRow(idx, 'debit', e.target.value)}
-                                                        placeholder="" 
-                                                        className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all text-right font-plex"
-                                                    />
-                                                </td>
-                                                <td className="p-2 border-r border-border/50">
-                                                    <input 
-                                                        type="number" 
-                                                        value={row.credit}
-                                                        onChange={e => updateRow(idx, 'credit', e.target.value)}
-                                                        placeholder="" 
-                                                        className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all text-right font-plex"
-                                                    />
-                                                </td>
-                                                <td className="p-2 border-r border-border/50">
-                                                    <input 
-                                                        type="text" 
-                                                        value={row.description}
-                                                        onChange={e => updateRow(idx, 'description', e.target.value)}
-                                                        placeholder="Enter description..." 
-                                                        className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all placeholder:text-muted/50"
-                                                    />
-                                                </td>
-                                                <td className="p-2 border-r border-border/50">
-                                                    <input 
-                                                        type="text" 
-                                                        value={row.name}
-                                                        onChange={e => updateRow(idx, 'name', e.target.value)}
-                                                        placeholder="Employee/Vendor..." 
-                                                        className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all placeholder:text-muted/50"
-                                                    />
-                                                </td>
-                                                <td className="p-2 text-center">
+                                            <div key={idx} className="p-4 space-y-4 relative group hover:bg-surface/80 transition-colors">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-accent/80 font-plex text-[10px] uppercase font-bold tracking-widest bg-accent/10 border border-accent/20 px-2.5 py-1 rounded-md">Line {idx + 1}</span>
                                                     {journalRows.length > 2 && (
-                                                        <button onClick={() => removeRow(idx)} className="text-red-500/50 hover:text-red-500 p-2 rounded-md hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100" title="Delete Line">
+                                                        <button onClick={() => removeRow(idx)} className="text-red-500 hover:text-red-400 p-2 rounded-md hover:bg-red-500/10 transition-all bg-surface border border-transparent shadow-sm" title="Delete Line">
                                                             <Trash2 size={16} />
                                                         </button>
                                                     )}
-                                                </td>
-                                            </tr>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Account</label>
+                                                        <input
+                                                            type="text"
+                                                            list="accountsList"
+                                                            value={row.account}
+                                                            onChange={e => updateRow(idx, 'account', e.target.value)}
+                                                            placeholder="Select account..."
+                                                            className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="flex gap-3">
+                                                        <div className="flex-1">
+                                                            <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Debit</label>
+                                                            <input
+                                                                type="number"
+                                                                value={row.debit}
+                                                                onChange={e => updateRow(idx, 'debit', e.target.value)}
+                                                                placeholder="$ 0.00"
+                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all font-plex shadow-sm"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Credit</label>
+                                                            <input
+                                                                type="number"
+                                                                value={row.credit}
+                                                                onChange={e => updateRow(idx, 'credit', e.target.value)}
+                                                                placeholder="$ 0.00"
+                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all font-plex shadow-sm"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-3">
+                                                        <div className="flex-1">
+                                                            <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Description</label>
+                                                            <input
+                                                                type="text"
+                                                                value={row.description}
+                                                                onChange={e => updateRow(idx, 'description', e.target.value)}
+                                                                placeholder="Memo..."
+                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-2.5 rounded-lg text-xs text-text outline-none transition-all shadow-sm"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Name</label>
+                                                            <input
+                                                                type="text"
+                                                                value={row.name}
+                                                                onChange={e => updateRow(idx, 'name', e.target.value)}
+                                                                placeholder="Vendor..."
+                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-2.5 rounded-lg text-xs text-text outline-none transition-all shadow-sm"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                    </div>
 
-                            {/* Mobile Card View */}
-                            <div className="block md:hidden border-b border-border/50 divide-y divide-border/50 bg-surface/30">
-                                {journalRows.map((row, idx) => (
-                                    <div key={idx} className="p-4 space-y-4 relative group hover:bg-surface/80 transition-colors">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-accent/80 font-plex text-[10px] uppercase font-bold tracking-widest bg-accent/10 border border-accent/20 px-2.5 py-1 rounded-md">Line {idx + 1}</span>
-                                            {journalRows.length > 2 && (
-                                                <button onClick={() => removeRow(idx)} className="text-red-500 hover:text-red-400 p-2 rounded-md hover:bg-red-500/10 transition-all bg-surface border border-transparent shadow-sm" title="Delete Line">
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Account</label>
-                                                <input 
-                                                    type="text" 
-                                                    list="accountsList"
-                                                    value={row.account}
-                                                    onChange={e => updateRow(idx, 'account', e.target.value)}
-                                                    placeholder="Select account..." 
-                                                    className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
-                                                />
-                                            </div>
-                                            <div className="flex gap-3">
-                                                <div className="flex-1">
-                                                    <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Debit</label>
-                                                    <input 
-                                                        type="number" 
-                                                        value={row.debit}
-                                                        onChange={e => updateRow(idx, 'debit', e.target.value)}
-                                                        placeholder="$ 0.00" 
-                                                        className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all font-plex shadow-sm"
-                                                    />
+                                    <div className="p-4 md:p-5 border-t border-border bg-surface flex flex-col md:flex-row justify-between items-center gap-6 md:gap-4 rounded-b-xl">
+                                        <button onClick={addRow} className="flex items-center justify-center gap-1 w-full md:w-auto text-sm font-plex font-bold text-accent hover:text-accent-light transition-all py-3 md:py-2 px-4 rounded-lg bg-accent/5 hover:bg-accent/10 border border-accent/20 hover:border-accent/40 shadow-sm">
+                                            <Plus size={16} /> Add lines
+                                        </button>
+
+                                        <div className="flex justify-between w-full md:w-auto md:gap-10 px-2 md:px-6 font-plex text-sm bg-bg md:bg-transparent p-4 md:p-0 rounded-xl md:rounded-none border border-border md:border-none shadow-sm md:shadow-none">
+                                            <div className="flex justify-between md:flex-col items-center md:items-end w-full md:w-auto gap-4 md:gap-1">
+                                                <div className="flex flex-col items-start md:items-end gap-1">
+                                                    <span className="text-muted/80 text-[10px] uppercase font-bold tracking-widest">Total Debits</span>
+                                                    <span className="font-bold text-text text-lg">${journalRows.reduce((sum, r) => sum + (parseFloat(r.debit) || 0), 0).toFixed(2)}</span>
                                                 </div>
-                                                <div className="flex-1">
-                                                    <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Credit</label>
-                                                    <input 
-                                                        type="number" 
-                                                        value={row.credit}
-                                                        onChange={e => updateRow(idx, 'credit', e.target.value)}
-                                                        placeholder="$ 0.00" 
-                                                        className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all font-plex shadow-sm"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-3">
-                                                <div className="flex-1">
-                                                    <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Description</label>
-                                                    <input 
-                                                        type="text" 
-                                                        value={row.description}
-                                                        onChange={e => updateRow(idx, 'description', e.target.value)}
-                                                        placeholder="Memo..." 
-                                                        className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-2.5 rounded-lg text-xs text-text outline-none transition-all shadow-sm"
-                                                    />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Name</label>
-                                                    <input 
-                                                        type="text" 
-                                                        value={row.name}
-                                                        onChange={e => updateRow(idx, 'name', e.target.value)}
-                                                        placeholder="Vendor..." 
-                                                        className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-2.5 rounded-lg text-xs text-text outline-none transition-all shadow-sm"
-                                                    />
+                                                <div className="hidden md:block w-px h-8 bg-border/50 mx-2"></div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className="text-muted/80 text-[10px] uppercase font-bold tracking-widest">Total Credits</span>
+                                                    <span className="font-bold text-text text-lg">${journalRows.reduce((sum, r) => sum + (parseFloat(r.credit) || 0), 0).toFixed(2)}</span>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                ))}
+                                </div>
+
+                                <datalist id="accountsList">
+                                    {CHART_OF_ACCOUNTS.map(acc => <option key={acc} value={acc} />)}
+                                </datalist>
+
                             </div>
 
-                            <div className="p-4 md:p-5 border-t border-border bg-surface flex flex-col md:flex-row justify-between items-center gap-6 md:gap-4 rounded-b-xl">
-                                <button onClick={addRow} className="flex items-center justify-center gap-1 w-full md:w-auto text-sm font-plex font-bold text-accent hover:text-accent-light transition-all py-3 md:py-2 px-4 rounded-lg bg-accent/5 hover:bg-accent/10 border border-accent/20 hover:border-accent/40 shadow-sm">
-                                    <Plus size={16} /> Add lines
-                                </button>
-                                
-                                <div className="flex justify-between w-full md:w-auto md:gap-10 px-2 md:px-6 font-plex text-sm bg-bg md:bg-transparent p-4 md:p-0 rounded-xl md:rounded-none border border-border md:border-none shadow-sm md:shadow-none">
-                                    <div className="flex justify-between md:flex-col items-center md:items-end w-full md:w-auto gap-4 md:gap-1">
-                                        <div className="flex flex-col items-start md:items-end gap-1">
-                                            <span className="text-muted/80 text-[10px] uppercase font-bold tracking-widest">Total Debits</span>
-                                            <span className="font-bold text-text text-lg">${journalRows.reduce((sum, r) => sum + (parseFloat(r.debit) || 0), 0).toFixed(2)}</span>
-                                        </div>
-                                        <div className="hidden md:block w-px h-8 bg-border/50 mx-2"></div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            <span className="text-muted/80 text-[10px] uppercase font-bold tracking-widest">Total Credits</span>
-                                            <span className="font-bold text-text text-lg">${journalRows.reduce((sum, r) => sum + (parseFloat(r.credit) || 0), 0).toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                            
-                            <datalist id="accountsList">
-                                {CHART_OF_ACCOUNTS.map(acc => <option key={acc} value={acc} />)}
-                            </datalist>
-
-                        </div>
-
-                        {/* Voice Entry Section */}
-                        <div className={`rounded-2xl border p-4 md:p-5 transition-all duration-300 ${isListening ? 'border-red-500/60 bg-red-500/5 shadow-[0_0_30px_rgba(239,68,68,0.1)]' : parsingVoice ? 'border-accent/60 bg-accent/5 shadow-[0_0_30px_rgba(var(--accent-rgb),0.08)]' : 'border-border bg-surface'}`}>
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4 sm:gap-0">
-                                <div>
-                                    <h4 className="font-plex font-bold text-text text-sm flex items-center gap-2">
-                                        <Mic size={16} className={isListening ? 'text-red-500' : 'text-accent'} />
-                                        Voice Entry
-                                        <span className="text-[10px] font-plex text-muted bg-surface2 border border-border px-2 py-0.5 rounded-full">Groq Whisper</span>
-                                    </h4>
-                                    <p className="font-plex text-xs text-muted mt-0.5">
-                                        Record your voice — Groq AI will transcribe &amp; fill the table
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={startVoiceEntry}
-                                    disabled={parsingVoice}
-                                    className={`w-full sm:w-auto relative flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-plex font-bold text-sm transition-all shadow-md ${
-                                        isListening
-                                            ? 'bg-red-500 text-white hover:bg-red-600 shadow-red-500/30'
-                                            : parsingVoice
-                                            ? 'bg-accent/50 text-bg cursor-not-allowed'
-                                            : 'bg-accent text-bg hover:bg-accent/90 shadow-accent/20'
-                                    }`}
-                                >
-                                    {isListening && (
-                                        <span className="absolute -top-1 -right-1 h-3 w-3">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                                        </span>
-                                    )}
-                                    {parsingVoice ? (
-                                        <><Loader2 size={16} className="animate-spin" /> AI Parsing...</>
-                                    ) : isListening ? (
-                                        <><MicOff size={16} /> Stop Recording</>
-                                    ) : (
-                                        <><Mic size={16} /> Start Voice Entry</>
-                                    )}
-                                </button>
-                            </div>
-
-                            {/* Instructions */}
-                            {!isListening && !voiceTranscript && !parsingVoice && (
-                                <div className="text-xs font-plex text-muted bg-bg border border-border rounded-xl p-4 space-y-1.5">
-                                    <p className="font-bold text-text mb-2">💡 How to speak your entry:</p>
-                                    <p>🟢 <span className="text-text">"Debit Cash one thousand, Credit Sales Revenue one thousand"</span></p>
-                                    <p>🟢 <span className="text-text">"Debit Rent Expense five hundred, Credit Cash five hundred"</span></p>
-                                    <p>🟢 <span className="text-text">"Debit Accounts Receivable 2500 Credit Service Revenue 2500"</span></p>
-                                </div>
-                            )}
-
-                            {/* Listening Animation */}
-                            {isListening && (
-                                <div className="flex flex-col items-center justify-center py-6 gap-4">
-                                    <div className="relative flex items-center justify-center">
-                                        <span className="absolute inline-flex h-20 w-20 rounded-full bg-red-500/20 animate-ping"></span>
-                                        <span className="relative flex h-16 w-16 rounded-full bg-red-500/10 border-2 border-red-500/50 items-center justify-center">
-                                            <Mic size={28} className="text-red-500 animate-pulse" />
-                                        </span>
-                                    </div>
-                                    <p className="font-plex text-sm text-red-500 font-bold animate-pulse">🎙 Recording... Speak your journal entry</p>
-                                    <p className="font-plex text-xs text-muted">Click <strong>Stop Recording</strong> when done (auto-stops at 15s)</p>
-                                </div>
-                            )}
-
-                            {/* Transcript */}
-                            {voiceTranscript && !isListening && (
-                                <div className="mt-3 bg-bg border border-border rounded-xl p-4">
-                                    <p className="text-[10px] font-plex text-muted uppercase tracking-widest mb-2 font-bold flex items-center gap-1">
-                                        <CheckCircle size={11} className="text-accent" /> Groq Whisper Transcript:
-                                    </p>
-                                    <p className="font-serif text-text text-base italic">"{voiceTranscript}"</p>
-                                    {!parsingVoice && (
-                                        <p className="text-xs font-plex text-accent mt-2 flex items-center gap-1">
-                                            <CheckCircle size={12} /> Journal table has been filled from your voice input
+                            {/* Voice Entry Section */}
+                            <div className={`rounded-2xl border p-4 md:p-5 transition-all duration-300 ${isListening ? 'border-red-500/60 bg-red-500/5 shadow-[0_0_30px_rgba(239,68,68,0.1)]' : parsingVoice ? 'border-accent/60 bg-accent/5 shadow-[0_0_30px_rgba(var(--accent-rgb),0.08)]' : 'border-border bg-surface'}`}>
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4 sm:gap-0">
+                                    <div>
+                                        <h4 className="font-plex font-bold text-text text-sm flex items-center gap-2">
+                                            <Mic size={16} className={isListening ? 'text-red-500' : 'text-accent'} />
+                                            Voice Entry
+                                            <span className="text-[10px] font-plex text-muted bg-surface2 border border-border px-2 py-0.5 rounded-full">Groq Whisper</span>
+                                        </h4>
+                                        <p className="font-plex text-xs text-muted mt-0.5">
+                                            Record your voice — Groq AI will transcribe &amp; fill the table
                                         </p>
-                                    )}
+                                    </div>
+                                    <button
+                                        onClick={startVoiceEntry}
+                                        disabled={parsingVoice}
+                                        className={`w-full sm:w-auto relative flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-plex font-bold text-sm transition-all shadow-md ${isListening
+                                                ? 'bg-red-500 text-white hover:bg-red-600 shadow-red-500/30'
+                                                : parsingVoice
+                                                    ? 'bg-accent/50 text-bg cursor-not-allowed'
+                                                    : 'bg-accent text-bg hover:bg-accent/90 shadow-accent/20'
+                                            }`}
+                                    >
+                                        {isListening && (
+                                            <span className="absolute -top-1 -right-1 h-3 w-3">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                            </span>
+                                        )}
+                                        {parsingVoice ? (
+                                            <><Loader2 size={16} className="animate-spin" /> AI Parsing...</>
+                                        ) : isListening ? (
+                                            <><MicOff size={16} /> Stop Recording</>
+                                        ) : (
+                                            <><Mic size={16} /> Start Voice Entry</>
+                                        )}
+                                    </button>
                                 </div>
-                            )}
-                        </div>
 
-                        {!feedback && (
-                            <button 
-                                onClick={submitAnswer}
-                                disabled={evaluating}
-                                className={`w-full font-bold py-4 md:py-5 rounded-2xl transition-all shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center justify-center gap-2 md:gap-3 text-lg md:text-xl tracking-wide ${evaluating ? 'bg-accent/40 cursor-not-allowed animate-pulse text-[#0f0e0d]' : 'bg-gradient-to-r from-accent to-accent-light text-[#0f0e0d] hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(var(--accent-rgb),0.4)]'}`}
-                            >
-                                {evaluating ? <><Loader2 size={24} className="animate-spin" /> <span className="hidden sm:inline">AI is Checking your Entry...</span><span className="sm:hidden">Checking...</span></> : <><CheckCircle size={24} /> Submit Journal Entry</>}
-                            </button>
-                        )}
+                                {/* Instructions */}
+                                {!isListening && !voiceTranscript && !parsingVoice && (
+                                    <div className="text-xs font-plex text-muted bg-bg border border-border rounded-xl p-4 space-y-1.5">
+                                        <p className="font-bold text-text mb-2">💡 How to speak your entry:</p>
+                                        <p>🟢 <span className="text-text">"Debit Cash one thousand, Credit Sales Revenue one thousand"</span></p>
+                                        <p>🟢 <span className="text-text">"Debit Rent Expense five hundred, Credit Cash five hundred"</span></p>
+                                        <p>🟢 <span className="text-text">"Debit Accounts Receivable 2500 Credit Service Revenue 2500"</span></p>
+                                    </div>
+                                )}
+
+                                {/* Listening Animation */}
+                                {isListening && (
+                                    <div className="flex flex-col items-center justify-center py-6 gap-4">
+                                        <div className="relative flex items-center justify-center">
+                                            <span className="absolute inline-flex h-20 w-20 rounded-full bg-red-500/20 animate-ping"></span>
+                                            <span className="relative flex h-16 w-16 rounded-full bg-red-500/10 border-2 border-red-500/50 items-center justify-center">
+                                                <Mic size={28} className="text-red-500 animate-pulse" />
+                                            </span>
+                                        </div>
+                                        <p className="font-plex text-sm text-red-500 font-bold animate-pulse">🎙 Recording... Speak your journal entry</p>
+                                        <p className="font-plex text-xs text-muted">Click <strong>Stop Recording</strong> when done (auto-stops at 15s)</p>
+                                    </div>
+                                )}
+
+                                {/* Transcript */}
+                                {voiceTranscript && !isListening && (
+                                    <div className="mt-3 bg-bg border border-border rounded-xl p-4">
+                                        <p className="text-[10px] font-plex text-muted uppercase tracking-widest mb-2 font-bold flex items-center gap-1">
+                                            <CheckCircle size={11} className="text-accent" /> Groq Whisper Transcript:
+                                        </p>
+                                        <p className="font-serif text-text text-base italic">"{voiceTranscript}"</p>
+                                        {!parsingVoice && (
+                                            <p className="text-xs font-plex text-accent mt-2 flex items-center gap-1">
+                                                <CheckCircle size={12} /> Journal table has been filled from your voice input
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {!feedback && (
+                                <button
+                                    onClick={submitAnswer}
+                                    disabled={evaluating}
+                                    className={`w-full font-bold py-4 md:py-5 rounded-2xl transition-all shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center justify-center gap-2 md:gap-3 text-lg md:text-xl tracking-wide ${evaluating ? 'bg-accent/40 cursor-not-allowed animate-pulse text-[#0f0e0d]' : 'bg-gradient-to-r from-accent to-accent-light text-[#0f0e0d] hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(var(--accent-rgb),0.4)]'}`}
+                                >
+                                    {evaluating ? <><Loader2 size={24} className="animate-spin" /> <span className="hidden sm:inline">AI is Checking your Entry...</span><span className="sm:hidden">Checking...</span></> : <><CheckCircle size={24} /> Submit Journal Entry</>}
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -889,21 +888,21 @@ Provide your evaluation and standard solution in JSON format ONLY:
                             </div>
                             <div className="p-5 space-y-3 font-plex text-[14px]">
                                 {feedback.correctDr && feedback.correctDr.map((dr, i) => (
-                                    <div key={'dr'+i} className="flex justify-between items-center border-b border-border/30 pb-3">
+                                    <div key={'dr' + i} className="flex justify-between items-center border-b border-border/30 pb-3">
                                         <span className="flex items-center gap-3"><span className="text-green-500 font-bold bg-green-500/10 px-2 py-0.5 rounded text-xs">Dr.</span><span className="font-medium">{dr.account}</span></span>
                                         <span className="font-bold">${(dr.amount || 0).toLocaleString()}</span>
                                     </div>
                                 ))}
                                 {feedback.correctCr && feedback.correctCr.map((cr, i) => (
-                                    <div key={'cr'+i} className="flex justify-between items-center border-b border-border/30 pb-3 pl-8">
+                                    <div key={'cr' + i} className="flex justify-between items-center border-b border-border/30 pb-3 pl-8">
                                         <span className="flex items-center gap-3"><span className="text-red-500 font-bold bg-red-500/10 px-2 py-0.5 rounded text-xs">Cr.</span><span className="font-medium text-muted">{cr.account}</span></span>
                                         <span className="font-bold text-muted">${(cr.amount || 0).toLocaleString()}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
-                        
-                        <button 
+
+                        <button
                             onClick={generateTopic}
                             className="bg-accent text-[#0f0e0d] font-bold py-4 px-6 rounded-xl transition-all flex justify-center items-center gap-2 w-full shadow-[0_10px_30px_rgba(var(--accent-rgb),0.2)] hover:scale-[1.02]"
                         >
@@ -922,8 +921,8 @@ Provide your evaluation and standard solution in JSON format ONLY:
                         To dynamically generate questions and evaluate journal entries, provide your free Groq API key.
                     </p>
                     <div className="flex gap-2 w-full max-w-sm">
-                        <input 
-                            type="password" 
+                        <input
+                            type="password"
                             placeholder="gsk_xxxxxxxx..."
                             value={groqApiKey}
                             onChange={(e) => {

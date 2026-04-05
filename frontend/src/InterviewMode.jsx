@@ -314,7 +314,7 @@ export default function InterviewMode() {
         };
         
         // Try local data.json first
-        axios.get('/data.json').then(r => apply(r.data)).catch(console.error);
+        fetch('/data.json').then(r => r.json()).then(data => apply(data)).catch(console.error);
     }, []);
 
 

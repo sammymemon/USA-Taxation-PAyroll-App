@@ -23,12 +23,13 @@ function Admin() {
         setLoading(true);
 
         // Fetch local static data first for instant load
-        axios.get('/data.json')
-            .then(res => {
-                setData(prev => prev.questions && prev.questions.length > 0 ? prev : res.data);
+        fetch('/data.json')
+            .then(res => res.json())
+            .then(fetchedData => {
+                setData(prev => prev.questions && prev.questions.length > 0 ? prev : fetchedData);
                 // Set default form category to first category if not set
-                if (res.data.categories && res.data.categories.length > 0) {
-                    setFormData(prev => ({ ...prev, cat: res.data.categories[0].id }));
+                if (fetchedData.categories && fetchedData.categories.length > 0) {
+                    setFormData(prev => ({ ...prev, cat: fetchedData.categories[0].id }));
                 }
                 setLoading(false);
             })

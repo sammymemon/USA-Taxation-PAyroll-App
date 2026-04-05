@@ -140,9 +140,10 @@ function Home() {
 
     useEffect(() => {
         // Fetch local static data first for instant load
-        axios.get('/data.json')
-            .then(res => {
-                setData(prev => prev.questions && prev.questions.length > 0 ? prev : res.data);
+        fetch('/data.json')
+            .then(res => res.json())
+            .then(fetchedData => {
+                setData(prev => prev.questions && prev.questions.length > 0 ? prev : fetchedData);
                 setLoading(false);
             })
             .catch(console.error);
