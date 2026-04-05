@@ -11,17 +11,28 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'USA Payroll & Accounting QA',
-        short_name: 'USA Payroll QA',
-        description: '500 Interview Q&A for USA Payroll & Accounting',
+        name: "Samir's Journal",
+        short_name: "Samir's Journal",
+        description: 'Interactive Journal & Bookkeeping',
         theme_color: '#0f0e0d',
         background_color: '#0f0e0d',
         display: 'standalone',
         icons: [
           {
-            src: 'vite.svg',
-            sizes: 'any',
-            type: 'image/svg+xml'
+            src: 'logo-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'logo-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: 'logo-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       }
