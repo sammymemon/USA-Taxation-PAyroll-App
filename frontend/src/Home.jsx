@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { Search, ChevronDown, ChevronUp, Shuffle, Maximize2, Minimize2, Bookmark, CheckCircle, Settings, Volume2, Square, Menu, X, Clock, Play, Pause, BarChart2, Sun, Moon, ChevronLeft, ChevronRight, RotateCcw, Mic, BookOpen, Video, ListTodo } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import SyncAuth from './SyncAuth';
 
 function Home() {
     const [data, setData] = useState({ categories: [], questions: [] });
@@ -149,12 +150,21 @@ function Home() {
             .catch(console.error);
 
         fetchData();
+        loadLocalStates();
+    }, []);
+
+    const loadLocalStates = () => {
         try {
             setBookmarks(JSON.parse(localStorage.getItem('bookmarks')) || {});
             setViewed(JSON.parse(localStorage.getItem('viewed')) || {});
             setMastered(JSON.parse(localStorage.getItem('mastered')) || {});
+            
+            const today = new Date().toISOString().split('T')[0];
+            let history = {};
+            try { history = JSON.parse(localStorage.getItem('studyHistory')) || {}; } catch(e){}
+            setPracticeTime(history[today] || 0);
         } catch (e) { }
-    }, []);
+    };
 
     const fetchData = () => {
         axios.get('/api/data')
@@ -408,6 +418,7 @@ function Home() {
                         <button onClick={toggleTheme} className="p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent" title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}>
                             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                         </button>
+                        <SyncAuth onSyncComplete={loadLocalStates} />
                         <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent shrink-0">
                             <Menu size={18} />
                         </button>
