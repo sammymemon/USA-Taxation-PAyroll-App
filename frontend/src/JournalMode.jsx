@@ -192,7 +192,8 @@ Output ONLY raw JSON format: {"topicName": "${currentTopic}", "lesson": "...", "
                     model: "llama-3.3-70b-versatile",
                     messages: [{ role: "user", content: prompt }],
                     temperature: 0.8,
-                    max_tokens: 400
+                    max_tokens: 400,
+                    response_format: { type: "json_object" }
                 },
                 { headers: { "Authorization": `Bearer ${groqApiKey}`, "Content-Type": "application/json" } }
             );
@@ -341,7 +342,8 @@ NOW PARSE THE TRANSCRIPT AND RETURN JSON ONLY:`;
                         { role: 'user', content: prompt }
                     ],
                     temperature: 0.0,
-                    max_tokens: 800
+                    max_tokens: 800,
+                    response_format: { type: "json_object" }
                 },
                 {
                     headers: {
@@ -464,7 +466,8 @@ Provide your evaluation and standard solution in JSON format ONLY:
                 {
                     model: "llama-3.1-8b-instant",
                     messages: [{ role: "user", content: prompt }],
-                    temperature: 0.1
+                    temperature: 0.1,
+                    response_format: { type: "json_object" }
                 },
                 {
                     headers: {
