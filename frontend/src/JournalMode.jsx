@@ -734,7 +734,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                             className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
                                                         />
                                                     </div>
-                                                    <div className="flex gap-3">
+                                                    <div className="flex flex-col sm:flex-row gap-3">
                                                         <div className="flex-1">
                                                             <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Debit</label>
                                                             <input
@@ -756,7 +756,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                             />
                                                         </div>
                                                     </div>
-                                                    <div className="flex gap-3">
+                                                    <div className="flex flex-col sm:flex-row gap-3">
                                                         <div className="flex-1">
                                                             <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Description</label>
                                                             <input
@@ -764,7 +764,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                                 value={row.description}
                                                                 onChange={e => updateRow(idx, 'description', e.target.value)}
                                                                 placeholder="Memo..."
-                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-2.5 rounded-lg text-xs text-text outline-none transition-all shadow-sm"
+                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
                                                             />
                                                         </div>
                                                         <div className="flex-1">
@@ -774,7 +774,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                                 value={row.name}
                                                                 onChange={e => updateRow(idx, 'name', e.target.value)}
                                                                 placeholder="Vendor..."
-                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-2.5 rounded-lg text-xs text-text outline-none transition-all shadow-sm"
+                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
                                                             />
                                                         </div>
                                                     </div>
