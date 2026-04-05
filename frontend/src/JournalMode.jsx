@@ -642,8 +642,6 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                     <th className="p-3 min-w-[220px] border-r border-border/50">Account</th>
                                                     <th className="p-3 w-[140px] border-r border-border/50 text-right">Debits</th>
                                                     <th className="p-3 w-[140px] border-r border-border/50 text-right">Credits</th>
-                                                    <th className="p-3 min-w-[180px] border-r border-border/50">Description</th>
-                                                    <th className="p-3 min-w-[150px] border-r border-border/50">Name</th>
                                                     <th className="p-3 w-12"></th>
                                                 </tr>
                                             </thead>
@@ -677,24 +675,6 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                                 onChange={e => updateRow(idx, 'credit', e.target.value)}
                                                                 placeholder=""
                                                                 className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all text-right font-plex"
-                                                            />
-                                                        </td>
-                                                        <td className="p-2 border-r border-border/50">
-                                                            <input
-                                                                type="text"
-                                                                value={row.description}
-                                                                onChange={e => updateRow(idx, 'description', e.target.value)}
-                                                                placeholder="Enter description..."
-                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all placeholder:text-muted/50"
-                                                            />
-                                                        </td>
-                                                        <td className="p-2 border-r border-border/50">
-                                                            <input
-                                                                type="text"
-                                                                value={row.name}
-                                                                onChange={e => updateRow(idx, 'name', e.target.value)}
-                                                                placeholder="Employee/Vendor..."
-                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all placeholder:text-muted/50"
                                                             />
                                                         </td>
                                                         <td className="p-2 text-center">
@@ -753,28 +733,6 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                                 onChange={e => updateRow(idx, 'credit', e.target.value)}
                                                                 placeholder="$ 0.00"
                                                                 className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all font-plex shadow-sm"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex flex-col sm:flex-row gap-3">
-                                                        <div className="flex-1">
-                                                            <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Description</label>
-                                                            <input
-                                                                type="text"
-                                                                value={row.description}
-                                                                onChange={e => updateRow(idx, 'description', e.target.value)}
-                                                                placeholder="Memo..."
-                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Name</label>
-                                                            <input
-                                                                type="text"
-                                                                value={row.name}
-                                                                onChange={e => updateRow(idx, 'name', e.target.value)}
-                                                                placeholder="Vendor..."
-                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-3 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
                                                             />
                                                         </div>
                                                     </div>
