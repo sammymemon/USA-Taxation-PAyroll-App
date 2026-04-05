@@ -20,9 +20,17 @@ const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
     console.warn("⚠️ No MONGO_URI string found in .env file! Add your MongoDB connection string to process.env.MONGO_URI.");
 } else {
-    mongoose.connect(MONGO_URI)
+    mongoose.connect(MONGO_URI, {
+        serverSelectionTimeoutMS: 15000,
+        socketTimeoutMS: 45000,
+    })
         .then(() => console.log('✅ MongoDB Connected to Atlas successfully!'))
-        .catch(err => console.error('❌ MongoDB connection error:', err));
+        .catch(err => {
+            console.error('❌ MongoDB connection error details:', err.message);
+            if (err.message.includes('bad auth')) {
+                console.error("💡 HINT: 'bad auth' means your PASSWORD or USERNAME is wrong. Check for exact spelling and NO special characters.");
+            }
+        });
 }
 
 // Schemas
