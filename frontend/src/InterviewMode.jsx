@@ -4,18 +4,12 @@ import { ArrowLeft, BookOpen, Bot, CheckCircle, Loader2, Play, Settings, Sparkle
 import { Link } from 'react-router-dom';
 
 const DEFAULT_TOPICS = [
-    "Debit/Credit Rules (USA GAAP)",
-    "Cash vs Accrual Basis",
-    "Revenue Recognition (ASC 606)",
-    "Petty Cash Fund (Imprest)",
-    "Bank Reconciliation Process",
-    "NSF Checks Accounting",
-    "Allowance for Doubtful Accounts",
-    "1099 Vendor Tracking",
-    "Employer Payroll Taxes (FICA, FUTA)",
-    "Employee Advance Repayments",
-    "Prepaid Expenses & Amortization",
-    "Depreciation (MACRS)"
+    "Accounting Equation", "Debit/Credit Rules", "Normal Account Balances", "T-Accounts", "Cash vs Accrual Basis", "Chart of Accounts",
+    "Revenue Recognition (ASC 606)", "Sales Returns & Allowances", "Credit Memos", "Allowance for Doubtful Accounts", "Bad Debt Write-offs", "Unearned Revenue",
+    "Purchase Orders (PO) vs Bill", "1099 Vendor Setup", "Early Payment Discounts", "Prepaid Expenses",
+    "Bank Reconciliation", "Outstanding Checks", "Deposits in Transit", "NSF Checks", "Petty Cash Fund", "Credit Card Reconciliation",
+    "Hourly vs Salary & Overtime", "Employer Payroll Taxes (FICA)", "Employee Payroll Deductions", "Form 941 & 940", "W-2 vs 1099 Classification",
+    "Depreciation (MACRS)", "Accrued Revenue", "Accrued Expenses", "Retained Earnings", "Cost of Goods Sold (COGS)"
 ];
 
 async function callGroq(apiKey, messages, maxTokens = 1500, json = false) {
@@ -43,6 +37,7 @@ async function callGroq(apiKey, messages, maxTokens = 1500, json = false) {
 export default function InterviewMode() {
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
     const [topic, setTopic] = useState('');
+    const [language, setLanguage] = useState('hinglish');
     const [status, setStatus] = useState('idle'); // idle, generating, verifying, done, error
     const [lessonData, setLessonData] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
@@ -59,9 +54,13 @@ export default function InterviewMode() {
 
         try {
             // STEP 1: GENERATE LESSON
+            const languagePrompt = language === 'hinglish' 
+                ? 'Use the EXTREMELY simple "Hinglish" language (Hindi written in English alphabet, mixed with basic English).'
+                : 'Use clear, professional, yet easy-to-understand English language.';
+
             const generatePrompt = `You are a master USA Bookkeeping & Accounting tutor.
 Teach the user about: "${activeTopic}"
-Use the EXTREMELY simple "Hinglish" language (Hindi written in English alphabet, mixed with basic English).
+${languagePrompt}
 Make the explanation engaging, detailed, but easy to understand for beginners.
 Make absolutely sure your accounting methodology and double-entry logic is 100% accurate.
 Include 1 or 2 practical scenarios with their Journal Entries.
@@ -69,15 +68,15 @@ Include 1 or 2 practical scenarios with their Journal Entries.
 Return ONLY a JSON object exactly in this format:
 {
   "title": "Topic Title",
-  "explanation": "Detailed explanation paragraph in Hinglish",
+  "explanation": "Detailed explanation paragraph in the requested language",
   "scenarios": [
     {
-      "description": "Scenario description in Hinglish",
+      "description": "Scenario description in the requested language",
       "entries": [
         { "account": "Cash", "type": "Debit", "amount": 1000 },
         { "account": "Sales Revenue", "type": "Credit", "amount": 1000 }
       ],
-      "note": "Why this entry was made (Hinglish)"
+      "note": "Why this entry was made (Requested language)"
     }
   ]
 }`;
@@ -154,9 +153,24 @@ ${JSON.stringify(intermediateData, null, 2)}`;
                                 <Sparkles size={40} />
                             </div>
                             
+                            <div className="flex gap-2 justify-center mb-6 relative z-10">
+                                <button 
+                                    onClick={() => setLanguage('english')} 
+                                    className={`px-5 py-2.5 rounded-xl font-plex text-[13px] font-bold transition-all ${language === 'english' ? 'bg-accent text-[#0f0e0d] shadow-lg shadow-accent/20 scale-105' : 'bg-surface border border-border text-muted hover:border-accent hover:text-text'}`}
+                                >
+                                    English
+                                </button>
+                                <button 
+                                    onClick={() => setLanguage('hinglish')} 
+                                    className={`px-5 py-2.5 rounded-xl font-plex text-[13px] font-bold transition-all ${language === 'hinglish' ? 'bg-accent text-[#0f0e0d] shadow-lg shadow-accent/20 scale-105' : 'bg-surface border border-border text-muted hover:border-accent hover:text-text'}`}
+                                >
+                                    Hinglish
+                                </button>
+                            </div>
+                            
                             <h2 className="text-3xl md:text-4xl font-playfair font-black mb-4">What do you want to learn?</h2>
                             <p className="text-muted font-plex text-sm max-w-xl mx-auto mb-8">
-                                Enter any USA accounting topic, rule, or journal entry. Aria (AI) will teach you in simple Hinglish, and internally double-check the journal entries for 100% accuracy.
+                                Enter any USA accounting topic. Aria (AI) will teach you in {language === 'english' ? 'English' : 'simple Hinglish'}, and internally double-check the journal entries for 100% accuracy.
                             </p>
 
                             <div className="max-w-md mx-auto space-y-4 relative z-10">
