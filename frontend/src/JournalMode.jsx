@@ -650,32 +650,40 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                     <tr key={idx} className="group hover:bg-surface/80 transition-colors">
                                                         <td className="p-3 text-center text-muted/70 font-plex text-xs border-r border-border/50">{idx + 1}</td>
                                                         <td className="p-2 border-r border-border/50">
-                                                            <input
-                                                                type="text"
-                                                                list="accountsList"
-                                                                value={row.account}
-                                                                onChange={e => updateRow(idx, 'account', e.target.value)}
-                                                                placeholder="Select account..."
-                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all placeholder:text-muted/50"
-                                                            />
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="text"
+                                                                    list="accountsList"
+                                                                    value={row.account}
+                                                                    onChange={e => updateRow(idx, 'account', e.target.value)}
+                                                                    placeholder="Select account..."
+                                                                    className="w-full bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-accent focus:shadow-[0_0_10px_rgba(var(--accent-rgb),0.1)] px-3 py-2.5 rounded-lg text-sm text-text outline-none transition-all placeholder:text-muted/50"
+                                                                />
+                                                            </div>
                                                         </td>
                                                         <td className="p-2 border-r border-border/50">
-                                                            <input
-                                                                type="number"
-                                                                value={row.debit}
-                                                                onChange={e => updateRow(idx, 'debit', e.target.value)}
-                                                                placeholder=""
-                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all text-right font-plex"
-                                                            />
+                                                            <div className="relative flex items-center">
+                                                                <span className="absolute left-3 text-muted/50 pointer-events-none w-4 font-plex">$</span>
+                                                                <input
+                                                                    type="number"
+                                                                    value={row.debit}
+                                                                    onChange={e => updateRow(idx, 'debit', e.target.value)}
+                                                                    placeholder=""
+                                                                    className="w-full bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-accent focus:shadow-[0_0_10px_rgba(var(--accent-rgb),0.1)] pl-7 pr-3 py-2.5 rounded-lg text-sm text-text outline-none transition-all text-right font-plex"
+                                                                />
+                                                            </div>
                                                         </td>
                                                         <td className="p-2 border-r border-border/50">
-                                                            <input
-                                                                type="number"
-                                                                value={row.credit}
-                                                                onChange={e => updateRow(idx, 'credit', e.target.value)}
-                                                                placeholder=""
-                                                                className="w-full bg-transparent border-2 border-transparent hover:bg-surface focus:bg-surface focus:border-accent/50 px-3 py-2 rounded-md text-sm text-text outline-none transition-all text-right font-plex"
-                                                            />
+                                                            <div className="relative flex items-center">
+                                                                <span className="absolute left-3 text-muted/50 pointer-events-none w-4 font-plex">$</span>
+                                                                <input
+                                                                    type="number"
+                                                                    value={row.credit}
+                                                                    onChange={e => updateRow(idx, 'credit', e.target.value)}
+                                                                    placeholder=""
+                                                                    className="w-full bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-accent focus:shadow-[0_0_10px_rgba(var(--accent-rgb),0.1)] pl-7 pr-3 py-2.5 rounded-lg text-sm text-text outline-none transition-all text-right font-plex"
+                                                                />
+                                                            </div>
                                                         </td>
                                                         <td className="p-2 text-center">
                                                             {journalRows.length > 2 && (
@@ -702,38 +710,46 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                         </button>
                                                     )}
                                                 </div>
-                                                <div className="space-y-3">
+                                                <div className="space-y-4">
                                                     <div>
-                                                        <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Account</label>
-                                                        <input
-                                                            type="text"
-                                                            list="accountsList"
-                                                            value={row.account}
-                                                            onChange={e => updateRow(idx, 'account', e.target.value)}
-                                                            placeholder="Select account..."
-                                                            className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
-                                                        />
+                                                        <label className="text-[11px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1.5 block tracking-wider font-bold">Account</label>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="text"
+                                                                list="accountsList"
+                                                                value={row.account}
+                                                                onChange={e => updateRow(idx, 'account', e.target.value)}
+                                                                placeholder="Select account..."
+                                                                className="w-full bg-bg border border-border focus:border-accent focus:shadow-[0_0_15px_rgba(var(--accent-rgb),0.1)] px-4 py-3.5 rounded-xl text-[15px] text-text outline-none transition-all shadow-sm"
+                                                            />
+                                                        </div>
                                                     </div>
                                                     <div className="flex flex-row gap-3">
                                                         <div className="flex-1">
-                                                            <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Debit</label>
-                                                            <input
-                                                                type="number"
-                                                                value={row.debit}
-                                                                onChange={e => updateRow(idx, 'debit', e.target.value)}
-                                                                placeholder="$ 0.00"
-                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all font-plex shadow-sm"
-                                                            />
+                                                            <label className="text-[11px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1.5 block tracking-wider font-bold">Debit</label>
+                                                            <div className="relative">
+                                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted font-plex">$</span>
+                                                                <input
+                                                                    type="number"
+                                                                    value={row.debit}
+                                                                    onChange={e => updateRow(idx, 'debit', e.target.value)}
+                                                                    placeholder="0.00"
+                                                                    className="w-full bg-bg border border-border focus:border-accent focus:shadow-[0_0_15px_rgba(var(--accent-rgb),0.1)] pl-8 pr-4 py-3.5 rounded-xl text-[15px] text-text outline-none transition-all font-plex shadow-sm"
+                                                                />
+                                                            </div>
                                                         </div>
                                                         <div className="flex-1">
-                                                            <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Credit</label>
-                                                            <input
-                                                                type="number"
-                                                                value={row.credit}
-                                                                onChange={e => updateRow(idx, 'credit', e.target.value)}
-                                                                placeholder="$ 0.00"
-                                                                className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all font-plex shadow-sm"
-                                                            />
+                                                            <label className="text-[11px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1.5 block tracking-wider font-bold">Credit</label>
+                                                            <div className="relative">
+                                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted font-plex">$</span>
+                                                                <input
+                                                                    type="number"
+                                                                    value={row.credit}
+                                                                    onChange={e => updateRow(idx, 'credit', e.target.value)}
+                                                                    placeholder="0.00"
+                                                                    className="w-full bg-bg border border-border focus:border-accent focus:shadow-[0_0_15px_rgba(var(--accent-rgb),0.1)] pl-8 pr-4 py-3.5 rounded-xl text-[15px] text-text outline-none transition-all font-plex shadow-sm"
+                                                                />
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
