@@ -84,12 +84,14 @@ Return ONLY a JSON object exactly in this format:
             const generatedRaw = await callGroq(apiKey, [
                 { role: 'system', content: 'You only output JSON.' },
                 { role: 'user', content: generatePrompt }
-            ], 1500, true);
+            ], 3500, true);
 
             let intermediateData;
             try {
-                intermediateData = JSON.parse(generatedRaw.match(/\{[\s\S]*\}/)[0]);
+                const match = generatedRaw.match(/\{[\s\S]*\}/);
+                intermediateData = JSON.parse(match ? match[0] : generatedRaw);
             } catch (e) {
+                console.error("Parse Error Gen", generatedRaw);
                 throw new Error("Failed to parse AI structure.");
             }
 
@@ -112,9 +114,17 @@ ${JSON.stringify(intermediateData, null, 2)}`;
             const verifiedRaw = await callGroq(apiKey, [
                 { role: 'system', content: 'You only output corrected JSON.' },
                 { role: 'user', content: verifyPrompt }
-            ], 1500, true);
+            ], 3500, true);
 
-            const finalData = JSON.parse(verifiedRaw.match(/\{[\s\S]*\}/)[0]);
+            let finalData;
+            try {
+                const match2 = verifiedRaw.match(/\{[\s\S]*\}/);
+                finalData = JSON.parse(match2 ? match2[0] : verifiedRaw);
+            } catch (e) {
+                console.error("Parse Error Ver", verifiedRaw);
+                finalData = intermediateData; // Fallback to intermediate if strict verification parsing fails
+            }
+            
             setLessonData(finalData);
             setStatus('done');
 
@@ -275,9 +285,10 @@ ${JSON.stringify(intermediateData, null, 2)}`;
 
                             <div className="p-6 md:p-10 space-y-10">
                                 {lessonData.scenarios?.map((scenario, sIdx) => {
-                                    // Calculate totals for verification UI
-                                    const totalDr = scenario.entries.filter(e => e.type.toLowerCase() === 'debit').reduce((s, e) => s + e.amount, 0);
-                                    const totalCr = scenario.entries.filter(e => e.type.toLowerCase() === 'credit').reduce((s, e) => s + e.amount, 0);
+                                    // Calculate totals for verification UI safely
+                                    const safeEntries = scenario?.entries || [];
+                                    const totalDr = safeEntries.filter(e => String(e.type || '').toLowerCase() === 'debit').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+                                    const totalCr = safeEntries.filter(e => String(e.type || '').toLowerCase() === 'credit').reduce((s, e) => s + (Number(e.amount) || 0), 0);
                                     const isBalanced = totalDr === totalCr;
 
                                     return (
@@ -301,18 +312,19 @@ ${JSON.stringify(intermediateData, null, 2)}`;
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-border/50">
-                                                            {scenario.entries.map((entry, eIdx) => {
-                                                                const isDr = entry.type.toLowerCase() === 'debit';
+                                                            {safeEntries.map((entry, eIdx) => {
+                                                                const isDr = String(entry.type || '').toLowerCase() === 'debit';
+                                                                const formattedAmt = (Number(entry.amount) || 0).toLocaleString();
                                                                 return (
                                                                     <tr key={eIdx} className="font-plex text-sm sm:text-base">
                                                                         <td className={`px-4 py-3 ${isDr ? 'font-bold' : 'pl-10 text-muted'}`}>
-                                                                            {entry.account}
+                                                                            {entry.account || 'Unknown'}
                                                                         </td>
                                                                         <td className="px-4 py-3 text-right text-text">
-                                                                            {isDr ? entry.amount.toLocaleString() : ''}
+                                                                            {isDr ? formattedAmt : ''}
                                                                         </td>
                                                                         <td className="px-4 py-3 text-right text-muted">
-                                                                            {!isDr ? entry.amount.toLocaleString() : ''}
+                                                                            {!isDr ? formattedAmt : ''}
                                                                         </td>
                                                                     </tr>
                                                                 );
