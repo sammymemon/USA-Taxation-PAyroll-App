@@ -714,7 +714,7 @@ Provide your evaluation and standard solution in JSON format ONLY:
                                                             className="w-full bg-bg border border-border focus:border-accent/50 px-4 py-3 rounded-lg text-sm text-text outline-none transition-all shadow-sm"
                                                         />
                                                     </div>
-                                                    <div className="flex flex-col sm:flex-row gap-3">
+                                                    <div className="flex flex-row gap-3">
                                                         <div className="flex-1">
                                                             <label className="text-[10px] uppercase font-plex p-0.5 text-muted ml-0.5 mb-1 block tracking-wider">Debit</label>
                                                             <input
