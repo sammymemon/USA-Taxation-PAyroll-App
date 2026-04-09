@@ -55,7 +55,7 @@ export default function InterviewMode() {
         try {
             // STEP 1: GENERATE LESSON
             const languagePrompt = language === 'hinglish' 
-                ? 'Use the EXTREMELY simple "Hinglish" language (Hindi written in English alphabet, mixed with basic English).'
+                ? 'CRITICAL REQUIREMENT: You MUST write the entire explanation and all notes in conversational Indian "Hinglish". This means writing Hindi sentences using the English alphabet mixed with Accounting terms. (e.g., "Jab asset badhta hai toh hum debit karte hain"). DO NOT output pure English paragraphs. Your explanations MUST be in Hinglish.'
                 : 'Use clear, professional, yet easy-to-understand English language.';
 
             const generatePrompt = `You are a master USA Bookkeeping & Accounting tutor.
@@ -101,6 +101,8 @@ You MUST:
 1. Verify mathematically that Total Debits exactly equals Total Credits for EVERY scenario.
 2. If Debits != Credits, RECALCULATE and correctly adjust the amounts based on the scenario description.
 3. Check if the Account names make sense for USA Bookkeeping. If not, fix them.
+
+CRITICAL INSTRUCTION: DO NOT TRANSLATE, REWRITE, OR CHANGE THE LANGUAGE of the text strings (title, explanation, description, note). If the original text is in Hinglish/Hindi, KEEP IT exactly 100% as the original Hinglish. Your ONLY job is to fix mathematical numbers and debits/credits.
 
 Output the EXACT SAME JSON structure with corrected data (if any). If it is already 100% correct, just output it exactly as is.
 
