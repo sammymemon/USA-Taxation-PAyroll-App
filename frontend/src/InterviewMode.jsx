@@ -4,12 +4,18 @@ import { ArrowLeft, BookOpen, Bot, CheckCircle, Loader2, Play, Settings, Sparkle
 import { Link } from 'react-router-dom';
 
 const DEFAULT_TOPICS = [
-    "Advance Salary vs Loan",
-    "Prepaid Expenses",
-    "Accrued Revenue",
-    "Depreciation (MACRS)",
-    "Bad Debts (Allowance Method)",
-    "Payroll Taxes (FICA, FUTA)"
+    "Debit/Credit Rules (USA GAAP)",
+    "Cash vs Accrual Basis",
+    "Revenue Recognition (ASC 606)",
+    "Petty Cash Fund (Imprest)",
+    "Bank Reconciliation Process",
+    "NSF Checks Accounting",
+    "Allowance for Doubtful Accounts",
+    "1099 Vendor Tracking",
+    "Employer Payroll Taxes (FICA, FUTA)",
+    "Employee Advance Repayments",
+    "Prepaid Expenses & Amortization",
+    "Depreciation (MACRS)"
 ];
 
 async function callGroq(apiKey, messages, maxTokens = 1500, json = false) {
@@ -57,6 +63,7 @@ export default function InterviewMode() {
 Teach the user about: "${activeTopic}"
 Use the EXTREMELY simple "Hinglish" language (Hindi written in English alphabet, mixed with basic English).
 Make the explanation engaging, detailed, but easy to understand for beginners.
+Make absolutely sure your accounting methodology and double-entry logic is 100% accurate.
 Include 1 or 2 practical scenarios with their Journal Entries.
 
 Return ONLY a JSON object exactly in this format:
@@ -89,14 +96,14 @@ Return ONLY a JSON object exactly in this format:
 
             // STEP 2: VERIFY DATA
             setStatus('verifying');
-            const verifyPrompt = `You are a strict Senior CPA. I will give you a generated accounting lesson in JSON.
-You must review EVERY journal entry.
-Check if Debits strictly equal Credits for every scenario.
-Check if the Account names make sense for USA Bookkeeping.
-Check if the numbers make mathematical sense based on the description.
+            const verifyPrompt = `You are a strict Senior CPA and Quality Assurance auditor. I will give you a generated accounting lesson in JSON.
+Your ONLY job is to verify the accuracy of the accounting principles and journal entries.
+You MUST:
+1. Verify mathematically that Total Debits exactly equals Total Credits for EVERY scenario.
+2. If Debits != Credits, RECALCULATE and correctly adjust the amounts based on the scenario description.
+3. Check if the Account names make sense for USA Bookkeeping. If not, fix them.
 
-If there is ANY mistake, fix it directly in the data.
-Output the EXACT SAME JSON structure with corrected data (if any). If it is already correct, just output it exactly as is.
+Output the EXACT SAME JSON structure with corrected data (if any). If it is already 100% correct, just output it exactly as is.
 
 JSON to review:
 ${JSON.stringify(intermediateData, null, 2)}`;
@@ -268,9 +275,9 @@ ${JSON.stringify(intermediateData, null, 2)}`;
                                             </div>
 
                                             <div className="p-4 md:p-6">
-                                                <div className="bg-surface border border-border rounded-xl overflow-hidden mb-4">
-                                                    <table className="w-full text-left border-collapse">
-                                                        <thead className="bg-surface2/50 border-b border-border hidden sm:table-header-group">
+                                                <div className="bg-surface border border-border rounded-xl overflow-x-auto mb-4">
+                                                    <table className="w-full text-left border-collapse min-w-[500px]">
+                                                        <thead className="bg-surface2/50 border-b border-border">
                                                             <tr className="font-plex text-[10px] uppercase text-muted tracking-widest">
                                                                 <th className="px-4 py-3">Account</th>
                                                                 <th className="px-4 py-3 text-right">Debit ($)</th>
