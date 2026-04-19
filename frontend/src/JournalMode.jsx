@@ -4,60 +4,51 @@ import {
     ArrowLeft, Plus, Trash2, CheckCircle, RefreshCcw, 
     Activity, Sparkles, BookOpen, Target, Brain, 
     Coins, ArrowRightLeft, PieChart, BarChart3, Wallet,
-    CheckCircle2, AlertCircle, Loader2, Trophy
+    CheckCircle2, AlertCircle, Loader2, Trophy,
+    Heart, Timer, Zap, Scale, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const CHART_OF_ACCOUNTS = [
-    "1000 - Cash", "1200 - Accounts Receivable", "1300 - Inventory", "1400 - Prepaid Expenses",
-    "1500 - Equipment", "2000 - Accounts Payable", "2100 - Wages Payable", "2150 - Payroll Taxes Payable",
-    "2400 - Unearned Revenue", "2700 - Notes Payable", "3000 - Common Stock", "3100 - Retained Earnings",
-    "4000 - Sales Revenue", "4100 - Service Revenue", "5000 - Cost of Goods Sold", "5100 - Payroll Expense",
-    "5200 - Rent Expense", "5300 - Utilities Expense", "5400 - Depreciation Expense", "5800 - Professional Fees"
-];
-
 function JournalMode() {
     const [groqApiKey, setGroqApiKey] = useState(() => (localStorage.getItem('groqApiKey') || '').trim());
-    const [gameStatus, setGameStatus] = useState('idle'); // idle, generating, playing, evaluating, feedback
+    const [gameStatus, setGameStatus] = useState('idle'); // idle, generating, playing, feedback
     const [scenario, setScenario] = useState(null);
     const [userAnswers, setUserAnswers] = useState([]); // { account, side, amount }
-    const [feedback, setFeedback] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [isEvaluating, setIsEvaluating] = useState(false);
+    
+    // Game State
+    const [score, setScore] = useState(0);
+    const [lives, setLives] = useState(3);
+    const [currentIndex, setCurrentIndex] = useState(0); // For multiple account selection if needed
+    const [equations, setEquations] = useState({ assets: 0, liabilities: 0, equity: 0 });
 
     const generateTrickyQuestion = async () => {
         if (!groqApiKey) return alert("Please enter your free Groq API Key first.");
         
         setIsGenerating(true);
         setGameStatus('generating');
-        setFeedback(null);
         setUserAnswers([]);
+        setScore(0);
+        setLives(3);
 
-        const prompt = `You are a Senior Accounting Interviewer for a top USA firm. 
-Generate a TRICKY accounting interview question based on realistic business scenarios (USA bookkeeping/payroll).
+        const prompt = `You are a Senior Accounting Gameshow Host. 
+Generate a TRICKY accounting interview question for a "Debit Credit" game app.
 Include dollar amounts in USD.
 
 Requirements:
-- The question must be slightly tricky (interview level), e.g., involving accruals, payroll taxes, discounts, or prepaid adjustments.
-- Give a clear "scenario" description.
-- List 4-6 "accountsInvolved" (some may be distractors).
-- Provide the "correctEntries" (list of { "account": "...", "side": "Debit"|"Credit", "amount": number }).
-- Provide "tAccountBalances" (list of { "account": "...", "dr": number, "cr": number, "final": number }) for the correct solution.
-- Provide impact on "reports": {
-    "pl": [ { "item": "...", "amount": number } ],
-    "bs": [ { "item": "...", "amount": number } ],
-    "incomeStatement": [ { "item": "...", "amount": number } ]
-  }
-- Provide a "hinglishExplanation" explaining the logic in easy Hinglish.
+- Scenario: A tricky business transaction (USA rules).
+- Accounts: 4-5 involved accounts.
+- Solution: Correct side (Debit/Credit) and amounts.
+- Logic: Hinglish explanation.
+- Balance Sheet Impact: Assets, Liabilities, Equity changes.
 
 Output ONLY JSON:
 {
   "scenario": "...",
-  "accountsInvolved": ["...", "..."],
-  "correctEntries": [ { "account": "...", "side": "...", "amount": 0 } ],
-  "tAccountBalances": [ { "account": "...", "dr": 0, "cr": 0, "final": 0 } ],
-  "reports": { ... },
-  "hinglishExplanation": "..."
+  "accountsInvolved": ["Account A", "Account B", ...],
+  "correctEntries": [ { "account": "...", "side": "Debit"|"Credit", "amount": 1000 } ],
+  "hinglishExplanation": "...",
+  "equationImpact": { "assets": 0, "liabilities": 0, "equity": 0 }
 }`;
 
         try {
@@ -76,327 +67,285 @@ Output ONLY JSON:
             const parsed = JSON.parse(response.data.choices[0].message.content);
             setScenario(parsed);
             setGameStatus('playing');
+            setCurrentIndex(0);
         } catch (error) {
             console.error(error);
-            alert("Failed to generate question. Check your API key or connection.");
+            alert("API connection failed. Use valid Groq API key.");
             setGameStatus('idle');
         } finally {
             setIsGenerating(false);
         }
     };
 
-    const toggleAccountSelection = (account, side) => {
-        const existingIndex = userAnswers.findIndex(a => a.account === account && a.side === side);
-        if (existingIndex > -1) {
-            const newAnswers = [...userAnswers];
-            newAnswers.splice(existingIndex, 1);
-            setUserAnswers(newAnswers);
+    const handleAnswer = (side) => {
+        const currentAccount = scenario.accountsInvolved[currentIndex];
+        const correctEntry = scenario.correctEntries.find(e => e.account === currentAccount);
+        
+        const isCorrect = correctEntry && correctEntry.side === side;
+
+        if (isCorrect) {
+            setScore(s => s + 100);
+            // Visual feedback logic would go here
         } else {
-            setUserAnswers([...userAnswers, { account, side, amount: '' }]);
+            setLives(l => Math.max(0, l - 1));
+        }
+
+        const answer = { 
+            account: currentAccount, 
+            side, 
+            amount: correctEntry ? correctEntry.amount : 0, 
+            isCorrect 
+        };
+        
+        setUserAnswers([...userAnswers, answer]);
+
+        if (currentIndex < scenario.accountsInvolved.length - 1) {
+            setCurrentIndex(c => c + 1);
+        } else {
+            setGameStatus('feedback');
         }
     };
 
-    const updateAmount = (account, side, amount) => {
-        setUserAnswers(userAnswers.map(ans => 
-            (ans.account === account && ans.side === side) ? { ...ans, amount } : ans
-        ));
-    };
-
-    const submitAnswer = () => {
-        if (userAnswers.length === 0) return alert("Pehle entries to karo!");
-        setIsEvaluating(true);
-        setGameStatus('evaluating');
-
-        // Logic to compare userAnswers with scenario.correctEntries
-        // For simplicity and better feedback, we'll let the AI evaluate or do a client-side match
-        // But the user requested "show the correct answer and explanation"
-        setTimeout(() => {
-            setGameStatus('feedback');
-            setIsEvaluating(false);
-        }, 1000);
-    };
-
     return (
-        <div className="min-h-screen bg-bg text-text font-serif">
-            {/* Header */}
-            <header className="bg-surface/80 backdrop-blur-md border-b border-border p-4 sticky top-0 z-50 flex justify-between items-center">
+        <div className="min-h-screen bg-[#0f172a] text-white font-sans selection:bg-accent/30 overflow-x-hidden">
+            {/* Game Header */}
+            <header className="p-4 flex justify-between items-center border-b border-white/10 bg-[#1e293b]/50 backdrop-blur-xl sticky top-0 z-[100]">
                 <div className="flex items-center gap-4">
-                    <Link to="/" className="p-2 bg-bg border border-border rounded-xl hover:bg-surface2 transition-all">
-                        <ArrowLeft size={18} />
+                    <Link to="/" className="p-2 hover:bg-white/10 rounded-full transition-all">
+                        <ArrowLeft />
                     </Link>
-                    <h1 className="font-playfair text-xl font-bold flex items-center gap-2">
-                        <Coins className="text-accent" /> Journal Game
-                    </h1>
+                    <div className="flex flex-col">
+                        <span className="text-[10px] text-accent font-bold uppercase tracking-widest">Accounting Play</span>
+                        <h1 className="text-lg font-black italic flex items-center gap-2">
+                             DEBIT <ArrowRightLeft size={16} className="text-gray-500" /> CREDIT
+                        </h1>
+                    </div>
                 </div>
-                <div className="flex items-center gap-4">
-                    <input 
-                        type="password" 
-                        placeholder="Groq API Key"
-                        value={groqApiKey}
-                        onChange={(e) => {
-                            setGroqApiKey(e.target.value);
-                            localStorage.setItem('groqApiKey', e.target.value);
-                        }}
-                        className="bg-bg border border-border px-3 py-1.5 rounded-lg text-xs w-32 md:w-48 outline-none focus:border-accent transition-all"
-                    />
+
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-2xl border border-white/10">
+                        <Trophy size={18} className="text-yellow-400" />
+                        <span className="font-black text-xl tabular-nums">{score}</span>
+                    </div>
+                    <div className="flex gap-1">
+                        {[...Array(3)].map((_, i) => (
+                            <Heart 
+                                key={i} 
+                                size={24} 
+                                fill={i < lives ? "#ef4444" : "transparent"} 
+                                className={i < lives ? "text-red-500" : "text-white/20"} 
+                            />
+                        ))}
+                    </div>
                 </div>
             </header>
 
-            <main className="max-w-6xl mx-auto p-4 md:p-8 space-y-8">
+            <main className="max-w-4xl mx-auto p-4 flex flex-col items-center justify-center min-h-[calc(100vh-80px)]">
+                
+                {/* IDLE SCREEN */}
                 {gameStatus === 'idle' && (
-                    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-fadeIn">
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-accent/20 blur-3xl rounded-full"></div>
-                            <Trophy size={120} className="text-accent relative z-10 animate-bounce" />
+                    <div className="text-center space-y-12 animate-fadeIn flex flex-col items-center">
+                        <div className="relative group">
+                            <div className="absolute inset-0 bg-accent/20 blur-[100px] rounded-full group-hover:bg-accent/40 transition-all duration-1000"></div>
+                            <div className="relative bg-[#1e293b] p-12 rounded-[3rem] border border-white/10 shadow-2xl rotate-3 group-hover:rotate-0 transition-transform">
+                                <Scale size={130} className="text-accent" />
+                            </div>
                         </div>
-                        <div className="space-y-4 max-w-2xl px-4">
-                            <h2 className="text-4xl md:text-6xl font-playfair font-black text-white">The Ultimate Journal Entry Battle</h2>
-                            <p className="text-muted text-lg leading-relaxed">
-                                Crack tricky USA accounting interview questions. Balance your T-accounts and see real-time impact on financial statements.
+                        <div className="space-y-4">
+                            <h2 className="text-5xl md:text-7xl font-black tracking-tighter">Debit or Credit?</h2>
+                            <p className="text-gray-400 text-lg max-w-md mx-auto font-medium">
+                                Fast-paced accounting battle. Categorize accounts and balance the equation.
                             </p>
                         </div>
                         <button 
                             onClick={generateTrickyQuestion}
-                            className="bg-accent text-bg font-bold px-12 py-5 rounded-2xl text-xl hover:scale-105 transition-all shadow-lg shadow-accent/20 flex items-center gap-3"
+                            className="group relative bg-white text-black font-black px-16 py-6 rounded-full text-2xl hover:scale-110 active:scale-95 transition-all shadow-[0_0_50px_rgba(255,255,255,0.2)] flex items-center gap-4 overflow-hidden"
                         >
-                            <Sparkles size={24} /> Start New Battle
+                            <span className="relative z-10">PLAY NOW</span>
+                            <Zap className="relative z-10 fill-black" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-accent to-accent2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         </button>
+
+                        <div className="pt-8">
+                             <input 
+                                type="password" 
+                                placeholder="PASTE YOUR GROQ API KEY HERE"
+                                value={groqApiKey}
+                                onChange={(e) => {
+                                    setGroqApiKey(e.target.value);
+                                    localStorage.setItem('groqApiKey', e.target.value);
+                                }}
+                                className="bg-[#1e293b] border border-white/10 px-6 py-3 rounded-2xl text-xs w-64 text-center outline-none focus:border-accent transition-all font-mono"
+                            />
+                        </div>
                     </div>
                 )}
 
-                {(gameStatus === 'generating' || isGenerating) && (
-                    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
-                        <Loader2 size={64} className="text-accent animate-spin" />
-                        <p className="text-accent font-plex animate-pulse">Groq AI is crafting a tricky scenario...</p>
+                {/* GENERATING SCREEN */}
+                {gameStatus === 'generating' && (
+                    <div className="flex flex-col items-center gap-8 animate-pulse text-center">
+                        <div className="relative">
+                            <Loader2 size={100} className="text-accent animate-spin" />
+                            <Zap size={30} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white" />
+                        </div>
+                        <div className="space-y-2">
+                             <h3 className="text-2xl font-black">PREPARING SCENARIO</h3>
+                             <p className="text-gray-500 font-mono">Loading tricky GAAP concepts...</p>
+                        </div>
                     </div>
                 )}
 
-                {scenario && (gameStatus === 'playing' || gameStatus === 'evaluating' || gameStatus === 'feedback') && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn">
+                {/* PLAYING SCREEN */}
+                {gameStatus === 'playing' && scenario && (
+                    <div className="w-full flex flex-col gap-8 animate-fadeIn">
                         
-                        {/* Scenario & Account Selection */}
-                        <div className="lg:col-span-2 space-y-8">
-                            {/* Question Card */}
-                            <div className="bg-surface border border-border p-6 md:p-10 rounded-[2rem] shadow-2xl relative overflow-hidden group">
-                                <div className="absolute -top-10 -right-10 opacity-5 group-hover:rotate-12 transition-transform duration-700">
-                                    <Brain size={200} />
+                        {/* THE SCENARIO CARD */}
+                        <div className="bg-[#1e293b] border-2 border-white/10 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden ring-1 ring-white/10">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="bg-accent/20 p-2 rounded-xl">
+                                    <Target size={20} className="text-accent" />
                                 </div>
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="bg-accent/10 p-2 rounded-lg text-accent border border-accent/20">
-                                        <Target size={20} />
-                                    </div>
-                                    <span className="text-accent font-plex text-sm font-bold uppercase tracking-widest">Tricky Scenario</span>
-                                </div>
-                                <p className="text-xl md:text-3xl font-playfair font-bold text-white leading-snug">
-                                    {scenario.scenario}
-                                </p>
+                                <span className="text-accent text-[10px] font-black uppercase tracking-[0.3em]">Active Mission</span>
                             </div>
-
-                            {/* Interactive Selection Zone */}
-                            {gameStatus === 'playing' && (
-                                <div className="space-y-6">
-                                    <h3 className="font-plex text-sm text-muted uppercase tracking-widest font-bold">Pick Your Moves (Debit or Credit)</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {scenario.accountsInvolved.map(acc => {
-                                            const isDebit = userAnswers.some(a => a.account === acc && a.side === 'Debit');
-                                            const isCredit = userAnswers.some(a => a.account === acc && a.side === 'Credit');
-                                            
-                                            return (
-                                                <div key={acc} className="bg-surface border border-border p-4 rounded-2xl flex flex-col gap-4">
-                                                    <span className="font-bold text-gray-200">{acc}</span>
-                                                    <div className="flex gap-2">
-                                                        <button 
-                                                            onClick={() => toggleAccountSelection(acc, 'Debit')}
-                                                            className={`flex-1 py-2 rounded-xl font-bold transition-all border ${isDebit ? 'bg-accent text-bg border-accent' : 'bg-bg text-muted border-border hover:border-accent/50'}`}
-                                                        >
-                                                            Debit
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => toggleAccountSelection(acc, 'Credit')}
-                                                            className={`flex-1 py-2 rounded-xl font-bold transition-all border ${isCredit ? 'bg-accent2 text-bg border-accent2' : 'bg-bg text-muted border-border hover:border-accent2/50'}`}
-                                                        >
-                                                            Credit
-                                                        </button>
-                                                    </div>
-                                                    {(isDebit || isCredit) && (
-                                                        <div className="relative animate-fadeIn">
-                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted font-plex">$</span>
-                                                            <input 
-                                                                type="number"
-                                                                placeholder="Amount"
-                                                                value={userAnswers.find(a => a.account === acc && (isDebit ? a.side === 'Debit' : a.side === 'Credit'))?.amount || ''}
-                                                                onChange={(e) => updateAmount(acc, isDebit ? 'Debit' : 'Credit', e.target.value)}
-                                                                className="w-full bg-bg border border-border pl-8 pr-4 py-3 rounded-xl outline-none focus:border-accent transition-all font-plex text-white text-lg"
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    <button 
-                                        onClick={submitAnswer}
-                                        className="w-full bg-accent text-bg font-bold py-5 rounded-2xl text-xl hover:shadow-[0_0_30px_rgba(var(--accent-rgb),0.3)] transition-all flex justify-center items-center gap-2"
-                                    >
-                                        Evaluate My Entry <ArrowRightLeft size={20} />
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Feedback Section */}
-                            {gameStatus === 'feedback' && (
-                                <div className="space-y-6 animate-fadeIn">
-                                    <div className="bg-accent/10 border border-accent/20 p-8 rounded-[2rem] space-y-4">
-                                        <div className="flex items-center gap-3 text-accent mb-2">
-                                            <Brain size={24} />
-                                            <h3 className="text-2xl font-playfair font-bold">Instructor's Logic (Hinglish)</h3>
-                                        </div>
-                                        <p className="text-xl text-white leading-relaxed font-serif">
-                                            {scenario.hinglishExplanation}
-                                        </p>
-                                    </div>
-
-                                    {/* Correct Solution Table */}
-                                    <div className="bg-surface border border-border rounded-2xl overflow-hidden">
-                                        <div className="bg-surface2 p-4 border-b border-border">
-                                            <h4 className="font-plex text-sm font-bold uppercase tracking-widest text-muted">Standard Solution</h4>
-                                        </div>
-                                        <table className="w-full text-left">
-                                            <thead>
-                                                <tr className="text-xs text-muted uppercase tracking-tighter border-b border-border/50">
-                                                    <th className="p-4">Account</th>
-                                                    <th className="p-4 text-right">Debit</th>
-                                                    <th className="p-4 text-right">Credit</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {scenario.correctEntries.map((entry, idx) => (
-                                                    <tr key={idx} className="border-b border-border/30">
-                                                        <td className="p-4 font-bold">{entry.account}</td>
-                                                        <td className="p-4 text-right font-plex text-accent">
-                                                            {entry.side === 'Debit' ? `$${Number(entry.amount).toLocaleString()}` : '-'}
-                                                        </td>
-                                                        <td className="p-4 text-right font-plex text-accent2">
-                                                            {entry.side === 'Credit' ? `$${Number(entry.amount).toLocaleString()}` : '-'}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    
-                                    <button 
-                                        onClick={generateTrickyQuestion}
-                                        className="w-full bg-white text-bg font-bold py-5 rounded-2xl text-xl hover:bg-gray-200 transition-all flex justify-center items-center gap-3"
-                                    >
-                                        <RefreshCcw size={20} /> Try Another Scenario
-                                    </button>
-                                </div>
-                            )}
+                            <p className="text-2xl md:text-3xl font-bold leading-tight">
+                                {scenario.scenario}
+                            </p>
                         </div>
 
-                        {/* Sidebar: T-Accounts & Reports */}
-                        <div className="space-y-8">
-                            {/* T-Accounts Section */}
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2 text-muted px-2">
-                                    <Wallet size={18} />
-                                    <h3 className="font-plex text-xs font-bold uppercase tracking-widest">T-Accounts Visualizer</h3>
+                        {/* THE GAME STAGE (Pads) */}
+                        <div className="relative flex flex-col items-center gap-12 py-12">
+                            
+                            {/* Account Token (Flies) */}
+                            <div className="w-full max-w-sm bg-white text-black p-8 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] border-4 border-black text-center animate-bounce-soft relative z-20">
+                                <span className="block text-[10px] uppercase font-black tracking-widest text-gray-400 mb-2">Assign this account:</span>
+                                <h3 className="text-3xl font-black uppercase">
+                                    {scenario.accountsInvolved[currentIndex]}
+                                </h3>
+                                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-1 rounded-full text-[10px] font-black">
+                                    {currentIndex + 1} / {scenario.accountsInvolved.length}
                                 </div>
+                            </div>
+
+                            {/* The Big Pads */}
+                            <div className="grid grid-cols-2 gap-8 w-full">
+                                <button 
+                                    onClick={() => handleAnswer('Debit')}
+                                    className="group relative h-48 bg-[#10b981] rounded-[3rem] border-b-[8px] border-black/40 hover:translate-y-2 hover:border-b-0 transition-all flex items-center justify-center overflow-hidden active:scale-95"
+                                >
+                                    <div className="relative z-10 text-center">
+                                        <span className="text-4xl font-black italic block">DEBIT</span>
+                                        <span className="text-[10px] font-bold opacity-70">LEFT SIDE [DR]</span>
+                                    </div>
+                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                </button>
+
+                                <button 
+                                    onClick={() => handleAnswer('Credit')}
+                                    className="group relative h-48 bg-[#ef4444] rounded-[3rem] border-b-[8px] border-black/40 hover:translate-y-2 hover:border-b-0 transition-all flex items-center justify-center overflow-hidden active:scale-95"
+                                >
+                                    <div className="relative z-10 text-center">
+                                        <span className="text-4xl font-black italic block">CREDIT</span>
+                                        <span className="text-[10px] font-bold opacity-70">RIGHT SIDE [CR]</span>
+                                    </div>
+                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* BALANCE BAR */}
+                        <div className="bg-[#1e293b] p-6 rounded-3xl border border-white/10">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Accounting Equation Check</span>
+                                <Scale size={16} className="text-accent" />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden relative">
+                                    <div className="absolute inset-y-0 left-0 bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all duration-1000" style={{ width: equations.assets + '%' }}></div>
+                                </div>
+                                <span className="font-black text-xs">ASSETS</span>
+                                <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden relative">
+                                    <div className="absolute inset-y-0 left-0 bg-[#a855f7] shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all duration-1000" style={{ width: (equations.liabilities + equations.equity) + '%' }}></div>
+                                </div>
+                                <span className="font-black text-xs">L + E</span>
+                            </div>
+                        </div>
+
+                    </div>
+                )}
+
+                {/* FEEDBACK SCREEN */}
+                {gameStatus === 'feedback' && scenario && (
+                    <div className="w-full space-y-8 animate-fadeIn">
+                        
+                        {/* Results Summary */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-[#10b981]/10 border-2 border-[#10b981]/30 p-8 rounded-[2.5rem] flex flex-col items-center text-center gap-4">
+                                <div className="p-4 bg-[#10b981]/20 rounded-full">
+                                    <CheckCircle2 size={40} className="text-[#10b981]" />
+                                </div>
+                                <div>
+                                    <h4 className="text-3xl font-black">MISSION COMPLETE</h4>
+                                    <p className="text-[#10b981] font-bold">You earned {score} points!</p>
+                                </div>
+                            </div>
+
+                             <div className="bg-[#1e293b] border border-white/10 p-8 rounded-[2.5rem]">
+                                <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-6 border-b border-white/5 pb-2">Entry Breakdown</h4>
                                 <div className="space-y-4">
-                                    {(gameStatus === 'feedback' ? scenario.tAccountBalances : scenario.accountsInvolved.map(a => ({ account: a, dr: 0, cr: 0, final: 0 }))).slice(0, 4).map((t, i) => (
-                                        <div key={i} className="bg-surface border border-border rounded-xl p-4 space-y-2">
-                                            <div className="text-center border-b border-border pb-1 font-bold text-xs truncate" title={t.account}>
-                                                {t.account}
+                                    {userAnswers.map((ans, i) => (
+                                        <div key={i} className="flex justify-between items-center bg-white/5 px-4 py-3 rounded-2xl border border-white/5">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-sm truncate max-w-[150px]">{ans.account}</span>
+                                                <span className={`text-[10px] font-black ${ans.side === 'Debit' ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>{ans.side}</span>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-0 divide-x divide-border">
-                                                <div className="px-2 text-center">
-                                                    <span className="text-[10px] text-muted block">DR</span>
-                                                    <span className="text-accent font-plex text-xs">${Number(t.dr || 0).toLocaleString()}</span>
-                                                </div>
-                                                <div className="px-2 text-center">
-                                                    <span className="text-[10px] text-muted block">CR</span>
-                                                    <span className="text-accent2 font-plex text-xs">${Number(t.cr || 0).toLocaleString()}</span>
-                                                </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-mono text-sm">${ans.amount.toLocaleString()}</span>
+                                                {ans.isCorrect ? <CheckCircle2 size={16} className="text-[#10b981]" /> : <AlertCircle size={16} className="text-[#ef4444]" />}
                                             </div>
-                                            {gameStatus === 'feedback' && (
-                                                <div className="pt-1 text-center border-t border-border/50 text-[10px] font-bold text-white">
-                                                    BAL: ${Number(t.final).toLocaleString()}
-                                                </div>
-                                            )}
                                         </div>
                                     ))}
                                 </div>
                             </div>
-
-                            {/* Reports Impact */}
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2 text-muted px-2">
-                                    <BarChart3 size={18} />
-                                    <h3 className="font-plex text-xs font-bold uppercase tracking-widest">Financial Impact</h3>
-                                </div>
-                                
-                                <div className="bg-surface border border-border rounded-[1.5rem] divide-y divide-border overflow-hidden">
-                                    {/* Profit & Loss */}
-                                    <div className="p-5 space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-bold text-accent px-2 py-0.5 bg-accent/10 rounded-full">P & L</span>
-                                            <PieChart size={14} className="text-muted" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            {gameStatus === 'feedback' ? scenario.reports.pl.map((item, idx) => (
-                                                <div key={idx} className="flex justify-between text-xs">
-                                                    <span className="text-muted">{item.item}</span>
-                                                    <span className="text-white font-plex">${Number(item.amount).toLocaleString()}</span>
-                                                </div>
-                                            )) : (
-                                                <span className="text-muted text-[10px] italic">Post entry to see impact...</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Balance Sheet */}
-                                    <div className="p-5 space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-bold text-accent3 px-2 py-0.5 bg-accent3/10 rounded-full">Balance Sheet</span>
-                                            <Wallet size={14} className="text-muted" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            {gameStatus === 'feedback' ? scenario.reports.bs.map((item, idx) => (
-                                                <div key={idx} className="flex justify-between text-xs">
-                                                    <span className="text-muted">{item.item}</span>
-                                                    <span className="text-white font-plex">${Number(item.amount).toLocaleString()}</span>
-                                                </div>
-                                            )) : (
-                                                <span className="text-muted text-[10px] italic">Post entry to see impact...</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Income Statement */}
-                                    <div className="p-5 space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-bold text-accent4 px-2 py-0.5 bg-accent4/10 rounded-full">Income Statement</span>
-                                            <Activity size={14} className="text-muted" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            {gameStatus === 'feedback' ? scenario.reports.incomeStatement.map((item, idx) => (
-                                                <div key={idx} className="flex justify-between text-xs">
-                                                    <span className="text-muted">{item.item}</span>
-                                                    <span className="text-white font-plex">${Number(item.amount).toLocaleString()}</span>
-                                                </div>
-                                            )) : (
-                                                <span className="text-muted text-[10px] italic">Post entry to see impact...</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
+
+                        {/* Hinglish Explanation (The Instructor) */}
+                        <div className="bg-gradient-to-br from-[#1e293b] to-black border-2 border-accent/20 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:scale-110 transition-transform duration-700">
+                                <Brain size={150} />
+                            </div>
+                            <div className="flex items-center gap-3 mb-6 relative z-10">
+                                <div className="bg-accent/20 p-3 rounded-2xl text-accent border border-accent/20">
+                                    <Sparkles size={24} />
+                                </div>
+                                <h3 className="text-2xl font-black italic">Instructor's Game Tip</h3>
+                            </div>
+                            <p className="text-xl md:text-2xl text-white leading-relaxed relative z-10 font-medium">
+                                {scenario.hinglishExplanation}
+                            </p>
+                        </div>
+
+                        <button 
+                            onClick={generateTrickyQuestion}
+                            className="w-full bg-accent text-black font-black py-6 rounded-full text-2xl hover:scale-105 transition-all flex justify-center items-center gap-4 shadow-[0_0_50px_rgba(var(--accent-rgb),0.3)]"
+                        >
+                            <RefreshCcw /> NEXT ROUND
+                        </button>
 
                     </div>
                 )}
+
             </main>
+
+            <style>{`
+                @keyframes bounce-soft {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-15px); }
+                }
+                .animate-bounce-soft {
+                    animation: bounce-soft 3s ease-in-out infinite;
+                }
+                .font-black { font-weight: 900; }
+            `}</style>
         </div>
     );
 }
