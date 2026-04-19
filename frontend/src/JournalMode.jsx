@@ -39,12 +39,14 @@ function JournalMode() {
         
 CRITICAL RULES:
 1. The "scenario" must be entirely in smooth HINGLISH. Include specific USD dollar amounts.
-2. VERIFY MATHEMATICALLY that Total Debits == Total Credits before creating the JSON.
-3. Every account must have a "whyThisAmount" field explaining how the amount was calculated (in Hinglish).
+2. The scenario MUST relate to EXACTLY ONE Date/Event. Provide EXACTLY ONE journal entry. DO NOT combine two different events (like declaring a dividend and paying it on different dates) into the same question. Pick ONLY ONE moment to record.
+3. The "accountsInvolved" array MUST contain only the accounts for this SINGLE journal entry. DO NOT repeat account names. Every account name must be unique.
+4. VERIFY MATHEMATICALLY that Total Debits == Total Credits before creating the JSON.
+5. Every account must have a "whyThisAmount" field explaining how the amount was calculated (in Hinglish).
 
 Output strictly this JSON structure, nothing else:
 {
-  "scenario": "Aapki Hinglish story yahan aayegi...",
+  "scenario": "Aapki Hinglish story yahan aayegi (Focus on a single event requiring one journal entry)...",
   "accountsInvolved": [
     {
       "account": "Machine",
