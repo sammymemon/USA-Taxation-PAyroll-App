@@ -22,7 +22,20 @@ function JournalMode() {
         setUserAnswers({});
         setActiveTooltip(null);
 
-        const customPrompt = `Generate a TRICKY accounting interview question in JSON format.
+        const topics = [
+            "USA Bookkeeping Accounts Payable",
+            "USA Bookkeeping Accounts Receivable",
+            "USA Payroll Tax Liabilities & Deductions",
+            "USA Company Equipment Depreciation",
+            "USA Inventory Methods & COGS",
+            "USA Accrued Expenses & Salaries Payable",
+            "USA Prepaid Expenses & Insurance",
+            "USA Capital and Dividend Distribution",
+            "USA General Ledger Error Corrections"
+        ];
+        const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+
+        const customPrompt = `Generate a UNIQUE and TRICKY accounting interview question in JSON format about: ${randomTopic} (Seed: ${Math.random()}).
         
 CRITICAL RULES:
 1. The "scenario" must be entirely in smooth HINGLISH. Include specific USD dollar amounts.
@@ -55,7 +68,7 @@ Output strictly this JSON structure, nothing else:
                 {
                     model: "llama-3.3-70b-versatile",
                     messages: [{ role: "user", content: customPrompt }],
-                    temperature: 0.1,
+                    temperature: 0.8,
                     max_tokens: 2500,
                     response_format: { type: "json_object" }
                 },
