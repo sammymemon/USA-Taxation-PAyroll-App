@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
     ArrowLeft, Plus, CheckCircle2, AlertCircle, Loader2, Trophy,
-    Scale, Star, ChevronRight, Zap, Coins, Brain, Sparkles, BookOpen, Target, RefreshCcw, Info, X
+    Scale, Star, ChevronRight, Zap, Coins, Brain, Sparkles, BookOpen, Target, RefreshCcw, Info, X, Activity
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
