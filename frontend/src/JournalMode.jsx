@@ -67,8 +67,10 @@ Output strictly this JSON structure, nothing else:
             if (!jsonMatch) throw new Error("No JSON found");
             const parsed = JSON.parse(jsonMatch[0]);
             
-            // Validate Structure
-            if (!parsed.accountsInvolved || !parsed.scenario) throw new Error("Invalid format");
+            // Validate Structure and force fallback values if AI hallucinates
+            if (!parsed.accountsInvolved || !Array.isArray(parsed.accountsInvolved)) {
+                throw new Error("Invalid format: accountsInvolved is missing or not an array");
+            }
             
             setScenario(parsed);
             setGameStatus('playing');
@@ -172,8 +174,11 @@ Output strictly this JSON structure, nothing else:
 
                         {/* MULTI T-ACCOUNT GRID */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14 pt-4">
-                            {scenario.accountsInvolved.map((acc, index) => {
-                                const selectedSide = userAnswers[acc.account];
+                            {(scenario.accountsInvolved || []).map((acc, index) => {
+                                const accountName = acc?.account || "Unknown Account";
+                                const selectedSide = userAnswers[accountName];
+                                const amount = acc?.amount || 0;
+                                const whyText = acc?.whyThisAmount || "No explanation provided.";
 
                                 return (
                                     <div key={index} className="bg-[#16161c] border border-white/10 rounded-[3rem] p-6 space-y-6 relative shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-visible group">
@@ -183,12 +188,12 @@ Output strictly this JSON structure, nothing else:
                                             <div className="relative">
                                                 <div className="bg-gradient-to-b from-accent to-yellow-600 text-black px-8 py-3 rounded-[2rem] shadow-[0_15px_30px_rgba(var(--accent-rgb),0.5)] border-b-4 border-yellow-700 flex flex-col items-center gap-1 min-w-[200px]">
                                                     <span className="text-[9px] font-black opacity-80 border-b border-black/20 pb-1 uppercase tracking-widest w-full text-center">ACCOUNT COIN</span>
-                                                    <span className="text-xl font-black italic uppercase truncate w-full text-center">{acc.account}</span>
+                                                    <span className="text-xl font-black italic uppercase truncate w-full text-center">{accountName}</span>
                                                 </div>
                                                 
                                                 {/* Why this amount? Button */}
                                                 <button 
-                                                    onClick={() => setActiveTooltip({ account: acc.account, text: acc.whyThisAmount, amount: acc.amount })}
+                                                    onClick={() => setActiveTooltip({ account: accountName, text: whyText, amount: amount })}
                                                     className="absolute -right-3 -bottom-3 bg-[#111] text-white p-2 rounded-full border border-white/20 hover:border-accent hover:text-accent hover:scale-110 transition-all shadow-xl group-hover:animate-pulse z-30"
                                                     title="Why this amount?"
                                                 >
@@ -205,20 +210,20 @@ Output strictly this JSON structure, nothing else:
                                             <div className="grid grid-cols-2 gap-4 h-48 md:h-56">
                                                 {/* DEBIT ZONE */}
                                                 <button 
-                                                    onClick={() => handleSelection(acc.account, 'Debit')}
+                                                    onClick={() => handleSelection(accountName, 'Debit')}
                                                     className={`rounded-[2rem] border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden group
                                                         ${selectedSide === 'Debit' ? 'bg-accent/10 border-accent shadow-[0_0_40px_rgba(var(--accent-rgb),0.2)]' : 'bg-black/30 border-dashed border-white/10 hover:border-white/30 hover:bg-white/5'}`}
                                                 >
                                                     {selectedSide === 'Debit' ? (
                                                         <div className="flex flex-col items-center gap-1 animate-fadeIn bg-accent text-black w-full h-full justify-center">
                                                             <span className="text-4xl md:text-5xl font-black italic opacity-90">DR</span>
-                                                            <span className="text-2xl md:text-3xl font-black bg-black/10 px-4 py-1 rounded-full border border-black/10">${Number(acc.amount).toLocaleString()}</span>
+                                                            <span className="text-2xl md:text-3xl font-black bg-black/10 px-4 py-1 rounded-full border border-black/10">${Number(amount).toLocaleString()}</span>
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-col items-center gap-2">
                                                             <span className="text-3xl font-black italic text-white/20">DR</span>
                                                             <div className="bg-black/40 px-3 py-1 rounded-full border border-white/5 flex items-center gap-2 text-white/40">
-                                                                <span className="text-sm font-bold">${Number(acc.amount).toLocaleString()}</span>
+                                                                <span className="text-sm font-bold">${Number(amount).toLocaleString()}</span>
                                                             </div>
                                                             <span className="text-[9px] font-black uppercase tracking-widest text-accent/60 mt-2">CLICK TO DROP</span>
                                                         </div>
@@ -227,20 +232,20 @@ Output strictly this JSON structure, nothing else:
 
                                                 {/* CREDIT ZONE */}
                                                 <button 
-                                                    onClick={() => handleSelection(acc.account, 'Credit')}
+                                                    onClick={() => handleSelection(accountName, 'Credit')}
                                                     className={`rounded-[2rem] border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden group
                                                         ${selectedSide === 'Credit' ? 'bg-red-500/10 border-red-500 shadow-[0_0_40px_rgba(239,68,68,0.2)]' : 'bg-black/30 border-dashed border-white/10 hover:border-white/30 hover:bg-white/5'}`}
                                                 >
                                                     {selectedSide === 'Credit' ? (
                                                         <div className="flex flex-col items-center gap-1 animate-fadeIn bg-red-500 text-white w-full h-full justify-center">
                                                             <span className="text-4xl md:text-5xl font-black italic opacity-90">CR</span>
-                                                            <span className="text-2xl md:text-3xl font-black bg-black/20 px-4 py-1 rounded-full border border-black/10">${Number(acc.amount).toLocaleString()}</span>
+                                                            <span className="text-2xl md:text-3xl font-black bg-black/20 px-4 py-1 rounded-full border border-black/10">${Number(amount).toLocaleString()}</span>
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-col items-center gap-2">
                                                             <span className="text-3xl font-black italic text-white/20">CR</span>
                                                             <div className="bg-black/40 px-3 py-1 rounded-full border border-white/5 flex items-center gap-2 text-white/40">
-                                                                <span className="text-sm font-bold">${Number(acc.amount).toLocaleString()}</span>
+                                                                <span className="text-sm font-bold">${Number(amount).toLocaleString()}</span>
                                                             </div>
                                                             <span className="text-[9px] font-black uppercase tracking-widest text-red-500/60 mt-2">CLICK TO DROP</span>
                                                         </div>
@@ -278,14 +283,17 @@ Output strictly this JSON structure, nothing else:
                             <div className="bg-[#111116] p-8 md:p-10 rounded-[3rem] border border-white/10 space-y-8">
                                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest border-b border-white/5 pb-4">Accuracy Check</h3>
                                 <div className="space-y-4">
-                                    {scenario.accountsInvolved.map((acc, i) => {
-                                        const isCorrect = userAnswers[acc.account] === acc.correctSide;
+                                    {(scenario.accountsInvolved || []).map((acc, i) => {
+                                        const accountName = acc?.account || "Unknown Account";
+                                        const correctSide = acc?.correctSide || "Debit";
+                                        const amount = acc?.amount || 0;
+                                        const isCorrect = userAnswers[accountName] === correctSide;
                                         return (
                                             <div key={i} className={`flex justify-between items-center p-6 rounded-3xl border-2 transition-all ${isCorrect ? 'bg-accent/5 border-accent/20' : 'bg-red-500/5 border-red-500/20'}`}>
                                                 <div className="flex flex-col">
-                                                    <span className="text-xl font-black uppercase text-white/90 truncate">{acc.account}</span>
-                                                    <span className="text-sm font-medium text-white/50">${Number(acc.amount).toLocaleString()}</span>
-                                                    <span className={`text-[10px] font-black mt-2 uppercase tracking-widest ${userAnswers[acc.account] === 'Debit' ? 'text-accent' : 'text-red-500'}`}>YOU DROPPED: {userAnswers[acc.account] || 'NULL'}</span>
+                                                    <span className="text-xl font-black uppercase text-white/90 truncate">{accountName}</span>
+                                                    <span className="text-sm font-medium text-white/50">${Number(amount).toLocaleString()}</span>
+                                                    <span className={`text-[10px] font-black mt-2 uppercase tracking-widest ${userAnswers[accountName] === 'Debit' ? 'text-accent' : 'text-red-500'}`}>YOU DROPPED: {userAnswers[accountName] || 'NULL'}</span>
                                                 </div>
                                                 {isCorrect ? <CheckCircle2 size={40} className="text-accent" /> : <AlertCircle size={40} className="text-red-500" />}
                                             </div>
@@ -307,12 +315,17 @@ Output strictly this JSON structure, nothing else:
                                     <div className="pt-6 border-t border-white/10 space-y-4">
                                         <p className="text-accent font-black text-[10px] uppercase tracking-widest">Correct Verified Ledger</p>
                                         <div className="space-y-2">
-                                            {scenario.accountsInvolved.map((e, idx) => (
-                                                <div key={idx} className="flex justify-between items-center bg-black/40 px-5 py-3 rounded-2xl border border-white/5">
-                                                    <span className="font-bold text-gray-300 text-sm">{e.account}</span>
-                                                    <span className={`text-base font-black ${e.correctSide === 'Debit' ? 'text-accent' : 'text-red-500'}`}>{e.correctSide}: ${Number(e.amount).toLocaleString()}</span>
-                                                </div>
-                                            ))}
+                                            {(scenario.accountsInvolved || []).map((e, idx) => {
+                                                const accountName = e?.account || "Unknown Account";
+                                                const correctSide = e?.correctSide || "Debit";
+                                                const amount = e?.amount || 0;
+                                                return (
+                                                    <div key={idx} className="flex justify-between items-center bg-black/40 px-5 py-3 rounded-2xl border border-white/5">
+                                                        <span className="font-bold text-gray-300 text-sm">{accountName}</span>
+                                                        <span className={`text-base font-black ${correctSide === 'Debit' ? 'text-accent' : 'text-red-500'}`}>{correctSide}: ${Number(amount).toLocaleString()}</span>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
