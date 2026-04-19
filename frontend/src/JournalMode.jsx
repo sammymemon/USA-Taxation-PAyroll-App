@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-    ArrowLeft, Plus, Trash2, CheckCircle, RefreshCcw, 
-    Activity, Sparkles, BookOpen, Target, Brain, 
-    Coins, ArrowRightLeft, PieChart, BarChart3, Wallet,
-    CheckCircle2, AlertCircle, Loader2, Trophy,
-    Heart, Scale, Star, ChevronRight, Zap
+    ArrowLeft, Plus, CheckCircle2, AlertCircle, Loader2, Trophy,
+    Scale, Star, ChevronRight, Zap, Coins, Brain, Sparkles, BookOpen, Target, RefreshCcw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -15,7 +12,6 @@ function JournalMode() {
     const [scenario, setScenario] = useState(null);
     const [userAnswers, setUserAnswers] = useState({}); // { [accountName]: 'Debit' | 'Credit' }
     const [isGenerating, setIsGenerating] = useState(false);
-    const [score, setScore] = useState(0);
 
     const generateTrickyQuestion = async () => {
         if (!groqApiKey) return alert("Please enter your free Groq API Key first.");
@@ -23,27 +19,21 @@ function JournalMode() {
         setIsGenerating(true);
         setGameStatus('generating');
         setUserAnswers({});
-        setScore(0);
 
-        const customPrompt = `Generate a TRICKY accounting interview question. 
+        const customPrompt = `Generate a TRICKY accounting interview question in JSON.
         
-CRITICAL: The "scenario" description must be in HINGLISH (Hindi mixed with English). 
+CRITICAL: The "scenario" description MUST be entirely in smooth HINGLISH (Hindi mixed with English).
+Include specific dollar amounts (USD).
 
-Base logic for the scenario:
-"A company, XYZ Inc., purchases a new machine form a vendor for $120,000 USD, paying $20,000 USD as a down payment, with the remaining $100,000 USD to be paid in 6 months at an interest rate of 10%. However, the vendor offers a 5% discount if the full amount is paid immediately. XYZ Inc. decides to take the discount and pays the full amount of $114,000 USD immediately."
-
-Requirements:
-- Translate the story into smooth, easy-to-read Hinglish.
-- Accounts: Machine, Cash.
-- Solution: Exact Dr/Cr sides.
-- Logic: Hinglish explanation for the final analysis.
-
-Output ONLY JSON:
+Output ONLY pure RAW JSON. No explanations, no markdown fences.
 {
-  "scenario": "XYZ Inc. ne ek vendor se nayi machine kharidi $120,000 USD mein. $20,000 down payment di aur baaki $100,000 par 10% interest... (continue in Hinglish)",
-  "accountsInvolved": ["Machine / Equipment", "Cash"],
-  "correctEntries": [ { "account": "Machine / Equipment", "side": "Debit", "amount": 114000 }, { "account": "Cash", "side": "Credit", "amount": 114000 } ],
-  "hinglishExplanation": "Yahan machine cost principle ke according net price ($114,000) par record hogi kyuki discount immediate cash payment par mila hai..."
+  "scenario": "Aapki Hinglish story yahan aayegi...",
+  "accountsInvolved": ["Machine", "Cash", "Discount", "..."],
+  "correctEntries": [ 
+    { "account": "Machine", "side": "Debit", "amount": 1000 }, 
+    { "account": "Cash", "side": "Credit", "amount": 1000 } 
+  ],
+  "hinglishExplanation": "Instructor's Hinglish logic here..."
 }`;
 
         try {
@@ -53,18 +43,26 @@ Output ONLY JSON:
                     model: "llama-3.3-70b-versatile",
                     messages: [{ role: "user", content: customPrompt }],
                     temperature: 0.1,
-                    max_tokens: 2000,
+                    max_tokens: 2500,
                     response_format: { type: "json_object" }
                 },
                 { headers: { "Authorization": `Bearer ${groqApiKey}`, "Content-Type": "application/json" } }
             );
 
-            const parsed = JSON.parse(response.data.choices[0].message.content);
+            let text = response.data.choices[0].message.content || '';
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error("No JSON found");
+            const parsed = JSON.parse(jsonMatch[0]);
+            
+            // Clean up exact names so UI matching works flawlessly
+            parsed.accountsInvolved = parsed.accountsInvolved || [];
+            parsed.correctEntries = parsed.correctEntries || [];
+            
             setScenario(parsed);
             setGameStatus('playing');
         } catch (error) {
             console.error(error);
-            alert("Connection error. Check API key.");
+            alert("Error in generating challenge. Please check your Groq API Key or internet.");
             setGameStatus('idle');
         } finally {
             setIsGenerating(false);
@@ -72,206 +70,217 @@ Output ONLY JSON:
     };
 
     const handleSelection = (account, side) => {
-        setUserAnswers({ ...userAnswers, [account]: side });
+        setUserAnswers(prev => ({ ...prev, [account]: side }));
     };
 
     const submitBattle = () => {
+        if (!scenario) return;
         if (Object.keys(userAnswers).length < scenario.accountsInvolved.length) {
-            return alert("Har account ke liye side (Dr/Cr) select karein!");
+            return alert("Har account ka Debit ya Credit side select karein!");
         }
         setGameStatus('feedback');
     };
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-accent/30 overflow-x-hidden">
-            {/* Glossy Header */}
-            <header className="p-4 md:p-6 flex justify-between items-center bg-black/80 backdrop-blur-3xl sticky top-0 z-[100] border-b border-white/5">
-                <div className="flex items-center gap-4">
-                    <Link to="/" className="p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-all border border-white/10 group">
-                        <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+        <div className="min-h-screen bg-[#070709] text-white font-sans selection:bg-accent/30 overflow-x-hidden p-2 md:p-6">
+            <header className="p-4 flex justify-between items-center bg-[#111116]/80 backdrop-blur-2xl sticky top-0 z-[100] border border-white/10 rounded-3xl mb-8">
+                <div className="flex items-center gap-3">
+                    <Link to="/" className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors border border-white/10">
+                        <ArrowLeft size={18} />
                     </Link>
                     <div className="flex flex-col">
-                        <span className="text-[10px] text-accent font-black uppercase tracking-[0.4em]">Hinglish Battle</span>
-                        <h1 className="text-xl font-black italic tracking-tighter uppercase">Mission Ground</h1>
+                        <span className="text-[10px] text-accent font-black uppercase tracking-[0.3em]">Hinglish Battle</span>
+                        <h1 className="text-lg md:text-xl font-black italic tracking-tighter uppercase">Accounting Pro</h1>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 md:gap-8">
-                    <div className="flex items-center gap-2 bg-accent/20 px-4 py-2 rounded-2xl border border-accent/20 transition-all hover:bg-accent/30">
-                        <Zap size={18} className="text-accent fill-accent" />
-                        <span className="font-black text-accent text-xs">VIBE CHECK</span>
-                    </div>
+                <div className="flex items-center gap-3">
                      <input 
                         type="password" 
-                        placeholder="GROQ KEY"
+                        placeholder="GROQ API KEY"
                         value={groqApiKey}
                         onChange={(e) => {
                             setGroqApiKey(e.target.value);
                             localStorage.setItem('groqApiKey', e.target.value);
                         }}
-                        className="hidden md:block bg-white/5 border border-white/10 px-4 py-2 rounded-xl text-[8px] w-32 focus:border-accent outline-none text-center"
+                        className="bg-black/50 border border-white/10 px-4 py-3 rounded-2xl text-xs w-32 md:w-48 focus:border-accent outline-none text-center font-mono shadow-inner"
                     />
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto p-4 md:p-10 space-y-10">
-                
-                {/* IDLE SCREEN */}
+            <main className="max-w-6xl mx-auto space-y-10">
                 {gameStatus === 'idle' && (
-                    <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-12 animate-fadeIn">
+                    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-fadeIn">
                         <div className="relative">
-                            <div className="absolute inset-0 bg-accent/20 blur-[150px] rounded-full"></div>
-                            <Trophy size={160} className="text-white opacity-10" />
+                            <div className="absolute inset-0 bg-accent/30 blur-[100px] rounded-full"></div>
+                            <Coins size={120} className="text-accent relative z-10 animate-bounce" />
                         </div>
-                        <div className="space-y-6">
-                            <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none italic uppercase text-transparent bg-clip-text bg-gradient-to-b from-white to-white/10">
-                                HINGLISH <br/> MISSIONS
+                        <div className="space-y-4 max-w-xl">
+                            <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-none italic uppercase">
+                                DROP THE COINS
                             </h2>
-                            <p className="text-gray-500 text-lg md:text-2xl max-w-2xl mx-auto font-medium">
-                                Ab accounting missions samjho apni language mein. Solve tricky cases and rank up.
+                            <p className="text-gray-400 text-lg md:text-xl font-medium">
+                                Multi T-Account system in Hinglish. Drop coins into Dr/Cr and master USA GAAP.
                             </p>
                         </div>
                         <button 
                             onClick={generateTrickyQuestion}
-                            className="bg-accent text-black font-black px-16 py-8 rounded-[2.5rem] text-4xl hover:scale-105 transition-all shadow-[0_30px_90px_rgba(var(--accent-rgb),0.3)]"
+                            className="bg-gradient-to-r from-accent to-yellow-600 text-black font-black px-12 py-6 rounded-[2rem] text-2xl hover:scale-105 transition-transform shadow-[0_20px_60px_rgba(var(--accent-rgb),0.4)] flex items-center gap-3"
                         >
-                            START MISSION
+                            <Zap className="fill-black" /> START MISSION
                         </button>
                     </div>
                 )}
 
-                {/* GENERATING */}
                 {gameStatus === 'generating' && (
-                    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-12">
-                        <div className="relative">
-                            <Loader2 size={120} className="text-accent animate-spin" />
-                            <Star size={40} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white" />
+                    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 animate-fadeIn text-center">
+                        <div className="relative p-8 bg-white/5 rounded-full border border-white/10">
+                            <Loader2 size={80} className="text-accent animate-spin" />
                         </div>
-                        <h3 className="text-3xl font-black tracking-widest text-accent uppercase italic animate-pulse">Story Translate ho rahi hai...</h3>
+                        <h3 className="text-2xl md:text-3xl font-black tracking-widest text-accent uppercase italic animate-pulse">Syncing New Case...</h3>
                     </div>
                 )}
 
-                {/* PLAYING - GRID VIEW */}
                 {gameStatus === 'playing' && scenario && (
-                    <div className="space-y-12 animate-fadeIn pb-32">
-                        
-                        {/* THE SCENARIO HEADER (PREMIUM HINGLISH) */}
-                        <div className="bg-[#0a0a0a] border-2 border-white/5 p-8 md:p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden group ring-1 ring-white/5">
-                            <div className="absolute -top-10 -right-10 p-10 opacity-5 group-hover:rotate-6 transition-transform">
-                                <BookOpen size={240} />
+                    <div className="space-y-10 animate-fadeIn pb-32">
+                        <div className="bg-[#111116] border border-white/10 p-6 md:p-10 rounded-[3rem] shadow-2xl relative overflow-hidden ring-1 ring-white/5 mx-auto max-w-4xl">
+                            <div className="absolute -top-10 -right-10 p-10 opacity-5">
+                                <BookOpen size={200} />
                             </div>
-                            <div className="flex items-center gap-4 mb-8 relative z-10">
-                                <div className="bg-accent/20 p-3 rounded-2xl text-accent border border-accent/20">
-                                    <Target size={28} />
-                                </div>
-                                <span className="font-black text-xs uppercase tracking-[0.5em] text-accent">Mission Scenario (Hinglish)</span>
+                            <div className="flex items-center gap-3 mb-6 relative z-10 bg-black/40 border border-white/5 inline-flex px-4 py-2 rounded-full">
+                                <Target size={16} className="text-accent" />
+                                <span className="font-black text-xs uppercase tracking-[0.2em] text-accent">Mission Scenario</span>
                             </div>
-                            <p className="text-2xl md:text-4xl font-bold leading-tight text-white relative z-10 font-serif drop-shadow-md">
+                            <p className="text-xl md:text-3xl font-bold leading-relaxed text-gray-100 relative z-10 font-serif">
                                 "{scenario.scenario}"
                             </p>
                         </div>
 
-                        {/* Multi T-Account Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
-                            {scenario.accountsInvolved.map((acc, index) => (
-                                <div key={index} className="bg-[#111] border border-white/10 rounded-[3rem] p-6 md:p-8 space-y-6 hover:border-accent/40 transition-all shadow-[0_30px_80px_rgba(0,0,0,0.5)] flex flex-col items-center transform hover:-translate-y-2">
-                                    <h3 className="text-xl md:text-2xl font-black uppercase text-gray-400 italic text-center w-full truncate border-b border-white/5 pb-4">
-                                        {acc}
-                                    </h3>
-                                    
-                                    <div className="w-full relative px-2 md:px-4 py-4">
-                                        <div className="w-full h-1 bg-white/20 rounded-full mb-8"></div>
-                                        <div className="absolute left-1/2 top-4 bottom-0 w-1 bg-white/20 -translate-x-1/2 rounded-full"></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
+                            {scenario.accountsInvolved.map((acc, index) => {
+                                const correctData = scenario.correctEntries?.find(e => e.account.toLowerCase() === acc.toLowerCase());
+                                const amount = correctData ? Number(correctData.amount) : 0;
+                                const selectedSide = userAnswers[acc];
 
-                                        <div className="grid grid-cols-2 gap-4 md:gap-8">
-                                            {/* DEBIT PAD */}
-                                            <button 
-                                                onClick={() => handleSelection(acc, 'Debit')}
-                                                className={`h-48 md:h-64 rounded-[2.5rem] border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden group
-                                                    ${userAnswers[acc] === 'Debit' ? 'bg-accent border-accent text-black scale-105' : 'bg-white/5 border-dashed border-white/10 hover:border-white/40 text-white/30'}`}
-                                            >
-                                                <span className="text-5xl md:text-7xl font-black italic">DR</span>
-                                                <span className="text-[10px] md:text-xs font-black uppercase tracking-widest mt-4">{userAnswers[acc] === 'Debit' ? 'LOCKED' : 'DEBIT'}</span>
-                                            </button>
+                                return (
+                                    <div key={index} className="bg-[#16161c] border border-white/10 rounded-[3rem] p-6 space-y-8 relative shadow-2xl overflow-hidden group">
+                                        
+                                        {/* Coin Element */}
+                                        <div className="flex justify-center -mt-10 relative z-20 pointer-events-none">
+                                            <div className="bg-gradient-to-b from-accent to-yellow-600 text-black font-black uppercase italic tracking-widest px-8 py-4 rounded-[2rem] shadow-[0_15px_30px_rgba(var(--accent-rgb),0.4)] border-b-4 border-yellow-700 flex flex-col items-center gap-1">
+                                                 <span className="text-[10px] opacity-70 border-b border-black/20 pb-1">PLACE THIS COIN</span>
+                                                 <span className="text-lg truncate max-w-[200px]">{acc}</span>
+                                            </div>
+                                        </div>
 
-                                            {/* CREDIT PAD */}
-                                            <button 
-                                                onClick={() => handleSelection(acc, 'Credit')}
-                                                className={`h-48 md:h-64 rounded-[2.5rem] border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden group
-                                                    ${userAnswers[acc] === 'Credit' ? 'bg-[#ef4444] border-[#ef4444] text-white scale-105' : 'bg-white/5 border-dashed border-white/10 hover:border-white/40 text-white/30'}`}
-                                            >
-                                                <span className="text-5xl md:text-7xl font-black italic">CR</span>
-                                                <span className="text-[10px] md:text-xs font-black uppercase tracking-widest mt-4">{userAnswers[acc] === 'Credit' ? 'LOCKED' : 'CREDIT'}</span>
-                                            </button>
+                                        <div className="w-full relative px-2 pt-6 pb-2">
+                                            <div className="w-full h-2 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-full mb-6"></div>
+                                            <div className="absolute left-1/2 top-10 bottom-0 w-2 bg-gradient-to-b from-white/20 to-transparent -translate-x-1/2 rounded-full"></div>
+
+                                            <div className="grid grid-cols-2 gap-4 h-52">
+                                                <button 
+                                                    onClick={() => handleSelection(acc, 'Debit')}
+                                                    className={`rounded-[2rem] border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden
+                                                        ${selectedSide === 'Debit' ? 'bg-accent/10 border-accent' : 'bg-transparent border-dashed border-white/10 hover:border-white/30 text-white/40'}`}
+                                                >
+                                                    {selectedSide === 'Debit' ? (
+                                                        <div className="flex flex-col items-center gap-2 animate-fadeIn bg-accent text-black w-full h-full justify-center">
+                                                            <span className="text-4xl font-black italic">DR</span>
+                                                            <span className="text-xl font-bold bg-black/10 px-4 py-1 rounded-full">${amount.toLocaleString()}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <Plus size={30} className="opacity-50" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest opacity-50">DROP DR</span>
+                                                        </div>
+                                                    )}
+                                                </button>
+
+                                                <button 
+                                                    onClick={() => handleSelection(acc, 'Credit')}
+                                                    className={`rounded-[2rem] border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden
+                                                        ${selectedSide === 'Credit' ? 'bg-red-500/10 border-red-500' : 'bg-transparent border-dashed border-white/10 hover:border-white/30 text-white/40'}`}
+                                                >
+                                                    {selectedSide === 'Credit' ? (
+                                                        <div className="flex flex-col items-center gap-2 animate-fadeIn bg-red-500 text-white w-full h-full justify-center">
+                                                            <span className="text-4xl font-black italic">CR</span>
+                                                            <span className="text-xl font-bold bg-black/20 px-4 py-1 rounded-full">${amount.toLocaleString()}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <Plus size={30} className="opacity-50" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest opacity-50">DROP CR</span>
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
-                        <div className="flex justify-center pt-8">
+                        <div className="flex justify-center pt-10">
                             <button 
                                 onClick={submitBattle}
-                                className="w-full md:w-auto bg-white text-black font-black px-24 py-8 rounded-full text-3xl md:text-4xl hover:bg-accent hover:scale-105 transition-all shadow-[0_30px_80px_rgba(255,255,255,0.1)] flex items-center justify-center gap-6"
+                                className="bg-white text-black font-black px-16 py-6 rounded-full text-2xl md:text-3xl hover:bg-gray-200 transition-all shadow-[0_20px_50px_rgba(255,255,255,0.1)] flex items-center justify-center gap-4 active:scale-95"
                             >
-                                MISSION EVALUATE <ChevronRight size={48} />
+                                EVALUATE JOURNAL <ChevronRight size={32} />
                             </button>
                         </div>
-
                     </div>
                 )}
 
-                {/* FEEDBACK SCREEN */}
                 {gameStatus === 'feedback' && scenario && (
-                    <div className="max-w-6xl mx-auto space-y-12 animate-fadeIn pb-32">
-                        <div className="text-center space-y-6">
-                            <div className="inline-block p-8 bg-accent/10 rounded-full border border-accent/20 mb-4">
-                                <Zap size={80} className="text-accent animate-pulse fill-accent" />
+                    <div className="space-y-10 animate-fadeIn pb-32">
+                        <div className="text-center space-y-4">
+                            <div className="inline-block p-6 bg-accent/10 rounded-full border border-accent/20 mb-2">
+                                <Trophy size={60} className="text-accent animate-bounce" />
                             </div>
-                            <h2 className="text-5xl md:text-8xl font-black italic uppercase tracking-tighter">Mission Logic Report</h2>
+                            <h2 className="text-4xl md:text-7xl font-black italic uppercase tracking-tighter">Evaluation Report</h2>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
-                            <div className="bg-[#111] p-8 md:p-12 rounded-[4rem] border border-white/5 space-y-10">
-                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest border-b border-white/5 pb-6">Your Performance</h3>
-                                <div className="space-y-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div className="bg-[#111116] p-8 md:p-10 rounded-[3rem] border border-white/10 space-y-8">
+                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest border-b border-white/5 pb-4">Integrity Check</h3>
+                                <div className="space-y-6">
                                     {scenario.accountsInvolved.map((acc, i) => {
-                                        const correct = scenario.correctEntries.find(e => e.account === acc);
-                                        const isCorrect = userAnswers[acc] === correct?.side;
+                                        const correctData = scenario.correctEntries?.find(e => e.account.toLowerCase() === acc.toLowerCase());
+                                        const isCorrect = correctData && userAnswers[acc] === correctData.side;
                                         
                                         return (
-                                            <div key={i} className={`flex justify-between items-center p-8 rounded-[2.5rem] border-2 transition-all ${isCorrect ? 'bg-accent/5 border-accent/20 shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)]' : 'bg-red-500/5 border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.1)]'}`}>
+                                            <div key={i} className={`flex justify-between items-center p-6 rounded-3xl border-2 transition-all ${isCorrect ? 'bg-accent/5 border-accent/20' : 'bg-red-500/5 border-red-500/20'}`}>
                                                 <div className="flex flex-col">
-                                                    <span className="text-2xl md:text-3xl font-black uppercase text-white/80">{acc}</span>
-                                                    <span className={`text-xs font-black mt-2 uppercase ${userAnswers[acc] === 'Debit' ? 'text-accent' : 'text-[#ef4444]'}`}>SELECTED: {userAnswers[acc]}</span>
+                                                    <span className="text-xl md:text-2xl font-black uppercase text-white/90 truncate max-w-[200px]">{acc}</span>
+                                                    <span className={`text-[10px] font-black mt-1 uppercase tracking-widest ${userAnswers[acc] === 'Debit' ? 'text-accent' : 'text-red-500'}`}>YOU PLACED: {userAnswers[acc] || 'NOTHING'}</span>
                                                 </div>
-                                                <div className="flex items-center gap-6">
-                                                    {isCorrect ? <CheckCircle2 size={48} className="text-accent" /> : <AlertCircle size={48} className="text-red-500" />}
-                                                </div>
+                                                {isCorrect ? <CheckCircle2 size={40} className="text-accent" /> : <AlertCircle size={40} className="text-red-500" />}
                                             </div>
                                         );
                                     })}
                                 </div>
                             </div>
 
-                            <div className="bg-gradient-to-br from-[#0c0c0c] to-black p-10 md:p-16 rounded-[4rem] border-2 border-accent/40 flex flex-col justify-center relative overflow-hidden group">
-                                <Brain size={250} className="absolute -bottom-20 -right-20 opacity-5 group-hover:scale-110 transition-transform duration-700 hover:rotate-6" />
-                                <div className="space-y-10 relative z-10">
-                                    <div className="flex items-center gap-6">
-                                        <Sparkles size={48} className="text-accent" />
-                                        <h4 className="text-4xl font-black italic leading-none">THE LOGIC <br/> (HINGLISH)</h4>
+                            <div className="bg-gradient-to-br from-[#16161c] to-black p-8 md:p-12 rounded-[3rem] border border-accent/20 flex flex-col justify-center relative overflow-hidden shadow-2xl">
+                                <Brain size={250} className="absolute -bottom-20 -right-20 opacity-5" />
+                                <div className="space-y-8 relative z-10">
+                                    <div className="flex items-center gap-4">
+                                        <Sparkles size={32} className="text-accent" />
+                                        <h4 className="text-3xl font-black italic leading-none">THE LOGIC <br/>(HINGLISH)</h4>
                                     </div>
-                                    <p className="text-2xl md:text-4xl text-gray-100 leading-tight font-bold">
+                                    <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-serif">
                                          {scenario.hinglishExplanation}
                                     </p>
-                                    <div className="pt-8 border-t border-white/10 space-y-4">
-                                        <p className="text-accent font-black text-sm uppercase tracking-widest">Correct Solution Table:</p>
-                                        {scenario.correctEntries.map((e, idx) => (
-                                            <div key={idx} className="flex justify-between font-mono text-lg text-white/50 border-b border-white/5 pb-2">
-                                                <span>{e.account}</span>
-                                                <span className={e.side === 'Debit' ? 'text-accent' : 'text-red-500'}>{e.side}: ${e.amount.toLocaleString()}</span>
-                                            </div>
-                                        ))}
+                                    <div className="pt-6 border-t border-white/10 space-y-4">
+                                        <p className="text-accent font-black text-[10px] uppercase tracking-widest">Correct Solution</p>
+                                        <div className="space-y-2">
+                                            {scenario.correctEntries?.map((e, idx) => (
+                                                <div key={idx} className="flex justify-between items-center bg-black/40 px-5 py-3 rounded-2xl border border-white/5">
+                                                    <span className="font-bold text-gray-300 text-sm">{e.account}</span>
+                                                    <span className={`text-base font-black ${e.side === 'Debit' ? 'text-accent' : 'text-red-500'}`}>{e.side}: ${Number(e.amount || 0).toLocaleString()}</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -279,23 +288,22 @@ Output ONLY JSON:
 
                         <button 
                             onClick={generateTrickyQuestion}
-                            className="bg-white text-black font-black w-full py-10 rounded-[2.5rem] text-4xl hover:bg-accent transition-all shadow-[0_40px_100px_rgba(255,255,255,0.1)] flex justify-center items-center gap-6"
+                            className="bg-white text-black font-black w-full py-8 rounded-[2rem] text-3xl hover:bg-gray-200 transition-all flex justify-center items-center gap-4 active:scale-95 shadow-[0_20px_50px_rgba(255,255,255,0.1)]"
                         >
-                            <RefreshCcw size={48} /> NEW BATTLE
+                            <RefreshCcw size={32} /> PLAY AGAIN
                         </button>
                     </div>
                 )}
-
             </main>
 
             <style>{`
-                .font-black { font-weight: 950; }
+                .font-black { font-weight: 900; }
                 .italic { font-style: italic; }
                 @keyframes fadeIn { 
-                    from { opacity: 0; transform: translateY(30px); } 
+                    from { opacity: 0; transform: translateY(20px); } 
                     to { opacity: 1; transform: translateY(0); } 
                 }
-                .animate-fadeIn { animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+                .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
             `}</style>
         </div>
     );
