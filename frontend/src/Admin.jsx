@@ -10,7 +10,9 @@ function Admin() {
 
     // AI Generation state
     const [groqApiKey, setGroqApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
+    const [hfApiKey, setHfApiKey] = useState(() => localStorage.getItem('hfApiKey') || '');
     const [generatingAI, setGeneratingAI] = useState(false);
+    const [showApiKeys, setShowApiKeys] = useState(false);
 
     // Form states
     const [formData, setFormData] = useState({ id: '', q: '', a: '', cat: '', diff: '', highlight: '' });
@@ -92,7 +94,8 @@ function Admin() {
 
     const generateWithAI = async () => {
         if (!groqApiKey) {
-            alert("Please set your Groq API key in the Voice Interview mode first!");
+            alert("Please set your Groq API key in the Settings section above first!");
+            setShowApiKeys(true);
             return;
         }
 
@@ -221,6 +224,9 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
                     <div className="font-plex text-[11px] text-muted mt-2 tracking-widest uppercase">Manage Content</div>
                 </div>
                 <div className="flex gap-4">
+                    <button onClick={() => setShowApiKeys(!showApiKeys)} className="flex items-center gap-2 bg-surface2 px-4 py-2 rounded-md font-plex text-xs text-text hover:bg-border transition-colors">
+                        🔑 API Keys
+                    </button>
                     <Link to="/" className="flex items-center gap-2 bg-surface2 px-4 py-2 rounded-md font-plex text-xs text-text hover:bg-border transition-colors">
                         <ArrowLeft size={16} /> Back to App
                     </Link>
@@ -229,6 +235,40 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
                     </button>
                 </div>
             </div>
+
+            {showApiKeys && (
+                <div className="bg-surface border border-accent/30 p-5 rounded-lg mb-8 shadow-sm">
+                    <h2 className="text-lg font-serif font-bold text-text mb-4 border-b border-border pb-2">API Keys Configuration</h2>
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block font-plex text-[10px] text-muted uppercase mb-1">Groq API Key (for AI content generation)</label>
+                            <input
+                                type="password"
+                                placeholder="gsk_..."
+                                value={groqApiKey}
+                                onChange={(e) => {
+                                    setGroqApiKey(e.target.value);
+                                    localStorage.setItem('groqApiKey', e.target.value.trim());
+                                }}
+                                className="w-full bg-bg border border-border px-3 py-2 rounded-md text-[13px] font-plex outline-none focus:border-accent"
+                            />
+                        </div>
+                        <div>
+                            <label className="block font-plex text-[10px] text-muted uppercase mb-1">HuggingFace API Key (for Podcast audio)</label>
+                            <input
+                                type="password"
+                                placeholder="hf_..."
+                                value={hfApiKey}
+                                onChange={(e) => {
+                                    setHfApiKey(e.target.value);
+                                    localStorage.setItem('hfApiKey', e.target.value.trim());
+                                }}
+                                className="w-full bg-bg border border-border px-3 py-2 rounded-md text-[13px] font-plex outline-none focus:border-accent"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="grid gap-4">
                 {editingCard === 'new' && (

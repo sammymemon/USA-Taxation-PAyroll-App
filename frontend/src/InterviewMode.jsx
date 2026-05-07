@@ -42,6 +42,14 @@ export default function InterviewMode() {
     const [lessonData, setLessonData] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
 
+    // Podcast states
+    const [hfApiKey, setHfApiKey] = useState(() => localStorage.getItem('hfApiKey') || '');
+    const [hfModel, setHfModel] = useState(() => localStorage.getItem('hfModel') || 'espnet/kan-bayashi_ljspeech_vits');
+    const [podcastScript, setPodcastScript] = useState(null);
+    const [podcastStatus, setPodcastStatus] = useState('idle'); // idle, generating_script, generating_audio, playing, error
+    const [currentLineIndex, setCurrentLineIndex] = useState(0);
+    const [podcastError, setPodcastError] = useState('');
+
     const handleLearn = async (selectedTopic) => {
         const activeTopic = selectedTopic || topic;
         if (!activeTopic.trim()) return alert("Please enter a topic to learn!");
@@ -135,6 +143,107 @@ ${JSON.stringify(intermediateData, null, 2)}`;
         }
     };
 
+    const handleGeneratePodcast = async () => {
+        if (!hfApiKey) return alert("Please enter your Hugging Face API Key first!");
+        if (!lessonData) return;
+
+        setPodcastStatus('generating_script');
+        setPodcastError('');
+        setPodcastScript(null);
+
+        try {
+            const podcastPrompt = `Convert the following accounting lesson into a short, engaging 2-person podcast script.
+Host 1 (Teacher): Explains the concept clearly.
+Host 2 (Student): Asks questions or clarifies.
+Language: ${language === 'hinglish' ? 'Hinglish (use English alphabet but Hindi words, e.g. "Toh asset badhega")' : 'English'}.
+Keep it very short and punchy: maximum 4 lines of dialogue total.
+Output ONLY JSON array in this format:
+[
+  { "speaker": "Teacher", "text": "..." },
+  { "speaker": "Student", "text": "..." }
+]
+Lesson Data:
+${JSON.stringify({ title: lessonData.title, explanation: lessonData.explanation })}`;
+
+            const scriptRaw = await callGroq(apiKey, [
+                { role: 'system', content: 'You only output a JSON array of objects.' },
+                { role: 'user', content: podcastPrompt }
+            ], 1500);
+
+            let scriptData;
+            try {
+                const match = scriptRaw.match(/\[[\s\S]*\]/);
+                scriptData = JSON.parse(match ? match[0] : scriptRaw);
+            } catch (e) {
+                console.error("Parse Error Podcast Script", scriptRaw);
+                throw new Error("Failed to parse podcast script.");
+            }
+
+            setPodcastScript(scriptData);
+            setPodcastStatus('generating_audio');
+
+            // Generate audio for all lines sequentially
+            const audioUrls = [];
+            for (let i = 0; i < scriptData.length; i++) {
+                const line = scriptData[i];
+                try {
+                    const response = await axios.post(
+                        `https://api-inference.huggingface.co/models/${hfModel}`,
+                        { inputs: line.text },
+                        {
+                            headers: {
+                                "Authorization": `Bearer ${hfApiKey}`,
+                                "Content-Type": "application/json"
+                            },
+                            responseType: 'blob'
+                        }
+                    );
+                    const url = URL.createObjectURL(response.data);
+                    audioUrls.push(url);
+                } catch (audioErr) {
+                    console.error("HF Audio Error:", audioErr);
+                    throw new Error(`HuggingFace API Error: Model might be loading or token invalid. (${audioErr.message})`);
+                }
+            }
+
+            // Attach audio URLs to script
+            const scriptWithAudio = scriptData.map((line, idx) => ({ ...line, audioUrl: audioUrls[idx] }));
+            setPodcastScript(scriptWithAudio);
+            
+            // Start playing
+            setPodcastStatus('playing');
+            playSequence(scriptWithAudio, 0);
+
+        } catch (err) {
+            console.error(err);
+            setPodcastError(err.message || "Failed to generate podcast.");
+            setPodcastStatus('error');
+        }
+    };
+
+    const playSequence = (script, index) => {
+        if (index >= script.length) {
+            setPodcastStatus('idle');
+            setCurrentLineIndex(0);
+            return;
+        }
+
+        setCurrentLineIndex(index);
+        const audio = new Audio(script[index].audioUrl);
+        audio.onended = () => {
+            playSequence(script, index + 1);
+        };
+        audio.onerror = () => {
+            console.error("Audio playback error");
+            playSequence(script, index + 1);
+        };
+        audio.play().catch(e => {
+            console.error("Play prevented", e);
+            setPodcastStatus('error');
+            setPodcastError("Audio playback was blocked by the browser.");
+        });
+    };
+
     return (
         <div className="min-h-screen bg-bg text-text font-serif">
             {/* Header */}
@@ -221,21 +330,33 @@ ${JSON.stringify(intermediateData, null, 2)}`;
                             </div>
                         )}
                         
-                        {!apiKey && (
                             <div className="bg-surface border border-accent/20 rounded-xl p-5 shadow-lg mt-8 text-center max-w-sm mx-auto">
                                 <h5 className="font-plex text-sm text-text font-semibold mb-3 flex items-center justify-center gap-2">
-                                    🔑 Groq API Key Required
+                                    🔑 API Keys Setup
                                 </h5>
-                                <input
-                                    type="password"
-                                    placeholder="gsk_xxxxxxxx..."
-                                    value={apiKey}
-                                    onChange={(e) => {
-                                        setApiKey(e.target.value);
-                                        localStorage.setItem('groqApiKey', e.target.value.trim());
-                                    }}
-                                    className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent text-center"
-                                />
+                                <div className="space-y-3">
+                                    <input
+                                        type="password"
+                                        placeholder="Groq API Key (gsk_...)"
+                                        value={apiKey}
+                                        onChange={(e) => {
+                                            setApiKey(e.target.value);
+                                            localStorage.setItem('groqApiKey', e.target.value.trim());
+                                        }}
+                                        className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent text-center"
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="HuggingFace Token (hf_...)"
+                                        value={hfApiKey}
+                                        onChange={(e) => {
+                                            setHfApiKey(e.target.value);
+                                            localStorage.setItem('hfApiKey', e.target.value.trim());
+                                        }}
+                                        className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent text-center"
+                                    />
+                                </div>
+                                <p className="font-plex text-[10px] text-muted mt-3">Required for AI generation and Podcast TTS</p>
                             </div>
                         )}
                     </div>
@@ -278,8 +399,58 @@ ${JSON.stringify(intermediateData, null, 2)}`;
                         <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-2xl mb-8">
                             <div className="p-8 md:p-10 bg-gradient-to-br from-accent/10 to-transparent border-b border-border/50">
                                 <h2 className="text-3xl md:text-5xl font-playfair font-black text-text mb-6">{lessonData.title}</h2>
-                                <div className="text-lg md:text-xl font-serif leading-relaxed text-text opacity-90 border-l-4 border-accent pl-5 py-2">
+                                <div className="text-lg md:text-xl font-serif leading-relaxed text-text opacity-90 border-l-4 border-accent pl-5 py-2 mb-6">
                                     {lessonData.explanation}
+                                </div>
+                                
+                                {/* Podcast Feature */}
+                                <div className="bg-bg border border-border rounded-2xl p-6 shadow-sm">
+                                    <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+                                        <h3 className="font-playfair text-xl font-bold flex items-center gap-2">
+                                            🎙️ Podcast Mode
+                                        </h3>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={hfModel}
+                                                onChange={e => {
+                                                    setHfModel(e.target.value);
+                                                    localStorage.setItem('hfModel', e.target.value);
+                                                }}
+                                                placeholder="HF Model"
+                                                className="bg-surface border border-border px-3 py-1.5 rounded-lg text-xs font-plex outline-none focus:border-accent w-[200px]"
+                                            />
+                                            <button 
+                                                onClick={handleGeneratePodcast}
+                                                disabled={podcastStatus === 'generating_script' || podcastStatus === 'generating_audio'}
+                                                className="bg-accent text-[#0f0e0d] px-4 py-1.5 rounded-lg font-plex text-xs font-bold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                                {(podcastStatus === 'generating_script' || podcastStatus === 'generating_audio') ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} fill="currentColor"/>}
+                                                {podcastStatus === 'generating_script' ? 'Writing Script...' : podcastStatus === 'generating_audio' ? 'Generating Voice...' : 'Play Podcast'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {podcastError && <div className="text-red-500 text-sm font-plex mb-4">{podcastError}</div>}
+                                    
+                                    {podcastScript && (
+                                        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                            {podcastScript.map((line, idx) => (
+                                                <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${podcastStatus === 'playing' && currentLineIndex === idx ? 'bg-accent/10 border border-accent/30' : 'bg-surface border border-border'}`}>
+                                                    <div className="w-8 h-8 rounded-full bg-accent text-[#0f0e0d] flex items-center justify-center font-bold font-plex text-xs shrink-0 mt-1">
+                                                        {line.speaker.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-plex text-[11px] text-accent font-bold mb-1">{line.speaker}</div>
+                                                        <div className="font-serif text-sm">{line.text}</div>
+                                                    </div>
+                                                    {podcastStatus === 'playing' && currentLineIndex === idx && (
+                                                        <div className="ml-auto text-accent mt-2"><Loader2 size={14} className="animate-spin" /></div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
