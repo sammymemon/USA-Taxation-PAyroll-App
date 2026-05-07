@@ -1,4 +1,4 @@
-// Updated: 2026-05-07 13:17
+// Updated: 2026-05-07 15:15
 import React, { useState } from 'react';
 import axios from 'axios';
 import { ArrowLeft, BookOpen, Bot, CheckCircle, Loader2, Play, Settings, Sparkles, AlertCircle, RefreshCcw, ShieldCheck, Mic, Download } from 'lucide-react';
@@ -56,7 +56,7 @@ const DEFAULT_TOPICS = [
 async function callGroq(apiKey, messages, maxTokens = 1500, json = false) {
     try {
         const payload = {
-            model: 'llama-3.3-70b-versatile',
+            model: 'llama-3.1-8b-instant', // Switched to lighter model to avoid 429 rate limits
             messages,
             temperature: 0.7,
             max_tokens: maxTokens,
@@ -129,11 +129,19 @@ Output ONLY a JSON array:
 
             let scriptData;
             try {
-                const match = scriptRaw.match(/\[[\s\S]*\]/);
-                scriptData = JSON.parse(match ? match[0] : scriptRaw);
+                // More robust JSON extraction
+                let jsonText = scriptRaw;
+                if (jsonText.includes('```json')) {
+                    jsonText = jsonText.split('```json')[1].split('```')[0].trim();
+                } else if (jsonText.includes('```')) {
+                    jsonText = jsonText.split('```')[1].split('```')[0].trim();
+                }
+                
+                const match = jsonText.match(/\[[\s\S]*\]/);
+                scriptData = JSON.parse(match ? match[0] : jsonText);
             } catch (e) {
                 console.error("Parse Error Podcast Script", scriptRaw);
-                throw new Error("Failed to parse podcast script.");
+                throw new Error("Failed to parse podcast script. Please try again.");
             }
 
             setPodcastScript(scriptData);
@@ -148,11 +156,17 @@ Output ONLY a JSON array:
                 try {
                     const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
                     const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text.substring(0, 500))}`;
+                    
+                    // Added a small delay to prevent 429 from StreamElements
+                    if (i > 0) await new Promise(r => setTimeout(r, 500));
+                    
                     const seResponse = await fetch(seUrl);
                     
                     if (seResponse.ok) {
                         const blob = await seResponse.blob();
                         audioUrl = URL.createObjectURL(blob);
+                    } else if (seResponse.status === 429) {
+                        console.warn("TTS Rate limited, falling back to local speech.");
                     }
                 } catch (e) {
                     console.warn("StreamElements failed, will use local speech synthesis if needed.");
@@ -170,15 +184,37 @@ Output ONLY a JSON array:
 
         } catch (err) {
             console.error(err);
-            setPodcastError(err.message || "Failed to generate podcast.");
+            if (err?.response?.status === 429) {
+                setPodcastError("AI Rate Limit reached (429). Please wait about 1-2 minutes and try again. This happens on free API keys.");
+            } else {
+                setPodcastError(err.message || "Failed to generate podcast.");
+            }
             setPodcastStatus('error');
         }
     };
 
-    const playSequence = (script, index) => {
+    const [currentAudio, setCurrentAudio] = useState(null);
+
+    const stopSequence = () => {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+            setCurrentAudio(null);
+        }
+        window.speechSynthesis.cancel();
+        setPodcastStatus('ready_to_play');
+        setCurrentLineIndex(0);
+    };
+
+    const playSequence = async (script, index) => {
+        if (index === 0) {
+            setPodcastStatus('playing');
+        }
+
         if (index >= script.length) {
-            setPodcastStatus('idle');
+            setPodcastStatus('ready_to_play');
             setCurrentLineIndex(0);
+            setCurrentAudio(null);
             return;
         }
 
@@ -187,6 +223,7 @@ Output ONLY a JSON array:
         if (script[index].audioUrl) {
             // Use generated audio
             const audio = new Audio(script[index].audioUrl);
+            setCurrentAudio(audio);
             audio.onended = () => playSequence(script, index + 1);
             audio.onerror = () => {
                 console.error("Audio playback error, falling back to local speech");
@@ -194,8 +231,9 @@ Output ONLY a JSON array:
             };
             audio.play().catch(e => {
                 console.error("Play prevented", e);
-                setPodcastStatus('error');
-                setPodcastError("Audio playback was blocked by the browser. Please click Play again.");
+                // If it's a browser restriction, we try speakLocally as it sometimes works better 
+                // or we show the error.
+                speakLocally(script[index].text, () => playSequence(script, index + 1));
             });
         } else {
             // Fallback to local browser speech synthesis
@@ -204,13 +242,44 @@ Output ONLY a JSON array:
     };
 
     const speakLocally = (text, onEnd) => {
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.onend = onEnd;
-        utterance.onerror = onEnd;
-        // Try to find a nice English voice
-        const voices = window.speechSynthesis.getVoices();
-        utterance.voice = voices.find(v => v.lang.includes('en')) || voices[0];
-        window.speechSynthesis.speak(utterance);
+        utterance.onerror = (e) => {
+            console.error("SpeechSynthesis error", e);
+            onEnd();
+        };
+        
+        const loadAndSpeak = () => {
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                // Priority: Natural/Neural Indian English -> Natural English -> Any Indian -> Any English
+                const bestVoice = 
+                    voices.find(v => v.name.includes('Natural') && v.lang.includes('en-IN')) ||
+                    voices.find(v => v.name.includes('Google') && v.lang.includes('en-IN')) ||
+                    voices.find(v => v.lang.includes('en-IN')) || 
+                    voices.find(v => v.name.includes('Natural') && v.lang.includes('en')) ||
+                    voices.find(v => v.lang.includes('en-GB')) || 
+                    voices.find(v => v.lang.includes('en')) || 
+                    voices[0];
+                
+                utterance.voice = bestVoice;
+                utterance.rate = 0.95; // Slightly slower for more natural feel
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                window.speechSynthesis.speak(utterance);
+            }
+        };
+
+        if (window.speechSynthesis.getVoices().length === 0) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                loadAndSpeak();
+                window.speechSynthesis.onvoiceschanged = null;
+            };
+        } else {
+            loadAndSpeak();
+        }
     };
 
     const handleDownloadPodcast = async () => {
@@ -225,16 +294,26 @@ Output ONLY a JSON array:
             }
 
             // Merge audios
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            const audioContext = new AudioContextClass();
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
             const audioBuffers = [];
             
             for (const line of podcastScript) {
                 if (!line.audioUrl) continue;
-                const response = await fetch(line.audioUrl);
-                const arrayBuffer = await response.arrayBuffer();
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                audioBuffers.push(audioBuffer);
+                try {
+                    const response = await fetch(line.audioUrl);
+                    const arrayBuffer = await response.arrayBuffer();
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    audioBuffers.push(audioBuffer);
+                } catch (e) {
+                    console.warn("Could not decode audio chunk", e);
+                }
             }
+            
+            if (audioBuffers.length === 0) throw new Error("No audio chunks to merge.");
             
             const totalLength = audioBuffers.reduce((sum, buffer) => sum + buffer.length, 0);
             const offlineContext = new OfflineAudioContext(
@@ -411,14 +490,23 @@ Output ONLY a JSON array:
                                         </div>
                                         <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
                                             <div className="flex gap-2 w-full md:w-auto">
-                                                <button 
-                                                    onClick={podcastStatus === 'ready_to_play' ? () => playSequence(podcastScript, 0) : null}
-                                                    disabled={podcastStatus === 'generating_script' || podcastStatus === 'generating_audio' || podcastStatus === 'playing'}
-                                                    className="bg-white text-black px-5 py-2.5 rounded-full font-plex text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)] w-full md:w-auto"
-                                                >
-                                                    {(podcastStatus === 'generating_script' || podcastStatus === 'generating_audio') ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor"/>}
-                                                    {podcastStatus === 'generating_script' ? 'Writing...' : podcastStatus === 'generating_audio' ? 'Generating Audio...' : podcastStatus === 'ready_to_play' ? 'Start Playing ▶' : podcastStatus === 'playing' ? 'Playing...' : 'Generate Episode'}
-                                                </button>
+                                                {podcastStatus === 'playing' ? (
+                                                    <button 
+                                                        onClick={stopSequence}
+                                                        className="bg-red-500 text-white px-6 py-2.5 rounded-full font-plex text-sm font-bold hover:scale-105 transition-transform flex items-center justify-center gap-2 shadow-lg w-full md:w-auto"
+                                                    >
+                                                        <RefreshCcw size={16} /> Stop Podcast
+                                                    </button>
+                                                ) : (
+                                                    <button 
+                                                        onClick={podcastStatus === 'ready_to_play' ? () => playSequence(podcastScript, 0) : null}
+                                                        disabled={podcastStatus === 'generating_script' || podcastStatus === 'generating_audio'}
+                                                        className="bg-white text-black px-6 py-2.5 rounded-full font-plex text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)] w-full md:w-auto"
+                                                    >
+                                                        {(podcastStatus === 'generating_script' || podcastStatus === 'generating_audio') ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor"/>}
+                                                        {podcastStatus === 'generating_script' ? 'Writing Script...' : podcastStatus === 'generating_audio' ? 'Generating Audio...' : podcastStatus === 'ready_to_play' ? 'Start Episode ▶' : 'Generate Episode'}
+                                                    </button>
+                                                )}
                                                 
                                                 {(podcastStatus === 'ready_to_play' || podcastStatus === 'playing') && (
                                                     <button 
