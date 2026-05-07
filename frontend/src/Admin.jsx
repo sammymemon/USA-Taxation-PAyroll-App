@@ -9,7 +9,7 @@ function Admin() {
     const [editingCard, setEditingCard] = useState(null);
 
     // AI Generation state
-    const [groqApiKey, setGroqApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
+    const [grokApiKey, setGrokApiKey] = useState(() => localStorage.getItem('grokApiKey') || localStorage.getItem('groqApiKey') || '');
     const [hfApiKey, setHfApiKey] = useState(() => localStorage.getItem('hfApiKey') || '');
     const [generatingAI, setGeneratingAI] = useState(false);
     const [showApiKeys, setShowApiKeys] = useState(false);
@@ -93,8 +93,8 @@ function Admin() {
     };
 
     const generateWithAI = async () => {
-        if (!groqApiKey) {
-            alert("Please set your Groq API key in the Settings section above first!");
+        if (!grokApiKey) {
+            alert("Please set your Grok (xAI) API key in the Settings section above first!");
             setShowApiKeys(true);
             return;
         }
@@ -120,16 +120,16 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
 `;
 
             const response = await axios.post(
-                "https://api.groq.com/openai/v1/chat/completions",
+                "https://api.x.ai/v1/chat/completions",
                 {
-                    model: "llama-3.1-8b-instant",
+                    model: "grok-beta",
                     messages: [{ role: "user", content: prompt }],
                     max_tokens: 350,
                     temperature: 0.7
                 },
                 {
                     headers: {
-                        "Authorization": `Bearer ${groqApiKey}`,
+                        "Authorization": `Bearer ${grokApiKey}`,
                         "Content-Type": "application/json"
                     }
                 }
@@ -241,14 +241,14 @@ Output ONLY a raw JSON format exactly like this (no markdown, no backticks, no o
                     <h2 className="text-lg font-serif font-bold text-text mb-4 border-b border-border pb-2">API Keys Configuration</h2>
                     <div className="grid md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block font-plex text-[10px] text-muted uppercase mb-1">Groq API Key (for AI content generation)</label>
+                            <label className="block font-plex text-[10px] text-muted uppercase mb-1">Grok (xAI) API Key (for AI content generation)</label>
                             <input
                                 type="password"
-                                placeholder="gsk_..."
-                                value={groqApiKey}
+                                placeholder="xai-..."
+                                value={grokApiKey}
                                 onChange={(e) => {
-                                    setGroqApiKey(e.target.value);
-                                    localStorage.setItem('groqApiKey', e.target.value.trim());
+                                    setGrokApiKey(e.target.value);
+                                    localStorage.setItem('grokApiKey', e.target.value.trim());
                                 }}
                                 className="w-full bg-bg border border-border px-3 py-2 rounded-md text-[13px] font-plex outline-none focus:border-accent"
                             />

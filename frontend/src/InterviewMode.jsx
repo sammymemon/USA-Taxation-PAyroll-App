@@ -12,10 +12,10 @@ const DEFAULT_TOPICS = [
     "Depreciation (MACRS)", "Accrued Revenue", "Accrued Expenses", "Retained Earnings", "Cost of Goods Sold (COGS)"
 ];
 
-async function callGroq(apiKey, messages, maxTokens = 1500, json = false) {
+async function callGrok(apiKey, messages, maxTokens = 1500, json = false) {
     try {
         const payload = {
-            model: 'llama-3.3-70b-versatile',
+            model: 'grok-beta',
             messages,
             temperature: 0.7,
             max_tokens: maxTokens,
@@ -23,19 +23,19 @@ async function callGroq(apiKey, messages, maxTokens = 1500, json = false) {
         if (json) payload.response_format = { type: 'json_object' };
 
         const res = await axios.post(
-            'https://api.groq.com/openai/v1/chat/completions',
+            'https://api.x.ai/v1/chat/completions',
             payload,
             { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
         );
         return res.data?.choices?.[0]?.message?.content || '';
     } catch (e) {
-        console.error('Groq API error:', e?.response?.data || e.message);
+        console.error('Grok API error:', e?.response?.data || e.message);
         throw e;
     }
 }
 
 export default function InterviewMode() {
-    const [apiKey, setApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
+    const [apiKey, setApiKey] = useState(() => localStorage.getItem('grokApiKey') || localStorage.getItem('groqApiKey') || '');
     const [topic, setTopic] = useState('');
     const [language, setLanguage] = useState('hinglish');
     const [status, setStatus] = useState('idle'); // idle, generating, verifying, done, error
@@ -53,7 +53,7 @@ export default function InterviewMode() {
     const handleLearn = async (selectedTopic) => {
         const activeTopic = selectedTopic || topic;
         if (!activeTopic.trim()) return alert("Please enter a topic to learn!");
-        if (!apiKey) return alert("Please enter your Groq API Key first!");
+        if (!apiKey) return alert("Please enter your Grok (xAI) API Key first!");
 
         setStatus('generating');
         setErrorMsg('');
@@ -89,7 +89,7 @@ Return ONLY a JSON object exactly in this format:
   ]
 }`;
             
-            const generatedRaw = await callGroq(apiKey, [
+            const generatedRaw = await callGrok(apiKey, [
                 { role: 'system', content: 'You only output JSON.' },
                 { role: 'user', content: generatePrompt }
             ], 3500, true);
@@ -119,7 +119,7 @@ Output the EXACT SAME JSON structure with corrected data (if any). If it is alre
 JSON to review:
 ${JSON.stringify(intermediateData, null, 2)}`;
 
-            const verifiedRaw = await callGroq(apiKey, [
+            const verifiedRaw = await callGrok(apiKey, [
                 { role: 'system', content: 'You only output corrected JSON.' },
                 { role: 'user', content: verifyPrompt }
             ], 3500, true);
@@ -165,7 +165,7 @@ Output ONLY JSON array in this format:
 Lesson Data:
 ${JSON.stringify({ title: lessonData.title, explanation: lessonData.explanation })}`;
 
-            const scriptRaw = await callGroq(apiKey, [
+            const scriptRaw = await callGrok(apiKey, [
                 { role: 'system', content: 'You only output a JSON array of objects.' },
                 { role: 'user', content: podcastPrompt }
             ], 1500);
@@ -367,11 +367,11 @@ ${JSON.stringify({ title: lessonData.title, explanation: lessonData.explanation 
                                 <div className="space-y-3">
                                     <input
                                         type="password"
-                                        placeholder="Groq API Key (gsk_...)"
+                                        placeholder="Grok (xAI) API Key (xai-...)"
                                         value={apiKey}
                                         onChange={(e) => {
                                             setApiKey(e.target.value);
-                                            localStorage.setItem('groqApiKey', e.target.value.trim());
+                                            localStorage.setItem('grokApiKey', e.target.value.trim());
                                         }}
                                         className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent text-center"
                                     />
