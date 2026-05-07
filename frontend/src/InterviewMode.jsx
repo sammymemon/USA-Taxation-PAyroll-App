@@ -44,7 +44,7 @@ export default function InterviewMode() {
 
     // Podcast states
     const [hfApiKey, setHfApiKey] = useState(() => localStorage.getItem('hfApiKey') || '');
-    const [hfModel, setHfModel] = useState(() => localStorage.getItem('hfModel') || 'suno/bark-small');
+    const [hfModel, setHfModel] = useState(() => localStorage.getItem('hfModel') || 'facebook/mms-tts-eng');
     const [showHfSettings, setShowHfSettings] = useState(false);
     const [podcastScript, setPodcastScript] = useState(null);
     const [podcastStatus, setPodcastStatus] = useState('idle'); // idle, generating_script, generating_audio, playing, error
@@ -226,7 +226,11 @@ ${JSON.stringify({ title: lessonData.title, explanation: lessonData.explanation 
                     } catch (audioErr) {
                         if (retries <= 1) {
                             console.error("HF Audio Error final:", audioErr);
-                            throw new Error(`HuggingFace Error: ${audioErr.message}. Ensure your token is valid.`);
+                            let errorMsg = audioErr.message;
+                            if (errorMsg.includes("Failed to fetch")) {
+                                errorMsg = "Network/CORS Error: Token might be invalid or model doesn't support free API. Try changing the model to 'facebook/mms-tts-eng'.";
+                            }
+                            throw new Error(`HuggingFace Error: ${errorMsg}`);
                         }
                         retries--;
                         await new Promise(resolve => setTimeout(resolve, 2000));
