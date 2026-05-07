@@ -44,7 +44,7 @@ export default function InterviewMode() {
 
     // Podcast states
     const [hfApiKey, setHfApiKey] = useState(() => localStorage.getItem('hfApiKey') || '');
-    const [hfModel, setHfModel] = useState(() => localStorage.getItem('hfModel') || 'espnet/kan-bayashi_ljspeech_vits');
+    const [hfModel, setHfModel] = useState(() => localStorage.getItem('hfModel') || 'suno/bark-small');
     const [podcastScript, setPodcastScript] = useState(null);
     const [podcastStatus, setPodcastStatus] = useState('idle'); // idle, generating_script, generating_audio, playing, error
     const [currentLineIndex, setCurrentLineIndex] = useState(0);
@@ -186,24 +186,54 @@ ${JSON.stringify({ title: lessonData.title, explanation: lessonData.explanation 
             const audioUrls = [];
             for (let i = 0; i < scriptData.length; i++) {
                 const line = scriptData[i];
-                try {
-                    const response = await axios.post(
-                        `https://api-inference.huggingface.co/models/${hfModel}`,
-                        { inputs: line.text },
-                        {
+                let audioUrl = null;
+                let retries = 3;
+
+                while (retries > 0) {
+                    try {
+                        // Prepend a small cue for Bark models to encourage natural voices
+                        let textInput = line.text;
+                        if (hfModel.includes("bark")) {
+                            textInput = (line.speaker.toLowerCase().includes("teacher") ? "♪ " : "") + line.text;
+                        }
+
+                        const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
+                            method: "POST",
                             headers: {
                                 "Authorization": `Bearer ${hfApiKey}`,
                                 "Content-Type": "application/json"
                             },
-                            responseType: 'blob'
+                            body: JSON.stringify({ inputs: textInput })
+                        });
+
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            audioUrl = URL.createObjectURL(blob);
+                            break; // Success! Exit retry loop
+                        } else {
+                            const errData = await response.json().catch(() => ({}));
+                            if (errData.estimated_time) {
+                                const waitTime = Math.ceil(errData.estimated_time);
+                                console.log(`Model loading, waiting ${waitTime}s...`);
+                                setPodcastError(`⏳ Warming up AI Voice Model (${waitTime}s)...`);
+                                await new Promise(resolve => setTimeout(resolve, waitTime * 1000 + 2000));
+                                retries--;
+                            } else {
+                                throw new Error(errData.error || `HTTP ${response.status}`);
+                            }
                         }
-                    );
-                    const url = URL.createObjectURL(response.data);
-                    audioUrls.push(url);
-                } catch (audioErr) {
-                    console.error("HF Audio Error:", audioErr);
-                    throw new Error(`HuggingFace API Error: Model might be loading or token invalid. (${audioErr.message})`);
+                    } catch (audioErr) {
+                        if (retries <= 1) {
+                            console.error("HF Audio Error final:", audioErr);
+                            throw new Error(`HuggingFace Error: ${audioErr.message}. Ensure your token is valid.`);
+                        }
+                        retries--;
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
                 }
+
+                if (!audioUrl) throw new Error("Failed to generate audio for a line after multiple retries.");
+                audioUrls.push(audioUrl);
             }
 
             // Attach audio URLs to script
@@ -431,24 +461,34 @@ ${JSON.stringify({ title: lessonData.title, explanation: lessonData.explanation 
                                         </div>
                                     </div>
                                     
-                                    {podcastError && <div className="text-red-500 text-sm font-plex mb-4">{podcastError}</div>}
+                                    {podcastError && <div className="bg-accent/10 border border-accent/30 text-accent px-4 py-3 rounded-lg text-sm font-plex mb-4 animate-pulse flex items-center gap-2"><AlertCircle size={16}/> {podcastError}</div>}
                                     
                                     {podcastScript && (
-                                        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {podcastScript.map((line, idx) => (
-                                                <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${podcastStatus === 'playing' && currentLineIndex === idx ? 'bg-accent/10 border border-accent/30' : 'bg-surface border border-border'}`}>
-                                                    <div className="w-8 h-8 rounded-full bg-accent text-[#0f0e0d] flex items-center justify-center font-bold font-plex text-xs shrink-0 mt-1">
-                                                        {line.speaker.charAt(0)}
+                                        <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar mt-4">
+                                            {podcastScript.map((line, idx) => {
+                                                const isPlaying = podcastStatus === 'playing' && currentLineIndex === idx;
+                                                const isTeacher = line.speaker.toLowerCase().includes('teacher');
+                                                return (
+                                                    <div key={idx} className={`flex items-start gap-4 p-4 rounded-2xl transition-all duration-300 ${isPlaying ? 'bg-surface2 shadow-md border border-accent scale-[1.01]' : 'bg-surface/50 border border-border/50 opacity-80'}`}>
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold font-playfair text-lg shrink-0 shadow-inner ${isTeacher ? 'bg-accent text-[#0f0e0d]' : 'bg-blue-500 text-white'}`}>
+                                                            {line.speaker.charAt(0)}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className={`font-plex text-[12px] font-bold tracking-widest uppercase ${isTeacher ? 'text-accent' : 'text-blue-500'}`}>{line.speaker}</span>
+                                                                {isPlaying && <span className="flex gap-0.5 items-end h-3">
+                                                                    <span className="w-1 h-2 bg-accent animate-[bounce_1s_infinite] rounded-full"></span>
+                                                                    <span className="w-1 h-3 bg-accent animate-[bounce_1s_infinite_0.2s] rounded-full"></span>
+                                                                    <span className="w-1 h-1.5 bg-accent animate-[bounce_1s_infinite_0.4s] rounded-full"></span>
+                                                                </span>}
+                                                            </div>
+                                                            <div className={`font-serif text-base md:text-lg leading-relaxed ${isPlaying ? 'text-text' : 'text-muted'}`}>
+                                                                {line.text}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <div className="font-plex text-[11px] text-accent font-bold mb-1">{line.speaker}</div>
-                                                        <div className="font-serif text-sm">{line.text}</div>
-                                                    </div>
-                                                    {podcastStatus === 'playing' && currentLineIndex === idx && (
-                                                        <div className="ml-auto text-accent mt-2"><Loader2 size={14} className="animate-spin" /></div>
-                                                    )}
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
