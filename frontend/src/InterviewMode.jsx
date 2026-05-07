@@ -103,13 +103,19 @@ export default function InterviewMode() {
         setMergedAudioUrl(null);
 
         try {
-            const podcastPrompt = `You are a master USA Bookkeeping & Accounting tutor.
-Convert the topic "${activeTopic}" into an engaging 2-person educational podcast script.
-Host 1 (Teacher): Explains the concept clearly and MUST include a practical scenario with exact Journal Entries (mentioning exactly what account is Debited and what is Credited with amounts).
-Host 2 (Student): Asks questions or clarifies.
-Language: ${language === 'hinglish' ? 'Hinglish (use English alphabet but Hindi words, e.g. "Toh asset badhega")' : 'English'}.
-Keep it concise: around 6-8 lines of dialogue total. Make sure the accounting rules and debits/credits are 100% mathematically and fundamentally accurate.
-Output ONLY a JSON array in this format:
+            const podcastPrompt = `You are a master USA Bookkeeping & Accounting tutor creating an educational podcast.
+Topic: "${activeTopic}"
+Language: ${language === 'hinglish' ? 'Hinglish (Hindi words written in English alphabet mixed with accounting terms, e.g. "Yaar, jab hum cash receive karte hain, toh Cash account ko debit karte hain")' : 'Clear professional English'}.
+
+Create a 2-person podcast script between Teacher and Student.
+RULES:
+1. Teacher MUST explain the concept first in 1-2 lines.
+2. Student asks a clarifying question.
+3. Teacher MUST give a specific real example with journal entry, saying exactly: which account is DEBITED (with amount) and which is CREDITED (with amount). E.g. "Cash account ko 5000 dollar se debit karo, aur Sales Revenue ko 5000 dollar se credit karo."
+4. Student confirms understanding.
+5. Total 6-8 lines of dialogue. Accounting math MUST be 100% correct - debits must equal credits.
+
+Output ONLY a JSON array:
 [
   { "speaker": "Teacher", "text": "..." },
   { "speaker": "Student", "text": "..." }
@@ -450,9 +456,7 @@ Output ONLY a JSON array in this format:
                                                 );
                                             })}
                                         </div>
-                                    )}
                                 </div>
-                            </div>
                             </div>
                         </div>
                     </div>
