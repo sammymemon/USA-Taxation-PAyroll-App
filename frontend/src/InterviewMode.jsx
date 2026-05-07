@@ -142,13 +142,33 @@ Output ONLY a JSON array:
             const audioUrls = [];
             for (let i = 0; i < scriptData.length; i++) {
                 const line = scriptData[i];
-                // Teacher = Aditi (Indian female), Student = Raveena (Indian female)
-                const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
-                const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text)}`;
-                const seResponse = await fetch(seUrl);
-                if (!seResponse.ok) throw new Error(`Audio generation failed for line ${i + 1}. Check your internet.`);
-                const blob = await seResponse.blob();
-                audioUrls.push(URL.createObjectURL(blob));
+                let audioUrl = null;
+                let retries = 3;
+
+                while (retries > 0) {
+                    try {
+                        const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
+                        const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text.substring(0, 1000))}`;
+                        const seResponse = await fetch(seUrl);
+                        
+                        if (seResponse.ok) {
+                            const blob = await seResponse.blob();
+                            audioUrl = URL.createObjectURL(blob);
+                            break;
+                        } else {
+                            throw new Error(`Status ${seResponse.status}`);
+                        }
+                    } catch (e) {
+                        console.warn(`TTS attempt ${4 - retries} failed:`, e.message);
+                        retries--;
+                        if (retries > 0) await new Promise(r => setTimeout(r, 1000));
+                    }
+                }
+
+                if (!audioUrl) throw new Error(`Audio generation failed for line ${i + 1}. Please try again.`);
+                audioUrls.push(audioUrl);
+                // Tiny delay to be nice to the API
+                await new Promise(r => setTimeout(r, 200));
             }
 
             // Attach audio URLs to script
@@ -413,7 +433,7 @@ Output ONLY a JSON array:
                                     {podcastError && <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm font-plex mb-6 animate-pulse flex items-center gap-3"><AlertCircle size={18}/> {podcastError}</div>}
                                     
                                     {podcastScript && (
-                                        <div className="space-y-6 max-h-[400px] overflow-y-auto pr-3 custom-scrollbar mt-6 relative z-10">
+                                        <div className="space-y-6 mt-6 relative z-10">
                                             {podcastScript.map((line, idx) => {
                                                 const isPlaying = podcastStatus === 'playing' && currentLineIndex === idx;
                                                 const isTeacher = line.speaker.toLowerCase().includes('teacher');
