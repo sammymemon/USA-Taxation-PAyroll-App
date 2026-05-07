@@ -154,7 +154,8 @@ Output ONLY a JSON array:
                 let audioUrl = null;
                 
                 try {
-                    const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
+                    // Using Kajal and Aditi which are optimized for Hindi/Hinglish
+                    const voice = line.speaker.toLowerCase().includes("teacher") ? "Kajal" : "Aditi";
                     const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text.substring(0, 500))}`;
                     
                     // Added a small delay to prevent 429 from StreamElements
@@ -253,8 +254,9 @@ Output ONLY a JSON array:
         const loadAndSpeak = () => {
             const voices = window.speechSynthesis.getVoices();
             if (voices.length > 0) {
-                // Priority: Natural/Neural Indian English -> Natural English -> Any Indian -> Any English
+                // Priority: Hindi India -> Natural/Neural Indian English -> Google Indian English -> Any English
                 const bestVoice = 
+                    voices.find(v => v.lang.includes('hi-IN')) ||
                     voices.find(v => v.name.includes('Natural') && v.lang.includes('en-IN')) ||
                     voices.find(v => v.name.includes('Google') && v.lang.includes('en-IN')) ||
                     voices.find(v => v.lang.includes('en-IN')) || 
