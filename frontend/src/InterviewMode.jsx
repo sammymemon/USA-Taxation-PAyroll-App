@@ -241,9 +241,8 @@ ${JSON.stringify({ title: lessonData.title, explanation: lessonData.explanation 
             const scriptWithAudio = scriptData.map((line, idx) => ({ ...line, audioUrl: audioUrls[idx] }));
             setPodcastScript(scriptWithAudio);
             
-            // Start playing
-            setPodcastStatus('playing');
-            playSequence(scriptWithAudio, 0);
+            // Wait for user interaction to play to bypass autoplay restrictions
+            setPodcastStatus('ready_to_play');
 
         } catch (err) {
             console.error(err);
@@ -439,36 +438,36 @@ ${JSON.stringify({ title: lessonData.title, explanation: lessonData.explanation 
                                     {/* Decorative background elements */}
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none transform translate-x-1/3 -translate-y-1/3"></div>
                                     
-                                    <div className="flex justify-between items-start mb-6 relative z-10">
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 relative z-10 gap-6">
                                         <div>
                                             <h3 className="font-playfair text-2xl md:text-3xl font-black text-white flex items-center gap-3 mb-2">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-accent to-[#e6c239] flex items-center justify-center text-[#0f0e0d] shadow-lg">
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-accent to-[#e6c239] flex items-center justify-center text-[#0f0e0d] shadow-lg shrink-0">
                                                     <Mic size={20} />
                                                 </div>
                                                 Aria Podcast
                                             </h3>
                                             <p className="font-plex text-xs text-gray-400">AI Generated Audio Experience</p>
                                         </div>
-                                        <div className="flex flex-col items-end gap-3">
-                                            <div className="flex gap-2">
+                                        <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
+                                            <div className="flex gap-2 w-full md:w-auto">
                                                 <button 
                                                     onClick={() => setShowHfSettings(!showHfSettings)}
-                                                    className="p-2.5 rounded-full bg-[#1a1a1a] text-gray-400 hover:text-white border border-[#333] hover:border-[#555] transition-all"
+                                                    className="p-2.5 rounded-full bg-[#1a1a1a] text-gray-400 hover:text-white border border-[#333] hover:border-[#555] transition-all shrink-0"
                                                     title="Settings"
                                                 >
                                                     <Settings size={16} />
                                                 </button>
                                                 <button 
-                                                    onClick={handleGeneratePodcast}
-                                                    disabled={podcastStatus === 'generating_script' || podcastStatus === 'generating_audio'}
-                                                    className="bg-white text-black px-5 py-2.5 rounded-full font-plex text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                                                    onClick={podcastStatus === 'ready_to_play' ? () => playSequence(podcastScript, 0) : handleGeneratePodcast}
+                                                    disabled={podcastStatus === 'generating_script' || podcastStatus === 'generating_audio' || podcastStatus === 'playing'}
+                                                    className="bg-white text-black px-5 py-2.5 rounded-full font-plex text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)] w-full md:w-auto"
                                                 >
                                                     {(podcastStatus === 'generating_script' || podcastStatus === 'generating_audio') ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor"/>}
-                                                    {podcastStatus === 'generating_script' ? 'Writing...' : podcastStatus === 'generating_audio' ? 'Warming Up...' : 'Play Episode'}
+                                                    {podcastStatus === 'generating_script' ? 'Writing...' : podcastStatus === 'generating_audio' ? 'Warming Up...' : podcastStatus === 'ready_to_play' ? 'Start Playing ▶' : podcastStatus === 'playing' ? 'Playing...' : 'Generate Episode'}
                                                 </button>
                                             </div>
                                             {showHfSettings && (
-                                                <div className="bg-[#1a1a1a] border border-[#333] p-3 rounded-xl animate-in slide-in-from-top-2">
+                                                <div className="bg-[#1a1a1a] border border-[#333] p-3 rounded-xl animate-in slide-in-from-top-2 w-full md:w-auto">
                                                     <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-plex">Voice Model</label>
                                                     <input 
                                                         type="text" 
@@ -495,7 +494,7 @@ ${JSON.stringify({ title: lessonData.title, explanation: lessonData.explanation 
                                                 
                                                 return (
                                                     <div key={idx} className={`flex ${isTeacher ? 'justify-start' : 'justify-end'} transition-all duration-500 ${isPlaying ? 'scale-[1.02]' : 'opacity-80'}`}>
-                                                        <div className={`max-w-[85%] flex gap-3 ${isTeacher ? 'flex-row' : 'flex-row-reverse'}`}>
+                                                        <div className={`max-w-[95%] md:max-w-[85%] flex gap-3 ${isTeacher ? 'flex-row' : 'flex-row-reverse'}`}>
                                                             {/* Avatar */}
                                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold font-playfair text-lg shrink-0 shadow-lg ${isTeacher ? 'bg-gradient-to-br from-accent to-[#d4b02c] text-[#0f0e0d]' : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'}`}>
                                                                 {line.speaker.charAt(0)}
