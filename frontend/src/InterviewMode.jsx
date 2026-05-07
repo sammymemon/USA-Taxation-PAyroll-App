@@ -352,7 +352,6 @@ Output ONLY a JSON array:
                                 </div>
                                 <p className="font-plex text-[10px] text-muted mt-3">Required for AI script generation (TTS is free, no key needed)</p>
                             </div>
-                        )}
                     </div>
                 ) : null}
 
@@ -456,12 +455,12 @@ Output ONLY a JSON array:
                                                 );
                                             })}
                                         </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
-        </div>
     );
 }
