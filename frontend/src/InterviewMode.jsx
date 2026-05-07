@@ -84,7 +84,7 @@ export default function InterviewMode() {
 
     // Podcast states
     const [hfApiKey, setHfApiKey] = useState(() => localStorage.getItem('hfApiKey') || '');
-    const [hfModel, setHfModel] = useState(() => localStorage.getItem('hfModel') || 'facebook/mms-tts-eng');
+    const [hfModel, setHfModel] = useState(() => localStorage.getItem('hfModel') || 'espnet/kan-bayashi_ljspeech_vits');
     const [showHfSettings, setShowHfSettings] = useState(false);
     const [podcastScript, setPodcastScript] = useState(null);
     const [podcastStatus, setPodcastStatus] = useState('idle'); // idle, generating_script, generating_audio, ready_to_play, playing, error
@@ -136,21 +136,18 @@ Output ONLY a JSON array in this format:
             setPodcastScript(scriptData);
             setPodcastStatus('generating_audio');
 
-            // Generate audio for all lines sequentially
+            // Generate audio for all lines using StreamElements TTS (no API key needed, no CORS)
+            // StreamElements uses Amazon Polly voices - natural, clear, Indian English
             const audioUrls = [];
             for (let i = 0; i < scriptData.length; i++) {
                 const line = scriptData[i];
                 let audioUrl = null;
-                let retries = 2; // Reduced retries for HF since we have a fallback
 
-                // Try Hugging Face first
-                while (retries > 0 && hfApiKey) {
+                // Voice: Teacher = Aditi (female, Indian), Student = Raveena (female, Indian accent)
+                // We try HF first only if user has provided a key
+                if (hfApiKey && hfApiKey.trim().length > 10) {
                     try {
                         let textInput = line.text;
-                        if (hfModel.includes("bark")) {
-                            textInput = (line.speaker.toLowerCase().includes("teacher") ? "♪ " : "") + line.text;
-                        }
-
                         const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
                             method: "POST",
                             headers: {
@@ -159,51 +156,28 @@ Output ONLY a JSON array in this format:
                             },
                             body: JSON.stringify({ inputs: textInput })
                         });
-
                         if (response.ok) {
                             const blob = await response.blob();
                             audioUrl = URL.createObjectURL(blob);
-                            break; // Success! Exit retry loop
-                        } else {
-                            const errData = await response.json().catch(() => ({}));
-                            if (errData.estimated_time) {
-                                const waitTime = Math.ceil(errData.estimated_time);
-                                console.log(`Model loading, waiting ${waitTime}s...`);
-                                setPodcastError(`⏳ Warming up AI Voice Model (${waitTime}s)...`);
-                                await new Promise(resolve => setTimeout(resolve, waitTime * 1000 + 1000));
-                                retries--;
-                            } else {
-                                throw new Error(errData.error || `HTTP ${response.status}`);
-                            }
                         }
-                    } catch (audioErr) {
-                        console.warn("HF Audio Error attempt:", audioErr.message);
-                        retries--;
-                        if (retries > 0) await new Promise(resolve => setTimeout(resolve, 1500));
+                    } catch (hfErr) {
+                        console.warn("HF failed, using StreamElements fallback:", hfErr.message);
                     }
                 }
 
-                // FALLBACK: If HF failed (CORS, invalid token, etc.), use StreamElements (Amazon Polly)
+                // Primary (or fallback): StreamElements TTS - always works, no CORS, free
                 if (!audioUrl) {
-                    console.log("HuggingFace failed or skipped. Falling back to StreamElements API...");
-                    setPodcastError("⚠️ HuggingFace Token invalid/blocked. Using fallback voices.");
-                    try {
-                        // Aditi and Raveena are Indian English voices.
-                        const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
-                        const seResponse = await fetch(`https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text)}`);
-                        if (seResponse.ok) {
-                            const blob = await seResponse.blob();
-                            audioUrl = URL.createObjectURL(blob);
-                        } else {
-                            throw new Error("Fallback TTS also failed.");
-                        }
-                    } catch (fallbackErr) {
-                        console.error("Fallback error:", fallbackErr);
-                        throw new Error(`All audio generation failed. Please check your internet connection.`);
+                    const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
+                    const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text)}`;
+                    const seResponse = await fetch(seUrl);
+                    if (seResponse.ok) {
+                        const blob = await seResponse.blob();
+                        audioUrl = URL.createObjectURL(blob);
+                    } else {
+                        throw new Error(`TTS failed for line ${i + 1}. Check your internet connection.`);
                     }
                 }
 
-                if (!audioUrl) throw new Error("Failed to generate audio for a line.");
                 audioUrls.push(audioUrl);
             }
 
