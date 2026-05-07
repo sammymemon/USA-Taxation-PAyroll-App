@@ -1,7 +1,47 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, BookOpen, Bot, CheckCircle, Loader2, Play, Settings, Sparkles, AlertCircle, RefreshCcw, ShieldCheck, Mic } from 'lucide-react';
+import { ArrowLeft, BookOpen, Bot, CheckCircle, Loader2, Play, Settings, Sparkles, AlertCircle, RefreshCcw, ShieldCheck, Mic, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+// Utility to convert AudioBuffer to WAV format
+function audioBufferToWav(buffer) {
+    const numOfChan = buffer.numberOfChannels;
+    const length = buffer.length * numOfChan * 2 + 44;
+    const out = new ArrayBuffer(length);
+    const view = new DataView(out);
+    const channels = [];
+    let sample, offset = 0, pos = 0;
+
+    function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+    function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+
+    setUint32(0x46464952); // "RIFF"
+    setUint32(length - 8); // file length - 8
+    setUint32(0x45564157); // "WAVE"
+    setUint32(0x20746d66); // "fmt " chunk
+    setUint32(16); // length = 16
+    setUint16(1); // PCM (uncompressed)
+    setUint16(numOfChan);
+    setUint32(buffer.sampleRate);
+    setUint32(buffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+    setUint16(numOfChan * 2); // block-align
+    setUint16(16); // 16-bit
+    setUint32(0x61746164); // "data" - chunk
+    setUint32(length - pos - 4);
+
+    for (let i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
+
+    while (pos < length) {
+        for (let i = 0; i < numOfChan; i++) {
+            sample = Math.max(-1, Math.min(1, channels[i][offset]));
+            sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+            view.setInt16(pos, sample, true);
+            pos += 2;
+        }
+        offset++;
+    }
+    return new Blob([out], { type: "audio/wav" });
+}
 
 const DEFAULT_TOPICS = [
     "Accounting Equation", "Debit/Credit Rules", "Normal Account Balances", "T-Accounts", "Cash vs Accrual Basis", "Chart of Accounts",
@@ -47,9 +87,11 @@ export default function InterviewMode() {
     const [hfModel, setHfModel] = useState(() => localStorage.getItem('hfModel') || 'facebook/mms-tts-eng');
     const [showHfSettings, setShowHfSettings] = useState(false);
     const [podcastScript, setPodcastScript] = useState(null);
-    const [podcastStatus, setPodcastStatus] = useState('idle'); // idle, generating_script, generating_audio, playing, error
+    const [podcastStatus, setPodcastStatus] = useState('idle'); // idle, generating_script, generating_audio, ready_to_play, playing, error
     const [currentLineIndex, setCurrentLineIndex] = useState(0);
     const [podcastError, setPodcastError] = useState('');
+    const [mergedAudioUrl, setMergedAudioUrl] = useState(null);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const handleLearn = async (selectedTopic) => {
         const activeTopic = selectedTopic || topic;
@@ -62,6 +104,7 @@ export default function InterviewMode() {
         setPodcastStatus('generating_script');
         setPodcastError('');
         setPodcastScript(null);
+        setMergedAudioUrl(null);
 
         try {
             const podcastPrompt = `You are a master USA Bookkeeping & Accounting tutor.
@@ -185,6 +228,66 @@ Output ONLY a JSON array in this format:
             setPodcastStatus('error');
             setPodcastError("Audio playback was blocked by the browser.");
         });
+    };
+
+    const handleDownloadPodcast = async () => {
+        if (!podcastScript || isDownloading) return;
+        setIsDownloading(true);
+        try {
+            if (mergedAudioUrl) {
+                // Already merged, just trigger download
+                triggerDownload(mergedAudioUrl, `${topic.replace(/[^a-zA-Z0-9]/g, '_')}_Podcast.wav`);
+                setIsDownloading(false);
+                return;
+            }
+
+            // Merge audios
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffers = [];
+            
+            for (const line of podcastScript) {
+                if (!line.audioUrl) continue;
+                const response = await fetch(line.audioUrl);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                audioBuffers.push(audioBuffer);
+            }
+            
+            const totalLength = audioBuffers.reduce((sum, buffer) => sum + buffer.length, 0);
+            const offlineContext = new OfflineAudioContext(
+                audioBuffers[0].numberOfChannels,
+                totalLength,
+                audioBuffers[0].sampleRate
+            );
+            
+            let offset = 0;
+            for (const buffer of audioBuffers) {
+                const source = offlineContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(offlineContext.destination);
+                source.start(offset);
+                offset += buffer.duration;
+            }
+            
+            const renderedBuffer = await offlineContext.startRendering();
+            const wavBlob = audioBufferToWav(renderedBuffer);
+            const finalUrl = URL.createObjectURL(wavBlob);
+            setMergedAudioUrl(finalUrl);
+            triggerDownload(finalUrl, `${topic.replace(/[^a-zA-Z0-9]/g, '_')}_Podcast.wav`);
+        } catch (err) {
+            console.error("Merge error:", err);
+            alert("Failed to merge and download audio.");
+        }
+        setIsDownloading(false);
+    };
+
+    const triggerDownload = (url, filename) => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     };
 
     return (
@@ -351,6 +454,18 @@ Output ONLY a JSON array in this format:
                                                     {(podcastStatus === 'generating_script' || podcastStatus === 'generating_audio') ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor"/>}
                                                     {podcastStatus === 'generating_script' ? 'Writing...' : podcastStatus === 'generating_audio' ? 'Warming Up...' : podcastStatus === 'ready_to_play' ? 'Start Playing ▶' : podcastStatus === 'playing' ? 'Playing...' : 'Generate Episode'}
                                                 </button>
+                                                
+                                                {(podcastStatus === 'ready_to_play' || podcastStatus === 'playing') && (
+                                                    <button 
+                                                        onClick={handleDownloadPodcast}
+                                                        disabled={isDownloading}
+                                                        className="bg-[#2a2a2a] text-white px-5 py-2.5 rounded-full font-plex text-sm font-bold hover:bg-[#3a3a3a] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg border border-[#444] w-full md:w-auto"
+                                                        title="Download Full Podcast Audio"
+                                                    >
+                                                        {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                                                        {isDownloading ? 'Merging...' : 'Download'}
+                                                    </button>
+                                                )}
                                             </div>
                                             {showHfSettings && (
                                                 <div className="bg-[#1a1a1a] border border-[#333] p-3 rounded-xl animate-in slide-in-from-top-2 w-full md:w-auto">
