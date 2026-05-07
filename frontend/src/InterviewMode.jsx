@@ -138,44 +138,33 @@ Output ONLY a JSON array:
             setPodcastScript(scriptData);
             setPodcastStatus('generating_audio');
 
-            // StreamElements TTS - free, no API key, no CORS issues (Amazon Polly voices)
+            // StreamElements TTS with Local Web Speech Fallback
             const audioUrls = [];
             for (let i = 0; i < scriptData.length; i++) {
                 const line = scriptData[i];
                 let audioUrl = null;
-                let retries = 3;
-
-                while (retries > 0) {
-                    try {
-                        const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
-                        const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text.substring(0, 1000))}`;
-                        const seResponse = await fetch(seUrl);
-                        
-                        if (seResponse.ok) {
-                            const blob = await seResponse.blob();
-                            audioUrl = URL.createObjectURL(blob);
-                            break;
-                        } else {
-                            throw new Error(`Status ${seResponse.status}`);
-                        }
-                    } catch (e) {
-                        console.warn(`TTS attempt ${4 - retries} failed:`, e.message);
-                        retries--;
-                        if (retries > 0) await new Promise(r => setTimeout(r, 1000));
+                
+                try {
+                    const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
+                    const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text.substring(0, 500))}`;
+                    const seResponse = await fetch(seUrl);
+                    
+                    if (seResponse.ok) {
+                        const blob = await seResponse.blob();
+                        audioUrl = URL.createObjectURL(blob);
                     }
+                } catch (e) {
+                    console.warn("StreamElements failed, will use local speech synthesis if needed.");
                 }
 
-                if (!audioUrl) throw new Error(`Audio generation failed for line ${i + 1}. Please try again.`);
-                audioUrls.push(audioUrl);
-                // Tiny delay to be nice to the API
-                await new Promise(r => setTimeout(r, 200));
+                // If remote TTS fails, we'll mark it to use local speechSynthesis during playback
+                // Since speechSynthesis doesn't provide a Blob easily, we store null and handle in playSequence
+                audioUrls.push(audioUrl); 
             }
 
             // Attach audio URLs to script
             const scriptWithAudio = scriptData.map((line, idx) => ({ ...line, audioUrl: audioUrls[idx] }));
             setPodcastScript(scriptWithAudio);
-            
-            // Wait for user interaction to play to bypass autoplay restrictions
             setPodcastStatus('ready_to_play');
 
         } catch (err) {
@@ -193,19 +182,34 @@ Output ONLY a JSON array:
         }
 
         setCurrentLineIndex(index);
-        const audio = new Audio(script[index].audioUrl);
-        audio.onended = () => {
-            playSequence(script, index + 1);
-        };
-        audio.onerror = () => {
-            console.error("Audio playback error");
-            playSequence(script, index + 1);
-        };
-        audio.play().catch(e => {
-            console.error("Play prevented", e);
-            setPodcastStatus('error');
-            setPodcastError("Audio playback was blocked by the browser.");
-        });
+        
+        if (script[index].audioUrl) {
+            // Use generated audio
+            const audio = new Audio(script[index].audioUrl);
+            audio.onended = () => playSequence(script, index + 1);
+            audio.onerror = () => {
+                console.error("Audio playback error, falling back to local speech");
+                speakLocally(script[index].text, () => playSequence(script, index + 1));
+            };
+            audio.play().catch(e => {
+                console.error("Play prevented", e);
+                setPodcastStatus('error');
+                setPodcastError("Audio playback was blocked by the browser. Please click Play again.");
+            });
+        } else {
+            // Fallback to local browser speech synthesis
+            speakLocally(script[index].text, () => playSequence(script, index + 1));
+        }
+    };
+
+    const speakLocally = (text, onEnd) => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.onend = onEnd;
+        utterance.onerror = onEnd;
+        // Try to find a nice English voice
+        const voices = window.speechSynthesis.getVoices();
+        utterance.voice = voices.find(v => v.lang.includes('en')) || voices[0];
+        window.speechSynthesis.speak(utterance);
     };
 
     const handleDownloadPodcast = async () => {
