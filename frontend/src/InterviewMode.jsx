@@ -137,9 +137,9 @@ Output ONLY a JSON array in this format:
                             console.error("HF Audio Error final:", audioErr);
                             let errorMsg = audioErr.message;
                             if (errorMsg.includes("Failed to fetch")) {
-                                errorMsg = "Network/CORS Error: Token might be invalid or model doesn't support free API. Try changing the model to 'facebook/mms-tts-eng'.";
+                                errorMsg = "CORS/Network Error: Your HF Token is invalid OR missing 'Inference' permissions. Create a new token at huggingface.co/settings/tokens and ensure 'Make calls to Inference API' is checked. Disable Adblockers.";
                             }
-                            throw new Error(`HuggingFace Error: ${errorMsg}`);
+                            throw new Error(`HuggingFace API: ${errorMsg}`);
                         }
                         retries--;
                         await new Promise(resolve => setTimeout(resolve, 2000));
