@@ -83,11 +83,8 @@ export default function InterviewMode() {
     const [errorMsg, setErrorMsg] = useState('');
 
     // Podcast states
-    const [hfApiKey, setHfApiKey] = useState(() => localStorage.getItem('hfApiKey') || '');
-    const [hfModel, setHfModel] = useState(() => localStorage.getItem('hfModel') || 'espnet/kan-bayashi_ljspeech_vits');
-    const [showHfSettings, setShowHfSettings] = useState(false);
     const [podcastScript, setPodcastScript] = useState(null);
-    const [podcastStatus, setPodcastStatus] = useState('idle'); // idle, generating_script, generating_audio, ready_to_play, playing, error
+    const [podcastStatus, setPodcastStatus] = useState('idle');
     const [currentLineIndex, setCurrentLineIndex] = useState(0);
     const [podcastError, setPodcastError] = useState('');
     const [mergedAudioUrl, setMergedAudioUrl] = useState(null);
@@ -97,7 +94,6 @@ export default function InterviewMode() {
         const activeTopic = selectedTopic || topic;
         if (!activeTopic.trim()) return alert("Please enter a topic to learn!");
         if (!apiKey) return alert("Please enter your Groq API Key first!");
-        if (!hfApiKey) return alert("Please enter your Hugging Face API Key in Settings first!");
 
         setStatus('podcast_mode');
         setTopic(activeTopic);
@@ -136,49 +132,17 @@ Output ONLY a JSON array in this format:
             setPodcastScript(scriptData);
             setPodcastStatus('generating_audio');
 
-            // Generate audio for all lines using StreamElements TTS (no API key needed, no CORS)
-            // StreamElements uses Amazon Polly voices - natural, clear, Indian English
+            // StreamElements TTS - free, no API key, no CORS issues (Amazon Polly voices)
             const audioUrls = [];
             for (let i = 0; i < scriptData.length; i++) {
                 const line = scriptData[i];
-                let audioUrl = null;
-
-                // Voice: Teacher = Aditi (female, Indian), Student = Raveena (female, Indian accent)
-                // We try HF first only if user has provided a key
-                if (hfApiKey && hfApiKey.trim().length > 10) {
-                    try {
-                        let textInput = line.text;
-                        const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
-                            method: "POST",
-                            headers: {
-                                "Authorization": `Bearer ${hfApiKey.trim()}`,
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify({ inputs: textInput })
-                        });
-                        if (response.ok) {
-                            const blob = await response.blob();
-                            audioUrl = URL.createObjectURL(blob);
-                        }
-                    } catch (hfErr) {
-                        console.warn("HF failed, using StreamElements fallback:", hfErr.message);
-                    }
-                }
-
-                // Primary (or fallback): StreamElements TTS - always works, no CORS, free
-                if (!audioUrl) {
-                    const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
-                    const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text)}`;
-                    const seResponse = await fetch(seUrl);
-                    if (seResponse.ok) {
-                        const blob = await seResponse.blob();
-                        audioUrl = URL.createObjectURL(blob);
-                    } else {
-                        throw new Error(`TTS failed for line ${i + 1}. Check your internet connection.`);
-                    }
-                }
-
-                audioUrls.push(audioUrl);
+                // Teacher = Aditi (Indian female), Student = Raveena (Indian female)
+                const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
+                const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text)}`;
+                const seResponse = await fetch(seUrl);
+                if (!seResponse.ok) throw new Error(`Audio generation failed for line ${i + 1}. Check your internet.`);
+                const blob = await seResponse.blob();
+                audioUrls.push(URL.createObjectURL(blob));
             }
 
             // Attach audio URLs to script
@@ -379,18 +343,8 @@ Output ONLY a JSON array in this format:
                                         }}
                                         className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent text-center"
                                     />
-                                    <input
-                                        type="password"
-                                        placeholder="HuggingFace Token (hf_...)"
-                                        value={hfApiKey}
-                                        onChange={(e) => {
-                                            setHfApiKey(e.target.value);
-                                            localStorage.setItem('hfApiKey', e.target.value.trim());
-                                        }}
-                                        className="w-full bg-bg border border-border px-3 py-2 rounded-lg text-[13px] font-plex outline-none focus:border-accent text-center"
-                                    />
                                 </div>
-                                <p className="font-plex text-[10px] text-muted mt-3">Required for AI generation and Podcast TTS</p>
+                                <p className="font-plex text-[10px] text-muted mt-3">Required for AI script generation (TTS is free, no key needed)</p>
                             </div>
                         )}
                     </div>
@@ -428,19 +382,12 @@ Output ONLY a JSON array in this format:
                                         <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
                                             <div className="flex gap-2 w-full md:w-auto">
                                                 <button 
-                                                    onClick={() => setShowHfSettings(!showHfSettings)}
-                                                    className="p-2.5 rounded-full bg-[#1a1a1a] text-gray-400 hover:text-white border border-[#333] hover:border-[#555] transition-all shrink-0"
-                                                    title="Settings"
-                                                >
-                                                    <Settings size={16} />
-                                                </button>
-                                                <button 
                                                     onClick={podcastStatus === 'ready_to_play' ? () => playSequence(podcastScript, 0) : null}
                                                     disabled={podcastStatus === 'generating_script' || podcastStatus === 'generating_audio' || podcastStatus === 'playing'}
                                                     className="bg-white text-black px-5 py-2.5 rounded-full font-plex text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)] w-full md:w-auto"
                                                 >
                                                     {(podcastStatus === 'generating_script' || podcastStatus === 'generating_audio') ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor"/>}
-                                                    {podcastStatus === 'generating_script' ? 'Writing...' : podcastStatus === 'generating_audio' ? 'Warming Up...' : podcastStatus === 'ready_to_play' ? 'Start Playing ▶' : podcastStatus === 'playing' ? 'Playing...' : 'Generate Episode'}
+                                                    {podcastStatus === 'generating_script' ? 'Writing...' : podcastStatus === 'generating_audio' ? 'Generating Audio...' : podcastStatus === 'ready_to_play' ? 'Start Playing ▶' : podcastStatus === 'playing' ? 'Playing...' : 'Generate Episode'}
                                                 </button>
                                                 
                                                 {(podcastStatus === 'ready_to_play' || podcastStatus === 'playing') && (
@@ -455,21 +402,6 @@ Output ONLY a JSON array in this format:
                                                     </button>
                                                 )}
                                             </div>
-                                            {showHfSettings && (
-                                                <div className="bg-[#1a1a1a] border border-[#333] p-3 rounded-xl animate-in slide-in-from-top-2 w-full md:w-auto">
-                                                    <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-plex">Voice Model</label>
-                                                    <input 
-                                                        type="text" 
-                                                        value={hfModel}
-                                                        onChange={e => {
-                                                            setHfModel(e.target.value);
-                                                            localStorage.setItem('hfModel', e.target.value);
-                                                        }}
-                                                        placeholder="e.g. suno/bark-small"
-                                                        className="bg-[#0a0a0a] border border-[#333] px-3 py-1.5 rounded-lg text-xs font-plex text-white outline-none focus:border-accent w-[180px]"
-                                                    />
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                     
