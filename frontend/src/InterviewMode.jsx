@@ -141,9 +141,10 @@ Output ONLY a JSON array in this format:
             for (let i = 0; i < scriptData.length; i++) {
                 const line = scriptData[i];
                 let audioUrl = null;
-                let retries = 3;
+                let retries = 2; // Reduced retries for HF since we have a fallback
 
-                while (retries > 0) {
+                // Try Hugging Face first
+                while (retries > 0 && hfApiKey) {
                     try {
                         let textInput = line.text;
                         if (hfModel.includes("bark")) {
@@ -153,7 +154,7 @@ Output ONLY a JSON array in this format:
                         const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
                             method: "POST",
                             headers: {
-                                "Authorization": `Bearer ${hfApiKey}`,
+                                "Authorization": `Bearer ${hfApiKey.trim()}`,
                                 "Content-Type": "application/json"
                             },
                             body: JSON.stringify({ inputs: textInput })
@@ -169,27 +170,40 @@ Output ONLY a JSON array in this format:
                                 const waitTime = Math.ceil(errData.estimated_time);
                                 console.log(`Model loading, waiting ${waitTime}s...`);
                                 setPodcastError(`⏳ Warming up AI Voice Model (${waitTime}s)...`);
-                                await new Promise(resolve => setTimeout(resolve, waitTime * 1000 + 2000));
+                                await new Promise(resolve => setTimeout(resolve, waitTime * 1000 + 1000));
                                 retries--;
                             } else {
                                 throw new Error(errData.error || `HTTP ${response.status}`);
                             }
                         }
                     } catch (audioErr) {
-                        if (retries <= 1) {
-                            console.error("HF Audio Error final:", audioErr);
-                            let errorMsg = audioErr.message;
-                            if (errorMsg.includes("Failed to fetch")) {
-                                errorMsg = "CORS/Network Error: Your HF Token is invalid OR missing 'Inference' permissions. Create a new token at huggingface.co/settings/tokens and ensure 'Make calls to Inference API' is checked. Disable Adblockers.";
-                            }
-                            throw new Error(`HuggingFace API: ${errorMsg}`);
-                        }
+                        console.warn("HF Audio Error attempt:", audioErr.message);
                         retries--;
-                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        if (retries > 0) await new Promise(resolve => setTimeout(resolve, 1500));
                     }
                 }
 
-                if (!audioUrl) throw new Error("Failed to generate audio for a line after multiple retries.");
+                // FALLBACK: If HF failed (CORS, invalid token, etc.), use StreamElements (Amazon Polly)
+                if (!audioUrl) {
+                    console.log("HuggingFace failed or skipped. Falling back to StreamElements API...");
+                    setPodcastError("⚠️ HuggingFace Token invalid/blocked. Using fallback voices.");
+                    try {
+                        // Aditi and Raveena are Indian English voices.
+                        const voice = line.speaker.toLowerCase().includes("teacher") ? "Aditi" : "Raveena";
+                        const seResponse = await fetch(`https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(line.text)}`);
+                        if (seResponse.ok) {
+                            const blob = await seResponse.blob();
+                            audioUrl = URL.createObjectURL(blob);
+                        } else {
+                            throw new Error("Fallback TTS also failed.");
+                        }
+                    } catch (fallbackErr) {
+                        console.error("Fallback error:", fallbackErr);
+                        throw new Error(`All audio generation failed. Please check your internet connection.`);
+                    }
+                }
+
+                if (!audioUrl) throw new Error("Failed to generate audio for a line.");
                 audioUrls.push(audioUrl);
             }
 
