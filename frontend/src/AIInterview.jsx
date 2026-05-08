@@ -26,7 +26,6 @@ async function callGroq(apiKey, messages, maxTokens = 1000) {
 
 export default function AIInterview() {
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('groqApiKey') || '');
-    const [grokApiKey, setGrokApiKey] = useState(() => localStorage.getItem('grokApiKey') || '');
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [status, setStatus] = useState('setup'); // setup, interview, finished
@@ -51,40 +50,27 @@ export default function AIInterview() {
             window.speechSynthesis.cancel();
         }
 
-        const grokKey = localStorage.getItem('grokApiKey');
-        if (!grokKey) {
-            // Fallback to browser TTS if no Grok key
-            console.warn("No Grok API Key found for TTS, falling back to browser speech.");
-            fallbackSpeak(text);
-            return;
-        }
-
+        // Try StreamElements first (High Quality, Free)
         try {
             setIsSpeaking(true);
-            const response = await axios.post(
-                'https://api.x.ai/v1/audio/speech',
-                {
-                    model: 'grok-tts-1',
-                    input: text,
-                    voice: 'ara', // Using 'Ara' as the best friendly voice for interview
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${grokKey}`,
-                        'Content-Type': 'application/json',
-                    },
-                    responseType: 'blob',
-                }
-            );
-
-            const audioUrl = URL.createObjectURL(response.data);
-            const audio = new Audio(audioUrl);
-            audio.onended = () => setIsSpeaking(false);
-            audio.play();
+            const voice = "Kajal"; // Using Kajal for the AI Interviewer (Clear & Professional)
+            const seUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(text.substring(0, 500))}`;
+            
+            const response = await fetch(seUrl);
+            if (response.ok) {
+                const blob = await response.blob();
+                const audioUrl = URL.createObjectURL(blob);
+                const audio = new Audio(audioUrl);
+                audio.onended = () => setIsSpeaking(false);
+                audio.play();
+                return;
+            }
         } catch (err) {
-            console.error("Grok TTS Error:", err);
-            fallbackSpeak(text);
+            console.warn("StreamElements TTS failed, falling back to browser speech.");
         }
+
+        // Final Fallback: Browser TTS
+        fallbackSpeak(text);
     };
 
     const fallbackSpeak = (text) => {
@@ -231,37 +217,21 @@ export default function AIInterview() {
                                     <Sparkles size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-accent/30 group-focus-within:text-accent transition-colors" />
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-surface/50 border border-border rounded-2xl p-4">
-                                        <h5 className="font-plex text-[10px] text-muted font-bold mb-3 uppercase tracking-widest text-left px-2">
-                                            Groq Key (Chat Logic)
-                                        </h5>
-                                        <input
-                                            type="password"
-                                            placeholder="gsk_..."
-                                            value={apiKey}
-                                            onChange={(e) => {
-                                                setApiKey(e.target.value);
-                                                localStorage.setItem('groqApiKey', e.target.value.trim());
-                                            }}
-                                            className="w-full bg-bg border border-border px-4 py-3 rounded-xl text-sm font-plex outline-none focus:border-accent shadow-sm"
-                                        />
-                                    </div>
-                                    <div className="bg-surface/50 border border-border rounded-2xl p-4">
-                                        <h5 className="font-plex text-[10px] text-muted font-bold mb-3 uppercase tracking-widest text-left px-2">
-                                            xAI Key (Premium TTS)
-                                        </h5>
-                                        <input
-                                            type="password"
-                                            placeholder="xai-..."
-                                            value={grokApiKey}
-                                            onChange={(e) => {
-                                                setGrokApiKey(e.target.value);
-                                                localStorage.setItem('grokApiKey', e.target.value.trim());
-                                            }}
-                                            className="w-full bg-bg border border-border px-4 py-3 rounded-xl text-sm font-plex outline-none focus:border-accent shadow-sm"
-                                        />
-                                    </div>
+                                <div className="bg-surface/50 border border-border rounded-2xl p-4">
+                                    <h5 className="font-plex text-[10px] text-muted font-bold mb-3 uppercase tracking-widest text-left px-2">
+                                        Groq API Key (For Logic)
+                                    </h5>
+                                    <input
+                                        type="password"
+                                        placeholder="gsk_..."
+                                        value={apiKey}
+                                        onChange={(e) => {
+                                            setApiKey(e.target.value);
+                                            localStorage.setItem('groqApiKey', e.target.value.trim());
+                                        }}
+                                        className="w-full bg-bg border border-border px-4 py-3 rounded-xl text-sm font-plex outline-none focus:border-accent shadow-sm"
+                                    />
+                                    <p className="text-[9px] text-muted mt-2 px-2 text-left">Voice engine is powered by StreamElements (Free).</p>
                                 </div>
 
                                 <button
