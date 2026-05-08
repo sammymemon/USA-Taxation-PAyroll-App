@@ -1,7 +1,7 @@
 // Updated: 2026-05-07 15:15
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { ArrowLeft, BookOpen, Bot, CheckCircle, Loader2, Play, Settings, Sparkles, AlertCircle, RefreshCcw, ShieldCheck, Mic, Download } from 'lucide-react';
+import { ArrowLeft, BookOpen, Bot, CheckCircle, Loader2, Play, Settings, Sparkles, AlertCircle, RefreshCcw, Mic, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // Utility to convert AudioBuffer to WAV format
@@ -90,6 +90,7 @@ export default function AriaPodcast() {
     const [podcastError, setPodcastError] = useState('');
     const [mergedAudioUrl, setMergedAudioUrl] = useState(null);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [currentAudio, setCurrentAudio] = useState(null);
     
     // Safety refs to prevent double-playing
     const isPlayingRef = useRef(false);
@@ -211,7 +212,7 @@ Output ONLY a JSON array:
         }
     };
 
-    const [currentAudio, setCurrentAudio] = useState(null);
+
 
     const stopSequence = () => {
         sequenceIdRef.current++; // Invalidate any pending callbacks
