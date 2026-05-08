@@ -71,7 +71,7 @@ export default function SyncAuth({ onSyncComplete, blocking = false }) {
         
         const mergeObj = (localKey, cloudObj) => {
             let localObj = {};
-            try { localObj = JSON.parse(localStorage.getItem(localKey)) || {}; } catch(e){}
+            try { localObj = JSON.parse(localStorage.getItem(localKey)) || {}; } catch(err){ console.warn(`Failed to parse local storage for ${localKey}`); }
             const merged = { ...localObj, ...(cloudObj || {}) };
             localStorage.setItem(localKey, JSON.stringify(merged));
         };
@@ -92,7 +92,7 @@ export default function SyncAuth({ onSyncComplete, blocking = false }) {
         try {
             const getLocal = (key) => {
                 try { return JSON.parse(localStorage.getItem(key)) || {}; }
-                catch(e) { return {}; }
+                catch(err) { return {}; }
             };
             const syncPayload = {
                 bookmarks: getLocal('bookmarks'),
