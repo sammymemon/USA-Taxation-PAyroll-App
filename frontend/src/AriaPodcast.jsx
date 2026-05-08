@@ -1,5 +1,5 @@
 // Updated: 2026-05-07 15:15
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { ArrowLeft, BookOpen, Bot, CheckCircle, Loader2, Play, Settings, Sparkles, AlertCircle, RefreshCcw, ShieldCheck, Mic, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -75,7 +75,7 @@ async function callGroq(apiKey, messages, maxTokens = 1500, json = false) {
     }
 }
 
-export default function InterviewMode() {
+export default function AriaPodcast() {
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('groqApiKey') || localStorage.getItem('grokApiKey') || '');
     const [topic, setTopic] = useState('');
     const [language, setLanguage] = useState('hinglish');
@@ -90,6 +90,23 @@ export default function InterviewMode() {
     const [podcastError, setPodcastError] = useState('');
     const [mergedAudioUrl, setMergedAudioUrl] = useState(null);
     const [isDownloading, setIsDownloading] = useState(false);
+    
+    // Safety refs to prevent double-playing
+    const isPlayingRef = useRef(false);
+    const currentAudioRef = useRef(null);
+    const sequenceIdRef = useRef(0);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (currentAudioRef.current) {
+                currentAudioRef.current.pause();
+                currentAudioRef.current = null;
+            }
+            window.speechSynthesis.cancel();
+            isPlayingRef.current = false;
+        };
+    }, []);
 
     const handleLearn = async (selectedTopic) => {
         const activeTopic = selectedTopic || topic;
@@ -197,58 +214,98 @@ Output ONLY a JSON array:
     const [currentAudio, setCurrentAudio] = useState(null);
 
     const stopSequence = () => {
-        if (currentAudio) {
-            currentAudio.pause();
-            currentAudio.currentTime = 0;
-            setCurrentAudio(null);
+        sequenceIdRef.current++; // Invalidate any pending callbacks
+        if (currentAudioRef.current) {
+            currentAudioRef.current.pause();
+            currentAudioRef.current.currentTime = 0;
+            currentAudioRef.current = null;
         }
+        setCurrentAudio(null);
         window.speechSynthesis.cancel();
         setPodcastStatus('ready_to_play');
         setCurrentLineIndex(0);
+        isPlayingRef.current = false;
     };
 
-    const playSequence = async (script, index) => {
+    const playSequence = async (script, index, seqId) => {
         if (index === 0) {
+            sequenceIdRef.current++;
+            seqId = sequenceIdRef.current;
             setPodcastStatus('playing');
+            isPlayingRef.current = true;
         }
+
+        // Check if this is still the active sequence
+        if (seqId !== sequenceIdRef.current) return;
 
         if (index >= script.length) {
             setPodcastStatus('ready_to_play');
             setCurrentLineIndex(0);
             setCurrentAudio(null);
+            currentAudioRef.current = null;
+            isPlayingRef.current = false;
             return;
         }
 
         setCurrentLineIndex(index);
         
+        let hasMovedNext = false;
+        const moveNext = () => {
+            if (hasMovedNext || seqId !== sequenceIdRef.current) return;
+            hasMovedNext = true;
+            playSequence(script, index + 1, seqId);
+        };
+
         if (script[index].audioUrl) {
             // Use generated audio
-            const audio = new Audio(script[index].audioUrl);
-            setCurrentAudio(audio);
-            audio.onended = () => playSequence(script, index + 1);
-            audio.onerror = () => {
-                console.error("Audio playback error, falling back to local speech");
-                speakLocally(script[index].text, () => playSequence(script, index + 1));
-            };
-            audio.play().catch(e => {
-                console.error("Play prevented", e);
-                // If it's a browser restriction, we try speakLocally as it sometimes works better 
-                // or we show the error.
-                speakLocally(script[index].text, () => playSequence(script, index + 1));
-            });
+            try {
+                const audio = new Audio(script[index].audioUrl);
+                currentAudioRef.current = audio;
+                setCurrentAudio(audio);
+                
+                audio.onended = moveNext;
+                audio.onerror = (e) => {
+                    console.warn("Audio playback error, falling back to local speech", e);
+                    if (!hasMovedNext) speakLocally(script[index].text, moveNext, seqId);
+                };
+                
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(e => {
+                        console.warn("Play prevented or failed, using local speech fallback", e);
+                        if (!hasMovedNext) speakLocally(script[index].text, moveNext, seqId);
+                    });
+                }
+            } catch (err) {
+                console.error("Audio initialization failed", err);
+                speakLocally(script[index].text, moveNext, seqId);
+            }
         } else {
             // Fallback to local browser speech synthesis
-            speakLocally(script[index].text, () => playSequence(script, index + 1));
+            speakLocally(script[index].text, moveNext, seqId);
         }
     };
 
-    const speakLocally = (text, onEnd) => {
+    const speakLocally = (text, onEnd, seqId) => {
+        // Ensure we only speak if this is the active sequence
+        if (seqId !== sequenceIdRef.current) return;
+
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.onend = onEnd;
+        
+        let hasCalledEnd = false;
+        const safeOnEnd = () => {
+            if (hasCalledEnd || seqId !== sequenceIdRef.current) return;
+            hasCalledEnd = true;
+            onEnd();
+        };
+
+        utterance.onend = safeOnEnd;
         utterance.onerror = (e) => {
             console.error("SpeechSynthesis error", e);
-            onEnd();
+            // If it's a 'canceled' error, we might not want to move next 
+            // unless we're sure it wasn't a manual stop.
+            if (seqId === sequenceIdRef.current) safeOnEnd();
         };
         
         const loadAndSpeak = () => {
@@ -501,7 +558,7 @@ Output ONLY a JSON array:
                                                     </button>
                                                 ) : (
                                                     <button 
-                                                        onClick={podcastStatus === 'ready_to_play' ? () => playSequence(podcastScript, 0) : null}
+                                                        onClick={podcastStatus === 'ready_to_play' ? () => playSequence(podcastScript, 0, sequenceIdRef.current) : null}
                                                         disabled={podcastStatus === 'generating_script' || podcastStatus === 'generating_audio'}
                                                         className="bg-white text-black px-6 py-2.5 rounded-full font-plex text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)] w-full md:w-auto"
                                                     >

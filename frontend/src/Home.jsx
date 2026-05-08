@@ -420,8 +420,11 @@ function Home() {
                         <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 border border-border rounded-md hover:bg-surface2 transition-colors text-muted hover:text-accent shrink-0">
                             <Menu size={18} />
                         </button>
-                        <Link to="/interview" className="px-3 py-1.5 bg-accent text-[#0f0e0d] font-semibold rounded-md hover:opacity-90 transition-colors text-[13px] flex items-center gap-1.5 shadow-md shrink-0 focus:ring-2 ring-offset-2 ring-accent outline-none">
-                            <Bot size={16} /> <span className="hidden sm:inline">AI Teacher Mode</span>
+                        <Link to="/teacher" className="px-3 py-1.5 bg-accent text-[#0f0e0d] font-semibold rounded-md hover:opacity-90 transition-colors text-[13px] flex items-center gap-1.5 shadow-md shrink-0 focus:ring-2 ring-offset-2 ring-accent outline-none">
+                            <Bot size={16} /> <span className="hidden sm:inline">AI Teacher</span>
+                        </Link>
+                        <Link to="/interview" className="px-3 py-1.5 bg-purple-500 text-white font-semibold rounded-md hover:opacity-90 transition-colors text-[13px] flex items-center gap-1.5 shadow-md shrink-0 focus:ring-2 ring-offset-2 ring-purple-500 outline-none">
+                            <Mic size={16} /> <span className="hidden sm:inline">Mock Test</span>
                         </Link>
                         <Link to="/journal" className="px-3 py-1.5 bg-[#4ade80] text-[#0f0e0d] font-semibold rounded-md hover:opacity-90 transition-colors text-[13px] flex items-center gap-1.5 shadow-md shrink-0 focus:ring-2 ring-offset-2 ring-[#4ade80] outline-none">
                             <BookOpen size={16} /> <span className="hidden sm:inline">Journal Mode</span>

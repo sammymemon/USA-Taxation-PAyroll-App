@@ -6,6 +6,7 @@ import AriaPodcast from './AriaPodcast';
 import JournalMode from './JournalMode';
 import Reels from './Reels';
 import Checklist from './Checklist';
+import AIInterview from './AIInterview';
 
 function App() {
   return (
@@ -13,7 +14,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/admin" element={<Admin />} />
-        <Route path="/interview" element={<AriaPodcast />} />
+        <Route path="/teacher" element={<AriaPodcast />} />
+        <Route path="/interview" element={<AIInterview />} />
         <Route path="/journal" element={<JournalMode />} />
         <Route path="/reels" element={<Reels />} />
         <Route path="/checklist" element={<Checklist />} />
