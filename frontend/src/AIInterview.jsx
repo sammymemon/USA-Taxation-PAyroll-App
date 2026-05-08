@@ -86,6 +86,20 @@ export default function AIInterview() {
         window.speechSynthesis.speak(utterance);
     };
 
+    const generateRandomTopic = async () => {
+        if (!apiKey) return alert("Please enter Groq API Key first!");
+        setIsLoading(true);
+        try {
+            const prompt = "Suggest one specific and interesting topic for a USA Accounting and Taxation mock interview. Just give the topic name, nothing else. Examples: 'Payroll Tax Liabilities', 'Bank Reconciliation', 'Form 1040 Schedule C'.";
+            const suggested = await callGroq(apiKey, [{ role: 'user', content: prompt }], 50);
+            setTopic(suggested.replace(/["']/g, '').trim());
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const startInterview = async () => {
         if (!topic.trim()) return alert("Please enter a topic for the interview!");
         if (!apiKey) return alert("Please enter your Groq API Key first!");
@@ -212,9 +226,16 @@ export default function AIInterview() {
                                         value={topic}
                                         onChange={e => setTopic(e.target.value)}
                                         placeholder="e.g. Bank Reconciliation, Payroll Taxes..."
-                                        className="w-full bg-bg/50 border border-border px-6 py-5 rounded-2xl font-plex text-text outline-none focus:border-accent focus:ring-4 focus:ring-accent/10 shadow-inner transition-all placeholder:text-muted/50"
+                                        className="w-full bg-bg/50 border border-border px-6 py-5 rounded-2xl font-plex text-text outline-none focus:border-accent focus:ring-4 focus:ring-accent/10 shadow-inner transition-all placeholder:text-muted/50 pr-16"
                                     />
-                                    <Sparkles size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-accent/30 group-focus-within:text-accent transition-colors" />
+                                    <button 
+                                        onClick={generateRandomTopic}
+                                        disabled={isLoading}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-3 bg-accent/10 hover:bg-accent/20 text-accent rounded-xl transition-all border border-accent/20 group-hover:scale-110 active:scale-95 disabled:opacity-50"
+                                        title="AI Suggest Topic"
+                                    >
+                                        {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+                                    </button>
                                 </div>
 
                                 <div className="bg-surface/50 border border-border rounded-2xl p-4">
